@@ -45,6 +45,18 @@
     "configuration": {
       "title": "Markdown ER Diagram",
       "properties": {
+        "markdown-er.ddl.dialect": {
+          "type": "string",
+          "enum": ["mysql", "postgresql", "sqlite", "sqlserver"],
+          "enumDescriptions": [
+            "MySQL / MariaDB",
+            "PostgreSQL",
+            "SQLite",
+            "Microsoft SQL Server / Azure SQL"
+          ],
+          "default": "mysql",
+          "description": "Target database dialect for DDL export."
+        },
         "markdown-er.mcp.enabled": {
           "type": "boolean",
           "default": false,

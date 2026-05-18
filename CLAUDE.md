@@ -218,6 +218,20 @@ viewport:
 - [x] Diff DDL export (`ALTER TABLE` from a git baseline ref)
 - [x] Fit View / Zoom In / Zoom Out buttons in toolbar
 - [x] Auto Layout (vertical / horizontal / auto) via `dagre` — undo-able
+- [x] Database dialect setting (`markdown-er.ddl.dialect`: mysql / postgresql / sqlite / sqlserver)
+- [x] Settings shortcut (⚙ gear button in toolbar → opens VSCode Settings filtered to `markdown-er`)
+
+### DDL dialect notes
+
+- Setting: `markdown-er.ddl.dialect` (default `mysql`) — appears in VSCode Settings UI under the extension
+- Extension host reads the setting in `ErmdPanel._getDialect()` and passes it to `DdlExporter.export()` and `DdlDiffer.diff()`
+- On `ready` the panel sends a `dialectChanged` message to the WebView so the badge and preview are in sync from the start
+- `onDidChangeConfiguration` re-sends `dialectChanged` whenever the user changes the setting — no reload required
+- WebView stores the dialect in `uiStore.dialect`; the toolbar badge displays the active dialect
+- `webview/src/util/ddlPreview.ts` mirrors the same dialect logic for the client-side preview (no round-trip needed)
+- Identifier quoting: MySQL `` ` ``, PostgreSQL/SQLite `"`, SQL Server `[bracket]`
+- SQLite: no separate `ALTER TABLE … ADD FOREIGN KEY` — FK constraints are inline only
+- SQL Server: `INT IDENTITY(1,1)` for PK auto-increment; `NVARCHAR`/`NCHAR` for string types
 
 ### Auto Layout notes
 

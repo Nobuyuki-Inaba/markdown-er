@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useDiagramStore } from '../store/diagramStore';
 import { useUiStore } from '../store/uiStore';
+import { sendToExtension } from '../vscodeApi';
 import type { LayoutDirection } from '../util/autoLayout';
 
 export function Toolbar() {
@@ -12,6 +13,7 @@ export function Toolbar() {
   const tableCount  = useDiagramStore((s) => s.model.layout.tables.length);
 
   const openDictionary = useUiStore((s) => s.openDictionary);
+  const dialect = useUiStore((s) => s.dialect);
 
   const [layoutMenuOpen, setLayoutMenuOpen] = useState(false);
   const layoutBtnRef = useRef<HTMLButtonElement>(null);
@@ -126,6 +128,18 @@ export function Toolbar() {
       >
         Export DDL
       </button>
+
+      <span style={dialectBadgeStyle} title="Active DDL dialect (change in Settings)">
+        {dialect}
+      </span>
+
+      <button
+        onClick={() => sendToExtension({ type: 'openSettings' })}
+        style={{ ...btnStyle, padding: '4px 7px', minWidth: 'unset', fontSize: 14 }}
+        title="Open extension settings"
+      >
+        ⚙
+      </button>
     </div>
   );
 }
@@ -181,4 +195,14 @@ const dropdownItemStyle: React.CSSProperties = {
   cursor: 'pointer',
   fontSize: 12,
   textAlign: 'left',
+};
+
+const dialectBadgeStyle: React.CSSProperties = {
+  fontSize: 10,
+  color: '#aaa',
+  border: '1px solid #555',
+  borderRadius: 3,
+  padding: '2px 6px',
+  whiteSpace: 'nowrap',
+  userSelect: 'none',
 };

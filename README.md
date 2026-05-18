@@ -25,6 +25,7 @@ The diagram is stored in a standard `.md` file (with `er-diagram: true` in the f
 | **Persistent layout** | Positions and viewport are saved back to the `.md` file automatically |
 | **DDL export** | Export full `CREATE TABLE` DDL, or diff-only `ALTER TABLE` statements against a git baseline |
 | **Auto Layout** | Arrange all tables automatically — Vertical, Horizontal, or Auto. The result is undo-able with `Ctrl+Z` |
+| **Database dialect** | Choose MySQL, PostgreSQL, SQLite, or SQL Server in Settings — DDL output uses the correct syntax for each |
 | **Plain Markdown storage** | The diagram lives in your repo alongside your code — review it in PRs like any other file |
 
 ---

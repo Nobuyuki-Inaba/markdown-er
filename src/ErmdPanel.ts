@@ -4,7 +4,7 @@ import { ErmdSerializer } from './ErmdSerializer';
 import { DdlExporter } from './DdlExporter';
 import { DdlDiffer } from './DdlDiffer';
 import { DiagramModel } from '../shared/DiagramModel';
-import { ExtToWebMsg, WebToExtMsg } from '../shared/messages';
+import { DdlDialect, ExtToWebMsg, WebToExtMsg } from '../shared/messages';
 
 export class ErmdPanel {
   public static currentPanel: ErmdPanel | undefined;
@@ -77,12 +77,25 @@ export class ErmdPanel {
     watcher.onDidChange(() => this._onExternalFileChange(), null, this._disposables);
     this._disposables.push(watcher);
     this._disposables.push(outputChannel);
+
+    // Push updated dialect to WebView whenever the setting changes
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration('markdown-er.ddl.dialect')) {
+        this._send({ type: 'dialectChanged', payload: { dialect: this._getDialect() } });
+      }
+    }, null, this._disposables);
   }
 
   public requestDdl(mode: 'full' | 'diff', baselineRef?: string) {
     if (this._model) {
       this._generateDdl(this._model, mode, baselineRef);
     }
+  }
+
+  private _getDialect(): DdlDialect {
+    return vscode.workspace
+      .getConfiguration('markdown-er')
+      .get<DdlDialect>('ddl.dialect', 'mysql');
   }
 
   private _changeFile(fileUri: vscode.Uri) {
@@ -97,6 +110,8 @@ export class ErmdPanel {
       const text = Buffer.from(bytes).toString('utf-8');
       this._model = ErmdParser.parse(text);
       this._send({ type: 'load', payload: this._model });
+      // Also send current dialect so WebView is in sync from the start
+      this._send({ type: 'dialectChanged', payload: { dialect: this._getDialect() } });
     } catch (err) {
       vscode.window.showErrorMessage(`Failed to load ER diagram: ${err}`);
     }
@@ -129,10 +144,10 @@ export class ErmdPanel {
         break;
 
       case 'save': {
-        if (msg.version <= this._saveVersion) return;
+        if (msg.version <= this._saveVersion) { return; }
         const pendingVersion = msg.version;
         const pendingModel = msg.payload;
-        if (this._saveTimer) clearTimeout(this._saveTimer);
+        if (this._saveTimer) { clearTimeout(this._saveTimer); }
         this._saveTimer = setTimeout(
           () => this._writeToDisk(pendingModel, pendingVersion),
           500
@@ -144,6 +159,10 @@ export class ErmdPanel {
         if (this._model) {
           await this._generateDdl(this._model, msg.payload.mode, msg.payload.baselineRef);
         }
+        break;
+
+      case 'openSettings':
+        vscode.commands.executeCommand('workbench.action.openSettings', 'markdown-er');
         break;
     }
   }
@@ -158,11 +177,12 @@ export class ErmdPanel {
   }
 
   private async _generateDdl(model: DiagramModel, mode: 'full' | 'diff', baselineRef?: string) {
+    const dialect = this._getDialect();
     let ddl: string;
     if (mode === 'full') {
-      ddl = DdlExporter.export(model);
+      ddl = DdlExporter.export(model, dialect);
     } else {
-      ddl = await DdlDiffer.diff(model, this._fileUri, baselineRef ?? 'HEAD~1');
+      ddl = await DdlDiffer.diff(model, this._fileUri, baselineRef ?? 'HEAD~1', dialect);
     }
     this._outputChannel.clear();
     this._outputChannel.appendLine(ddl);

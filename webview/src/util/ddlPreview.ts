@@ -1,9 +1,53 @@
 import { DiagramModel, DictionaryEntry, Table, Column } from '@shared/DiagramModel';
+import type { DdlDialect } from '@shared/messages';
 
-export function exportFullDdl(model: DiagramModel): string {
+function quoteIdentifier(dialect: DdlDialect): (name: string) => string {
+  switch (dialect) {
+    case 'mysql':     return (n) => `\`${n}\``;
+    case 'sqlserver': return (n) => `[${n}]`;
+    default:          return (n) => `"${n}"`;
+  }
+}
+
+function formatType(entry: DictionaryEntry, dialect: DdlDialect, isPk: boolean): string {
+  const base = entry.dbType;
+  switch (dialect) {
+    case 'postgresql':
+      if ((base === 'INT' || base === 'BIGINT') && isPk) { return base === 'BIGINT' ? 'BIGSERIAL' : 'SERIAL'; }
+      if (base === 'BOOLEAN')  { return 'BOOLEAN'; }
+      if (base === 'DATETIME') { return 'TIMESTAMP'; }
+      if (base === 'TINYINT')  { return 'SMALLINT'; }
+      break;
+    case 'sqlite':
+      if (base === 'INT' || base === 'BIGINT' || base === 'TINYINT') { return 'INTEGER'; }
+      if (base === 'BOOLEAN' || base === 'DATETIME') { return base === 'BOOLEAN' ? 'INTEGER' : 'TEXT'; }
+      if (['VARCHAR', 'CHAR', 'TEXT'].includes(base)) { return 'TEXT'; }
+      if (['DECIMAL', 'FLOAT', 'DOUBLE'].includes(base)) { return 'REAL'; }
+      return 'TEXT';
+    case 'sqlserver':
+      if ((base === 'INT' || base === 'BIGINT') && isPk) { return `${base} IDENTITY(1,1)`; }
+      if (base === 'BOOLEAN')  { return 'BIT'; }
+      if (base === 'DATETIME') { return 'DATETIME2'; }
+      if (base === 'VARCHAR' && entry.length !== null) { return `NVARCHAR(${entry.length})`; }
+      if (base === 'CHAR'    && entry.length !== null) { return `NCHAR(${entry.length})`; }
+      break;
+    case 'mysql':
+      if ((base === 'INT' || base === 'BIGINT') && isPk) { return `${base} AUTO_INCREMENT`; }
+      if (base === 'BOOLEAN') { return 'TINYINT(1)'; }
+      break;
+  }
+  return entry.length !== null ? `${base}(${entry.length})` : base;
+}
+
+export function exportFullDdl(model: DiagramModel, dialect: DdlDialect = 'mysql'): string {
+  const q = quoteIdentifier(dialect);
   const dict = new Map<string, DictionaryEntry>(model.dictionary.map((e) => [e.id, e]));
 
-  const creates = model.tables.map((t) => tableToCreate(t, dict)).join('\n\n');
+  const creates = model.tables.map((t) => tableToCreate(t, dict, dialect, q)).join('\n\n');
+
+  if (dialect === 'sqlite') {
+    return creates;
+  }
 
   const fks = model.relations
     .filter((r) => r.hasForeignKey && r.constraintName)
@@ -12,12 +56,12 @@ export function exportFullDdl(model: DiagramModel): string {
       const tt = model.tables.find((t) => t.id === r.toTableId);
       const fc = ft?.columns.find((c) => c.id === r.fromColumnId);
       const tc = tt?.columns.find((c) => c.id === r.toColumnId);
-      if (!ft || !tt || !fc || !tc) return null;
+      if (!ft || !tt || !fc || !tc) { return null; }
       return (
-        `ALTER TABLE \`${tt.physicalName}\`\n` +
-        `  ADD CONSTRAINT \`${r.constraintName}\`\n` +
-        `  FOREIGN KEY (\`${tc.physicalName}\`)\n` +
-        `  REFERENCES \`${ft.physicalName}\` (\`${fc.physicalName}\`);`
+        `ALTER TABLE ${q(tt.physicalName)}\n` +
+        `  ADD CONSTRAINT ${q(r.constraintName)}\n` +
+        `  FOREIGN KEY (${q(tc.physicalName)})\n` +
+        `  REFERENCES ${q(ft.physicalName)} (${q(fc.physicalName)});`
       );
     })
     .filter(Boolean)
@@ -26,23 +70,34 @@ export function exportFullDdl(model: DiagramModel): string {
   return [creates, fks].filter(Boolean).join('\n\n');
 }
 
-function tableToCreate(table: Table, dict: Map<string, DictionaryEntry>): string {
+function tableToCreate(
+  table: Table,
+  dict: Map<string, DictionaryEntry>,
+  dialect: DdlDialect,
+  q: (n: string) => string
+): string {
   const pkCols = table.columns.filter((c) => c.isPrimaryKey).map((c) => c.physicalName);
   const colLines = table.columns.map((col) => {
     const entry = dict.get(col.dictionaryId);
     const typePart = entry
-      ? entry.length !== null ? `${entry.dbType}(${entry.length})` : entry.dbType
-      : 'VARCHAR(255)';
+      ? formatType(entry, dialect, col.isPrimaryKey)
+      : (dialect === 'sqlserver' ? 'NVARCHAR(255)' : 'VARCHAR(255)');
     const nullPart = col.isNullable ? 'NULL' : 'NOT NULL';
     const def = col.defaultValue ? ` DEFAULT ${col.defaultValue}` : '';
-    return `  \`${col.physicalName}\` ${typePart} ${nullPart}${def}`;
+    return `  ${q(col.physicalName)} ${typePart} ${nullPart}${def}`;
   });
-  if (pkCols.length > 0) {
-    colLines.push(`  PRIMARY KEY (${pkCols.map((n) => `\`${n}\``).join(', ')})`);
+
+  if (dialect !== 'sqlite' && pkCols.length > 0) {
+    colLines.push(`  PRIMARY KEY (${pkCols.map(q).join(', ')})`);
   }
+
+  const trailer = dialect === 'mysql'
+    ? ` ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+    : '';
+
   return (
-    `CREATE TABLE \`${table.physicalName}\` (\n` +
+    `CREATE TABLE ${q(table.physicalName)} (\n` +
     colLines.join(',\n') +
-    `\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`
+    `\n)${trailer};`
   );
 }

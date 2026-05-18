@@ -16,6 +16,7 @@ export function App() {
   const isDdlOpen  = useUiStore((s) => s.isDdlOpen);
   const closeDdl   = useUiStore((s) => s.closeDdl);
   const lastDdl    = useUiStore((s) => s.lastDdl);
+  const setDialect = useUiStore((s) => s.setDialect);
 
   // Listen for messages from the extension host
   useEffect(() => {
@@ -30,6 +31,9 @@ export function App() {
           break;
         case 'ddlResult':
           openDdl(msg.payload.ddl);
+          break;
+        case 'dialectChanged':
+          setDialect(msg.payload.dialect);
           break;
         case 'undo':
           useDiagramStore.temporal.getState().undo();
