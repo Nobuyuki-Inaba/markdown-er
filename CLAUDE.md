@@ -202,7 +202,7 @@ viewport:
 
 ---
 
-## Implemented features (as of initial PR)
+## Implemented features
 
 - [x] Parse / serialize `.md` ER diagram files
 - [x] Interactive diagram with ReactFlow (drag, pan, zoom, resize)
@@ -217,6 +217,15 @@ viewport:
 - [x] Full DDL export (`CREATE TABLE` + `ALTER TABLE … ADD FOREIGN KEY`)
 - [x] Diff DDL export (`ALTER TABLE` from a git baseline ref)
 - [x] Fit View / Zoom In / Zoom Out buttons in toolbar
+- [x] Auto Layout (vertical / horizontal / auto) via `dagre` — undo-able
+
+### Auto Layout notes
+
+- Entry point: `webview/src/util/autoLayout.ts` — `computeAutoLayout(model, direction)`
+- Uses `dagre` (MIT) to compute a ranked graph layout; nodes are treated as directed edges via `fromTableId → toTableId`
+- Store action `applyAutoLayout(direction)` calls `computeAutoLayout` and writes new positions in a single `updateModel` call, which lands on the `zundo` undo stack automatically
+- Toolbar: **Auto Layout** button (runs `auto` mode immediately) + **▾** dropdown for `Vertical` / `Horizontal` / `Auto`
+- After layout, dispatches `er:fitView` so the viewport adjusts
 
 ## Planned features (future PRs)
 

@@ -1,14 +1,20 @@
+import { useRef, useState } from 'react';
 import { useDiagramStore } from '../store/diagramStore';
 import { useUiStore } from '../store/uiStore';
+import type { LayoutDirection } from '../util/autoLayout';
 
 export function Toolbar() {
   const nameMode    = useDiagramStore((s) => s.model.layout.nameMode);
   const setNameMode = useDiagramStore((s) => s.setNameMode);
   const addTable    = useDiagramStore((s) => s.addTable);
+  const applyAutoLayout = useDiagramStore((s) => s.applyAutoLayout);
   const viewport    = useDiagramStore((s) => s.model.layout.viewport);
   const tableCount  = useDiagramStore((s) => s.model.layout.tables.length);
 
   const openDictionary = useUiStore((s) => s.openDictionary);
+
+  const [layoutMenuOpen, setLayoutMenuOpen] = useState(false);
+  const layoutBtnRef = useRef<HTMLButtonElement>(null);
 
   const undo = () => useDiagramStore.temporal.getState().undo();
   const redo = () => useDiagramStore.temporal.getState().redo();
@@ -19,6 +25,13 @@ export function Toolbar() {
     const cy = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
     const offset = tableCount * 20;
     addTable(cx - 120 + offset, cy - 60 + offset);
+  };
+
+  const handleLayout = (direction: LayoutDirection) => {
+    setLayoutMenuOpen(false);
+    applyAutoLayout(direction);
+    // Fit view after layout settles
+    setTimeout(() => window.dispatchEvent(new CustomEvent('er:fitView')), 50);
   };
 
   return (
@@ -59,6 +72,42 @@ export function Toolbar() {
         style={{ ...btnStyle, padding: '4px 8px', minWidth: 28 }}
         title="Zoom in"
       >+</button>
+
+      <div style={divider} />
+
+      {/* Auto Layout split button */}
+      <div style={{ position: 'relative' }}>
+        <div style={{ display: 'flex' }}>
+          <button
+            onClick={() => handleLayout('auto')}
+            style={{ ...btnStyle, borderRadius: '4px 0 0 4px', borderRight: 'none' }}
+            title="Auto layout (picks best direction)"
+          >
+            Auto Layout
+          </button>
+          <button
+            ref={layoutBtnRef}
+            onClick={() => setLayoutMenuOpen((o) => !o)}
+            style={{ ...btnStyle, borderRadius: '0 4px 4px 0', padding: '4px 6px', minWidth: 'unset' }}
+            title="Choose layout direction"
+          >
+            ▾
+          </button>
+        </div>
+        {layoutMenuOpen && (
+          <div style={dropdownStyle}>
+            <button style={dropdownItemStyle} onClick={() => handleLayout('vertical')}>
+              ↕ Vertical
+            </button>
+            <button style={dropdownItemStyle} onClick={() => handleLayout('horizontal')}>
+              ↔ Horizontal
+            </button>
+            <button style={dropdownItemStyle} onClick={() => handleLayout('auto')}>
+              ✦ Auto
+            </button>
+          </div>
+        )}
+      </div>
 
       <div style={divider} />
 
@@ -108,4 +157,28 @@ const divider: React.CSSProperties = {
   height: 20,
   background: '#555',
   margin: '0 4px',
+};
+
+const dropdownStyle: React.CSSProperties = {
+  position: 'absolute',
+  top: '100%',
+  left: 0,
+  marginTop: 2,
+  background: '#333',
+  border: '1px solid #555',
+  borderRadius: 4,
+  zIndex: 200,
+  minWidth: 130,
+  display: 'flex',
+  flexDirection: 'column',
+};
+
+const dropdownItemStyle: React.CSSProperties = {
+  background: 'none',
+  border: 'none',
+  color: '#eee',
+  padding: '6px 12px',
+  cursor: 'pointer',
+  fontSize: 12,
+  textAlign: 'left',
 };
