@@ -1,0 +1,72 @@
+{
+  "name": "markdown-er",
+  "displayName": "Markdown ER Diagram",
+  "description": "Interactive ER diagram editor stored as Markdown",
+  "version": "0.0.1",
+  "publisher": "nobuyuki-inaba",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": ["onLanguage:markdown"],
+  "main": "./out/src/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "markdown-er.openDiagram",
+        "title": "Open as ER Diagram",
+        "icon": "$(type-hierarchy)"
+      },
+      {
+        "command": "markdown-er.exportDdl",
+        "title": "ER Diagram: Export DDL (Full)"
+      },
+      {
+        "command": "markdown-er.exportDdlDiff",
+        "title": "ER Diagram: Export DDL (Diff)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "markdown-er.openDiagram",
+          "when": "resourceLangId == markdown",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "markdown-er.openDiagram",
+          "when": "resourceExtname == .md",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Markdown ER Diagram",
+      "properties": {
+        "markdown-er.mcp.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable the MCP server for AI assistant integration"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p tsconfig.json",
+    "watch": "tsc -watch -p tsconfig.json",
+    "build:webview": "cd webview && npm run build",
+    "build": "npm run build:webview && npm run compile",
+    "vscode:prepublish": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "@types/js-yaml": "^4.0.9",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0"
+  }
+}
