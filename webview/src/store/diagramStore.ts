@@ -5,6 +5,7 @@ import {
   createEmptyModel, TableLayout,
 } from '@shared/DiagramModel';
 import { genId } from '../util/idgen';
+import { computeAutoLayout, LayoutDirection, TablePosition } from '../util/autoLayout';
 
 interface DiagramState {
   model: DiagramModel;
@@ -32,6 +33,8 @@ interface DiagramState {
   addDictionaryEntry: (entry: Omit<DictionaryEntry, 'id'>) => void;
   updateDictionaryEntry: (id: string, patch: Partial<Omit<DictionaryEntry, 'id'>>) => void;
   deleteDictionaryEntry: (id: string) => void;
+
+  applyAutoLayout: (direction: LayoutDirection) => void;
 }
 
 function nextVersion(state: DiagramState): number {
@@ -221,6 +224,21 @@ export const useDiagramStore = create<DiagramState>()(
           ...m,
           dictionary: m.dictionary.filter((e) => e.id !== id),
         })),
+
+      applyAutoLayout: (direction) =>
+        updateModel(set, (m) => {
+          const positions: TablePosition[] = computeAutoLayout(m, direction);
+          return {
+            ...m,
+            layout: {
+              ...m.layout,
+              tables: m.layout.tables.map((l) => {
+                const pos = positions.find((p) => p.tableId === l.tableId);
+                return pos ? { ...l, x: pos.x, y: pos.y, width: pos.width } : l;
+              }),
+            },
+          };
+        }),
     }),
     {
       limit: 100,
