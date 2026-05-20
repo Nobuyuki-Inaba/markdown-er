@@ -13,5 +13,5 @@ export type ExtToWebMsg =
 export type WebToExtMsg =
   | { type: 'ready' }
   | { type: 'save'; payload: DiagramModel; version: number }
-  | { type: 'requestDdl'; payload: { mode: 'full' | 'diff'; baselineRef?: string } }
+  | { type: 'requestDdl'; payload: { mode: 'full' | 'diff'; baselineRef?: string; insertSeedData?: boolean; skipAutoIncrementPk?: boolean } }
   | { type: 'openSettings' };

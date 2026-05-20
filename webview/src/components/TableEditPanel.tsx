@@ -2,18 +2,23 @@ import { useState } from 'react';
 import { useDiagramStore } from '../store/diagramStore';
 import { useUiStore } from '../store/uiStore';
 import { ColumnRow } from './ColumnRow';
+import { SeedDataEditor } from './SeedDataEditor';
+
+type TabId = 'definition' | 'seed';
 
 export function TableEditPanel() {
   const [noteOpen, setNoteOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabId>('definition');
   const selectedTableId = useUiStore((s) => s.selectedTableId);
   const selectTable = useUiStore((s) => s.selectTable);
 
   const table      = useDiagramStore((s) => s.model.tables.find((t) => t.id === selectedTableId));
   const dictionary = useDiagramStore((s) => s.model.dictionary);
-  const updateTable  = useDiagramStore((s) => s.updateTable);
-  const deleteTable  = useDiagramStore((s) => s.deleteTable);
-  const addColumn    = useDiagramStore((s) => s.addColumn);
-  const deleteColumn = useDiagramStore((s) => s.deleteColumn);
+  const updateTable    = useDiagramStore((s) => s.updateTable);
+  const deleteTable    = useDiagramStore((s) => s.deleteTable);
+  const addColumn      = useDiagramStore((s) => s.addColumn);
+  const deleteColumn   = useDiagramStore((s) => s.deleteColumn);
+  const updateSeedData = useDiagramStore((s) => s.updateSeedData);
 
   if (!selectedTableId || !table) return null;
 
@@ -24,7 +29,27 @@ export function TableEditPanel() {
         <button onClick={() => selectTable(null)} style={closeBtnStyle}>✕</button>
       </div>
 
+      {/* Tab bar */}
+      <div style={tabBarStyle}>
+        {(['definition', 'seed'] as TabId[]).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            style={tabBtnStyle(tab === activeTab)}
+          >
+            {tab === 'definition' ? 'Definition' : 'Seed Data'}
+          </button>
+        ))}
+      </div>
+
       <div style={{ padding: '10px 12px' }}>
+        {activeTab === 'seed' ? (
+          <SeedDataEditor
+            table={table}
+            onUpdate={(data) => updateSeedData(selectedTableId, data)}
+          />
+        ) : (
+          <>
         {/* Table names */}
         <div style={rowStyle}>
           <label style={labelStyle}>Logical name</label>
@@ -121,6 +146,8 @@ export function TableEditPanel() {
             Delete Table
           </button>
         </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -198,3 +225,21 @@ const noteAreaStyle: React.CSSProperties = {
   boxSizing: 'border-box',
   fontFamily: 'inherit',
 };
+
+const tabBarStyle: React.CSSProperties = {
+  display: 'flex',
+  borderBottom: '1px solid #ccc',
+  background: '#fafafa',
+};
+
+const tabBtnStyle = (active: boolean): React.CSSProperties => ({
+  background: active ? '#fff' : 'transparent',
+  border: 'none',
+  borderBottom: active ? '2px solid #4a7c9e' : '2px solid transparent',
+  cursor: 'pointer',
+  fontSize: 12,
+  color: active ? '#4a7c9e' : '#666',
+  fontWeight: active ? 600 : 400,
+  padding: '6px 14px',
+  marginBottom: -1,
+});

@@ -24,6 +24,8 @@ The diagram is stored in a standard `.md` file (with `er-diagram: true` in the f
 | **Undo / Redo** | Full history via `Ctrl+Z` / `Ctrl+Y` |
 | **Persistent layout** | Positions and viewport are saved back to the `.md` file automatically |
 | **DDL export** | Export full `CREATE TABLE` DDL, or diff-only `ALTER TABLE` statements against a git baseline |
+| **Seed data editor** | Enter initial rows for each table in a spreadsheet-like editor. Data is saved in the `.md` file and is git-diffable |
+| **INSERT export** | Optionally include seed data as `INSERT INTO` statements in the DDL output. Choose whether to include auto-increment PK columns |
 | **Auto Layout** | Arrange all tables automatically — Vertical, Horizontal, or Auto. The result is undo-able with `Ctrl+Z` |
 | **Database dialect** | Choose MySQL, PostgreSQL, SQLite, or SQL Server in Settings — DDL output uses the correct syntax for each |
 | **Plain Markdown storage** | The diagram lives in your repo alongside your code — review it in PRs like any other file |
@@ -117,10 +119,30 @@ Click **Logical names** / **Physical names** in the toolbar to switch all labels
 
 The bottom-left **Controls** widget also provides zoom and fit buttons.
 
+### Edit seed data
+
+Double-click a table to open the **Table Edit Panel**, then select the **Seed Data** tab.
+
+- Click **+ Add Row** to add a new row
+- Edit cell values directly in the table
+- Click **✕** to delete a row
+- Changes are saved automatically and are undo-able with `Ctrl+Z`
+
+Column headers show the logical name with the physical name underneath.
+
 ### Export DDL
 
 Click **Export DDL** in the toolbar (or run `ER Diagram: Export DDL (Full)` from the Command Palette).  
 For diff-only output run `ER Diagram: Export DDL (Diff)` and enter a git ref (e.g. `HEAD~1`).
+
+The DDL output dialog has two optional checkboxes:
+
+| Option | Effect |
+|---|---|
+| **Include seed data as INSERT statements** | Appends `INSERT INTO` statements for every table that has seed data |
+| **Skip auto-increment PK columns** | Omits auto-increment PK columns from the `INSERT` column list (e.g. `SERIAL`, `AUTO_INCREMENT`, `IDENTITY`) |
+
+Changing a checkbox immediately re-generates the DDL. The output channel is also updated.
 
 ---
 
@@ -161,6 +183,11 @@ columns:
     isNullable: false
     defaultValue: null
     comment: ""
+seedData:
+  - user_id: '1'
+    user_name: Alice
+  - user_id: '2'
+    user_name: Bob
 ```
 
 ## Relations

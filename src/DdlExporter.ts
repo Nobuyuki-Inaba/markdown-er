@@ -1,8 +1,13 @@
 import { DiagramModel, DictionaryEntry, Table, Column } from '../shared/DiagramModel';
 import { DdlDialect } from '../shared/messages';
 
+export interface DdlOptions {
+  insertSeedData?: boolean;
+  skipAutoIncrementPk?: boolean;
+}
+
 export class DdlExporter {
-  static export(model: DiagramModel, dialect: DdlDialect = 'mysql'): string {
+  static export(model: DiagramModel, dialect: DdlDialect = 'mysql', options: DdlOptions = {}): string {
     const dict = new Map<string, DictionaryEntry>(
       model.dictionary.map((e) => [e.id, e])
     );
@@ -10,11 +15,7 @@ export class DdlExporter {
     const creates = model.tables.map((t) => tableToCreate(t, dict, dialect)).join('\n\n');
 
     // SQLite FK constraints are inline only; separate ALTER TABLE not supported
-    if (dialect === 'sqlite') {
-      return creates;
-    }
-
-    const fkStatements = model.relations
+    const fkStatements = dialect === 'sqlite' ? '' : model.relations
       .filter((r) => r.hasForeignKey && r.constraintName)
       .map((r) => {
         const fromTable = model.tables.find((t) => t.id === r.fromTableId);
@@ -33,7 +34,14 @@ export class DdlExporter {
       .filter(Boolean)
       .join('\n\n');
 
-    return [creates, fkStatements].filter(Boolean).join('\n\n');
+    const schemaPart = [creates, fkStatements].filter(Boolean).join('\n\n');
+
+    if (!options.insertSeedData) {
+      return schemaPart;
+    }
+
+    const insertsPart = generateInserts(model, dict, dialect, options.skipAutoIncrementPk ?? false);
+    return [schemaPart, insertsPart ? `-- Seed Data\n${insertsPart}` : ''].filter(Boolean).join('\n\n');
   }
 }
 
@@ -127,4 +135,71 @@ function formatType(entry: DictionaryEntry, dialect: DdlDialect, isPk: boolean):
 
   // Default: append length if present
   return entry.length !== null ? `${base}(${entry.length})` : base;
+}
+
+function isAutoIncrementCol(col: Column, dict: Map<string, DictionaryEntry>, dialect: DdlDialect): boolean {
+  if (!col.isPrimaryKey) return false;
+  const entry = dict.get(col.dictionaryId);
+  if (!entry) return false;
+  if (dialect === 'sqlite') {
+    return entry.dbType === 'INT' || entry.dbType === 'BIGINT' || entry.dbType === 'TINYINT';
+  }
+  return entry.dbType === 'INT' || entry.dbType === 'BIGINT';
+}
+
+function isNumericDbType(dbType: string): boolean {
+  return ['INT', 'BIGINT', 'SMALLINT', 'TINYINT', 'DECIMAL', 'FLOAT', 'DOUBLE'].includes(dbType);
+}
+
+function generateInserts(
+  model: DiagramModel,
+  dict: Map<string, DictionaryEntry>,
+  dialect: DdlDialect,
+  skipAutoIncrementPk: boolean
+): string {
+  const q = quoteIdentifier(dialect);
+  const stmts: string[] = [];
+
+  for (const table of model.tables) {
+    if (!table.seedData?.length) continue;
+
+    const insertCols = skipAutoIncrementPk
+      ? table.columns.filter((c) => !isAutoIncrementCol(c, dict, dialect))
+      : table.columns;
+
+    if (insertCols.length === 0) continue;
+
+    const colList = insertCols.map((c) => q(c.physicalName)).join(', ');
+
+    const rows = table.seedData.map((row) => {
+      const vals = insertCols.map((c) => {
+        const raw = row[c.physicalName];
+        if (raw === undefined || raw === null || raw === '') return 'NULL';
+        const entry = dict.get(c.dictionaryId);
+        if (entry && isNumericDbType(entry.dbType)) return raw;
+        if (entry?.dbType === 'BOOLEAN') {
+          const truthy = raw === '1' || raw.toLowerCase() === 'true';
+          if (dialect === 'postgresql') return truthy ? 'TRUE' : 'FALSE';
+          return truthy ? '1' : '0';
+        }
+        return `'${String(raw).replace(/'/g, "''")}'`;
+      });
+      return `  (${vals.join(', ')})`;
+    }).join(',\n');
+
+    // SQL Server: wrap with IDENTITY_INSERT when inserting explicit PK values
+    const needsIdentityInsert = !skipAutoIncrementPk
+      && dialect === 'sqlserver'
+      && table.columns.some((c) => isAutoIncrementCol(c, dict, dialect));
+
+    const stmt = needsIdentityInsert
+      ? `SET IDENTITY_INSERT ${q(table.physicalName)} ON;\n` +
+        `INSERT INTO ${q(table.physicalName)} (${colList})\nVALUES\n${rows};\n` +
+        `SET IDENTITY_INSERT ${q(table.physicalName)} OFF;`
+      : `INSERT INTO ${q(table.physicalName)} (${colList})\nVALUES\n${rows};`;
+
+    stmts.push(stmt);
+  }
+
+  return stmts.join('\n\n');
 }

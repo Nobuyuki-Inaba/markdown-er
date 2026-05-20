@@ -15,6 +15,7 @@ interface DiagramState {
 
   addTable: (x: number, y: number) => void;
   updateTable: (tableId: string, patch: Partial<Pick<Table, 'logicalName' | 'physicalName' | 'comment' | 'designNote'>>) => void;
+  updateSeedData: (tableId: string, seedData: Record<string, string>[]) => void;
   deleteTable: (tableId: string) => void;
 
   addColumn: (tableId: string) => void;
@@ -87,6 +88,16 @@ export const useDiagramStore = create<DiagramState>()(
           ...m,
           tables: m.tables.map((t) =>
             t.id === tableId ? { ...t, ...patch } : t
+          ),
+        })),
+
+      updateSeedData: (tableId, seedData) =>
+        updateModel(set, (m) => ({
+          ...m,
+          tables: m.tables.map((t) =>
+            t.id === tableId
+              ? { ...t, seedData: seedData.length > 0 ? seedData : undefined }
+              : t
           ),
         })),
 
