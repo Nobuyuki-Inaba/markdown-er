@@ -14,7 +14,7 @@ interface DiagramState {
   setModel: (model: DiagramModel) => void;
 
   addTable: (x: number, y: number) => void;
-  updateTable: (tableId: string, patch: Partial<Pick<Table, 'logicalName' | 'physicalName' | 'comment'>>) => void;
+  updateTable: (tableId: string, patch: Partial<Pick<Table, 'logicalName' | 'physicalName' | 'comment' | 'designNote'>>) => void;
   deleteTable: (tableId: string) => void;
 
   addColumn: (tableId: string) => void;

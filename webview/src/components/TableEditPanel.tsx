@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { useDiagramStore } from '../store/diagramStore';
 import { useUiStore } from '../store/uiStore';
 import { ColumnRow } from './ColumnRow';
 
 export function TableEditPanel() {
+  const [noteOpen, setNoteOpen] = useState(false);
   const selectedTableId = useUiStore((s) => s.selectedTableId);
   const selectTable = useUiStore((s) => s.selectTable);
 
@@ -49,6 +51,24 @@ export function TableEditPanel() {
           />
         </div>
 
+        {/* Design Note */}
+        <div style={{ marginBottom: 6 }}>
+          <button
+            onClick={() => setNoteOpen((o) => !o)}
+            style={noteToggleStyle}
+          >
+            Design Note {noteOpen ? '▲' : '▼'}
+          </button>
+          {noteOpen && (
+            <textarea
+              style={noteAreaStyle}
+              placeholder="Record design decisions, rationale, trade-offs…"
+              value={table.designNote ?? ''}
+              onChange={(e) => updateTable(selectedTableId, { designNote: e.target.value || undefined })}
+            />
+          )}
+        </div>
+
         {/* Columns */}
         <div style={{ marginTop: 12, marginBottom: 4, fontWeight: 600, fontSize: 12, color: '#555' }}>
           Columns
@@ -56,7 +76,7 @@ export function TableEditPanel() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '28px 1fr 1fr 1fr 50px 36px',
+            gridTemplateColumns: '28px 1fr 1fr 1fr 50px 28px 36px',
             gap: 4,
             fontSize: 11,
             color: '#888',
@@ -68,6 +88,7 @@ export function TableEditPanel() {
           <span>Physical</span>
           <span>Type</span>
           <span>Null</span>
+          <span title="Design note" style={{ textAlign: 'center' }}>Note</span>
           <span />
         </div>
 
@@ -151,4 +172,29 @@ const actionBtnStyle: React.CSSProperties = {
   padding: '5px 12px',
   cursor: 'pointer',
   fontSize: 12,
+};
+
+const noteToggleStyle: React.CSSProperties = {
+  background: 'none',
+  border: '1px solid #ccc',
+  borderRadius: 3,
+  cursor: 'pointer',
+  fontSize: 11,
+  color: '#555',
+  padding: '2px 8px',
+  marginBottom: 4,
+  width: '100%',
+  textAlign: 'left',
+};
+
+const noteAreaStyle: React.CSSProperties = {
+  width: '100%',
+  minHeight: 80,
+  fontSize: 12,
+  padding: '4px 6px',
+  border: '1px solid #ccc',
+  borderRadius: 3,
+  resize: 'vertical',
+  boxSizing: 'border-box',
+  fontFamily: 'inherit',
 };
