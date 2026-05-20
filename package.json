@@ -8,9 +8,16 @@
     "vscode": "^1.85.0"
   },
   "categories": ["Other"],
-  "activationEvents": ["onLanguage:markdown"],
+  "activationEvents": ["onLanguage:ermd"],
   "main": "./out/src/extension.js",
   "contributes": {
+    "languages": [
+      {
+        "id": "ermd",
+        "extensions": [".ermd"],
+        "aliases": ["ER Diagram", "ermd"]
+      }
+    ],
     "commands": [
       {
         "command": "markdown-er.openDiagram",
@@ -30,14 +37,14 @@
       "editor/title": [
         {
           "command": "markdown-er.openDiagram",
-          "when": "resourceLangId == markdown",
+          "when": "resourceLangId == ermd",
           "group": "navigation"
         }
       ],
       "explorer/context": [
         {
           "command": "markdown-er.openDiagram",
-          "when": "resourceExtname == .md",
+          "when": "resourceExtname == .ermd",
           "group": "navigation"
         }
       ]

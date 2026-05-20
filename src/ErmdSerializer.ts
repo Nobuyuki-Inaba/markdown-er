@@ -5,7 +5,7 @@ import { DiagramModel } from '../shared/DiagramModel';
 export class ErmdSerializer {
   static serialize(model: DiagramModel, fileUri: vscode.Uri): string {
     const filename = fileUri.path.split('/').pop() ?? 'ER Diagram';
-    const title = filename.replace(/\.md$/, '');
+    const title = filename.replace(/\.ermd$/, '');
 
     const lines: string[] = [];
 
