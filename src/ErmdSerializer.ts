@@ -52,6 +52,15 @@ export class ErmdSerializer {
     lines.push(yaml.dump(model.layout, { indent: 2, lineWidth: -1 }).trimEnd());
     lines.push('```');
 
+    if (model.snapshots && model.snapshots.length > 0) {
+      lines.push('');
+      lines.push('## Snapshots');
+      lines.push('');
+      lines.push('```ermd-snapshots');
+      lines.push(yaml.dump(model.snapshots, { indent: 2, lineWidth: -1 }).trimEnd());
+      lines.push('```');
+    }
+
     return lines.join('\n') + '\n';
   }
 }

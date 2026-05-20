@@ -1,7 +1,7 @@
 import * as yaml from 'js-yaml';
 import {
   DiagramModel, DictionaryEntry, Table, Column, Relation,
-  TableLayout, RegionLayout, createEmptyModel,
+  TableLayout, RegionLayout, SchemaSnapshot, createEmptyModel,
 } from '../shared/DiagramModel';
 
 export class ErmdParser {
@@ -58,6 +58,11 @@ export class ErmdParser {
           case 'ermd-relations':
             if (Array.isArray(data)) {
               model.relations = data as Relation[];
+            }
+            break;
+          case 'ermd-snapshots':
+            if (Array.isArray(data)) {
+              model.snapshots = data as SchemaSnapshot[];
             }
             break;
           case 'ermd-layout': {

@@ -13,6 +13,7 @@ interface UiState {
   ddlSkipAutoIncrementPk: boolean;
   showMinimap: boolean;
   searchQuery: string;
+  isVersionsOpen: boolean;
 
   selectTable: (id: string | null) => void;
   selectRelation: (id: string | null) => void;
@@ -25,6 +26,8 @@ interface UiState {
   setDdlOptions: (insertSeedData: boolean, skipAutoIncrementPk: boolean) => void;
   toggleMinimap: () => void;
   setSearchQuery: (query: string) => void;
+  openVersions: () => void;
+  closeVersions: () => void;
 }
 
 export const useUiStore = create<UiState>()((set) => ({
@@ -39,6 +42,7 @@ export const useUiStore = create<UiState>()((set) => ({
   ddlSkipAutoIncrementPk: false,
   showMinimap: true,
   searchQuery: '',
+  isVersionsOpen: false,
 
   selectTable: (id) => set({ selectedTableId: id, selectedRelationId: null, selectedRegionId: null }),
   selectRelation: (id) => set({ selectedRelationId: id, selectedTableId: null, selectedRegionId: null }),
@@ -51,4 +55,6 @@ export const useUiStore = create<UiState>()((set) => ({
   setDdlOptions: (insertSeedData, skipAutoIncrementPk) => set({ ddlInsertSeedData: insertSeedData, ddlSkipAutoIncrementPk: skipAutoIncrementPk }),
   toggleMinimap: () => set((s) => ({ showMinimap: !s.showMinimap })),
   setSearchQuery: (query) => set({ searchQuery: query }),
+  openVersions: () => set({ isVersionsOpen: true }),
+  closeVersions: () => set({ isVersionsOpen: false }),
 }));

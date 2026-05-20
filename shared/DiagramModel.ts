@@ -76,6 +76,15 @@ export interface RegionLayout {
   height: number;
 }
 
+export interface SchemaSnapshot {
+  id: string;
+  name: string;
+  date: string;
+  tables: Table[];
+  relations: Relation[];
+  dictionary: DictionaryEntry[];
+}
+
 export interface DiagramModel {
   version: number;
   dictionary: DictionaryEntry[];
@@ -87,6 +96,7 @@ export interface DiagramModel {
     regions: RegionLayout[];
     viewport: { x: number; y: number; zoom: number };
   };
+  snapshots?: SchemaSnapshot[];
 }
 
 export function createEmptyModel(): DiagramModel {
