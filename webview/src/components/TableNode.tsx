@@ -14,11 +14,18 @@ export const TableNode = memo(({ data, selected }: NodeProps<TableNodeType>) => 
   const table = useDiagramStore((s) =>
     s.model.tables.find((t) => t.id === tableId)
   );
-  const dict      = useDiagramStore((s) => s.model.dictionary);
-  const nameMode  = useDiagramStore((s) => s.model.layout.nameMode);
+  const dict        = useDiagramStore((s) => s.model.dictionary);
+  const nameMode    = useDiagramStore((s) => s.model.layout.nameMode);
   const selectTable = useUiStore((s) => s.selectTable);
+  const searchQuery = useUiStore((s) => s.searchQuery);
 
   if (!table) return null;
+
+  const q = searchQuery.trim().toLowerCase();
+  const isMatch = !q || [
+    table.logicalName, table.physicalName,
+    ...table.columns.flatMap((c) => [c.logicalName, c.physicalName]),
+  ].some((s) => s.toLowerCase().includes(q));
 
   const tableName = nameMode === 'logical' ? table.logicalName : table.physicalName;
 
@@ -31,6 +38,8 @@ export const TableNode = memo(({ data, selected }: NodeProps<TableNodeType>) => 
         minWidth: 200,
         boxShadow: selected ? '0 0 0 2px #4a90d944' : '0 2px 4px #0002',
         fontSize: 13,
+        opacity: isMatch ? 1 : 0.2,
+        transition: 'opacity 0.15s',
       }}
       onDoubleClick={(e) => {
         e.stopPropagation();
