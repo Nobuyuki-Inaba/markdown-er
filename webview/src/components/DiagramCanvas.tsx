@@ -18,9 +18,10 @@ import { modelToNodes, modelToEdges } from '../util/xyflowAdapters';
 import { TableNode } from './TableNode';
 import { RelationEdge } from './RelationEdge';
 import { CardinalityMarkers } from './CardinalityMarkers';
+import { RegionNode } from './RegionNode';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const nodeTypes: any = { tableNode: TableNode };
+const nodeTypes: any = { tableNode: TableNode, regionNode: RegionNode };
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const edgeTypes: any = { relationEdge: RelationEdge };
 
@@ -47,11 +48,13 @@ function ReactFlowControls() {
 
 export function DiagramCanvas() {
   const model = useDiagramStore((s) => s.model);
-  const updateLayout   = useDiagramStore((s) => s.updateLayout);
-  const updateViewport = useDiagramStore((s) => s.updateViewport);
-  const addRelation    = useDiagramStore((s) => s.addRelation);
+  const updateLayout       = useDiagramStore((s) => s.updateLayout);
+  const updateRegionLayout = useDiagramStore((s) => s.updateRegionLayout);
+  const updateViewport     = useDiagramStore((s) => s.updateViewport);
+  const addRelation        = useDiagramStore((s) => s.addRelation);
   const selectTable    = useUiStore((s) => s.selectTable);
   const selectRelation = useUiStore((s) => s.selectRelation);
+  const selectRegion   = useUiStore((s) => s.selectRegion);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<any>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<any>([]);
@@ -69,7 +72,7 @@ export function DiagramCanvas() {
       setNodes(modelToNodes(modelRef.current));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [model.tables, model.layout.tables]);
+  }, [model.tables, model.layout.tables, model.layout.regions]);
 
   useEffect(() => {
     setEdges(modelToEdges(modelRef.current));
@@ -95,19 +98,37 @@ export function DiagramCanvas() {
         if (change.type === 'position' && !change.dragging && change.position) {
           draggingRef.current = false;
           const m = modelRef.current;
-          const layout = m.layout.tables.find((l) => l.tableId === change.id);
-          updateLayout(change.id, change.position.x, change.position.y, layout?.width ?? 240);
+          const tableLayout = m.layout.tables.find((l) => l.tableId === change.id);
+          if (tableLayout) {
+            updateLayout(change.id, change.position.x, change.position.y, tableLayout.width);
+          } else {
+            const regionLayout = m.layout.regions.find((r) => r.id === change.id);
+            if (regionLayout) {
+              updateRegionLayout(change.id, change.position.x, change.position.y, regionLayout.width, regionLayout.height);
+            }
+          }
         }
         if (change.type === 'dimensions' && change.dimensions) {
           const m = modelRef.current;
-          const layout = m.layout.tables.find((l) => l.tableId === change.id);
-          if (layout && Math.abs(layout.width - change.dimensions.width) > 1) {
-            updateLayout(change.id, layout.x, layout.y, change.dimensions.width);
+          const tableLayout = m.layout.tables.find((l) => l.tableId === change.id);
+          if (tableLayout) {
+            if (Math.abs(tableLayout.width - change.dimensions.width) > 1) {
+              updateLayout(change.id, tableLayout.x, tableLayout.y, change.dimensions.width);
+            }
+          } else {
+            const regionLayout = m.layout.regions.find((r) => r.id === change.id);
+            if (regionLayout) {
+              const wDiff = Math.abs(regionLayout.width  - change.dimensions.width);
+              const hDiff = Math.abs(regionLayout.height - change.dimensions.height);
+              if (wDiff > 1 || hDiff > 1) {
+                updateRegionLayout(change.id, regionLayout.x, regionLayout.y, change.dimensions.width, change.dimensions.height);
+              }
+            }
           }
         }
       }
     },
-    [onNodesChange, updateLayout]
+    [onNodesChange, updateLayout, updateRegionLayout]
   );
 
   const handleConnect = useCallback(
@@ -127,8 +148,14 @@ export function DiagramCanvas() {
   );
 
   const handleNodeClick = useCallback(
-    (_: React.MouseEvent, node: Node) => selectTable(node.id),
-    [selectTable]
+    (_: React.MouseEvent, node: Node) => {
+      if (node.type === 'regionNode') {
+        selectRegion(node.id);
+      } else {
+        selectTable(node.id);
+      }
+    },
+    [selectTable, selectRegion]
   );
 
   const handleEdgeClick = useCallback(
@@ -139,7 +166,8 @@ export function DiagramCanvas() {
   const handlePaneClick = useCallback(() => {
     selectTable(null);
     selectRelation(null);
-  }, [selectTable, selectRelation]);
+    selectRegion(null);
+  }, [selectTable, selectRelation, selectRegion]);
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>

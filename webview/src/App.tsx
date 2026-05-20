@@ -79,13 +79,16 @@ export function App() {
       }
 
       if (!isEditing && e.key === 'Delete') {
-        const { selectedTableId, selectedRelationId } = useUiStore.getState();
+        const { selectedTableId, selectedRelationId, selectedRegionId } = useUiStore.getState();
         if (selectedTableId) {
           useDiagramStore.getState().deleteTable(selectedTableId);
           useUiStore.getState().selectTable(null);
         } else if (selectedRelationId) {
           useDiagramStore.getState().deleteRelation(selectedRelationId);
           useUiStore.getState().selectRelation(null);
+        } else if (selectedRegionId) {
+          useDiagramStore.getState().deleteRegion(selectedRegionId);
+          useUiStore.getState().selectRegion(null);
         }
       }
     };

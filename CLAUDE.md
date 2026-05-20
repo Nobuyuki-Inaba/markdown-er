@@ -220,6 +220,7 @@ viewport:
 - [x] Auto Layout (vertical / horizontal / auto) via `dagre` — undo-able
 - [x] Database dialect setting (`markdown-er.ddl.dialect`: mysql / postgresql / sqlite / sqlserver)
 - [x] Settings shortcut (⚙ gear button in toolbar → opens VSCode Settings filtered to `markdown-er`)
+- [x] Region group boxes (background rectangles with labels; double-click to rename; undo/redo; saved in `ermd-layout`)
 
 ### DDL dialect notes
 
