@@ -14,7 +14,9 @@ export function Toolbar() {
   const tableCount  = useDiagramStore((s) => s.model.layout.tables.length);
 
   const openDictionary = useUiStore((s) => s.openDictionary);
-  const dialect = useUiStore((s) => s.dialect);
+  const dialect        = useUiStore((s) => s.dialect);
+  const showMinimap    = useUiStore((s) => s.showMinimap);
+  const toggleMinimap  = useUiStore((s) => s.toggleMinimap);
 
   const [layoutMenuOpen, setLayoutMenuOpen] = useState(false);
   const layoutBtnRef = useRef<HTMLButtonElement>(null);
@@ -125,6 +127,14 @@ export function Toolbar() {
 
       <button onClick={openDictionary} style={btnStyle} title="Manage column type dictionary">
         Dictionary
+      </button>
+
+      <button
+        onClick={toggleMinimap}
+        style={{ ...btnStyle, ...(showMinimap ? {} : { color: '#888', borderColor: '#555' }) }}
+        title={showMinimap ? 'Hide minimap' : 'Show minimap'}
+      >
+        Minimap
       </button>
 
       <div style={{ flex: 1 }} />

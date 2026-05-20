@@ -55,6 +55,7 @@ export function DiagramCanvas() {
   const selectTable    = useUiStore((s) => s.selectTable);
   const selectRelation = useUiStore((s) => s.selectRelation);
   const selectRegion   = useUiStore((s) => s.selectRegion);
+  const showMinimap    = useUiStore((s) => s.showMinimap);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<any>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<any>([]);
@@ -194,7 +195,7 @@ export function DiagramCanvas() {
         <ReactFlowControls />
         <Background />
         <Controls />
-        <MiniMap zoomable pannable style={{ bottom: 8, right: 8 }} />
+        {showMinimap && <MiniMap zoomable pannable style={{ bottom: 8, right: 8 }} />}
       </ReactFlow>
     </div>
   );
