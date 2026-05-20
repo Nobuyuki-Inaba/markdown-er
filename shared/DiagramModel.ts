@@ -20,6 +20,7 @@ export interface DictionaryEntry {
   length: number | null;
   notNull: boolean;
   comment: string;
+  category?: string;
 }
 
 export interface Column {
