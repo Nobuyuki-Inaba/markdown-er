@@ -62,6 +62,15 @@ export interface TableLayout {
   width: number;
 }
 
+export interface RegionLayout {
+  id: string;
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface DiagramModel {
   version: number;
   dictionary: DictionaryEntry[];
@@ -70,6 +79,7 @@ export interface DiagramModel {
   layout: {
     nameMode: 'logical' | 'physical';
     tables: TableLayout[];
+    regions: RegionLayout[];
     viewport: { x: number; y: number; zoom: number };
   };
 }
@@ -83,6 +93,7 @@ export function createEmptyModel(): DiagramModel {
     layout: {
       nameMode: 'logical',
       tables: [],
+      regions: [],
       viewport: { x: 0, y: 0, zoom: 1 },
     },
   };

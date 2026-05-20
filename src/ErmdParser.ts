@@ -1,7 +1,7 @@
 import * as yaml from 'js-yaml';
 import {
   DiagramModel, DictionaryEntry, Table, Column, Relation,
-  TableLayout, createEmptyModel,
+  TableLayout, RegionLayout, createEmptyModel,
 } from '../shared/DiagramModel';
 
 export class ErmdParser {
@@ -58,6 +58,9 @@ export class ErmdParser {
                 l['nameMode'] === 'physical' ? 'physical' : 'logical';
               if (Array.isArray(l['tables'])) {
                 model.layout.tables = l['tables'] as TableLayout[];
+              }
+              if (Array.isArray(l['regions'])) {
+                model.layout.regions = l['regions'] as RegionLayout[];
               }
               if (l['viewport'] && typeof l['viewport'] === 'object') {
                 const vp = l['viewport'] as Record<string, number>;

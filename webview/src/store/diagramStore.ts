@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { temporal } from 'zundo';
 import {
   DiagramModel, Table, Column, Relation, DictionaryEntry,
-  createEmptyModel, TableLayout,
+  createEmptyModel, TableLayout, RegionLayout,
 } from '@shared/DiagramModel';
 import { genId } from '../util/idgen';
 import { computeAutoLayout, LayoutDirection, TablePosition } from '../util/autoLayout';
@@ -35,6 +35,11 @@ interface DiagramState {
   deleteDictionaryEntry: (id: string) => void;
 
   applyAutoLayout: (direction: LayoutDirection) => void;
+
+  addRegion: (x: number, y: number) => void;
+  updateRegion: (id: string, patch: Partial<Pick<RegionLayout, 'label'>>) => void;
+  deleteRegion: (id: string) => void;
+  updateRegionLayout: (id: string, x: number, y: number, width: number, height: number) => void;
 }
 
 function nextVersion(state: DiagramState): number {
@@ -239,6 +244,48 @@ export const useDiagramStore = create<DiagramState>()(
             },
           };
         }),
+
+      addRegion: (x, y) =>
+        updateModel(set, (m) => {
+          const id = genId('rgn');
+          const region: RegionLayout = { id, label: 'Region', x, y, width: 400, height: 300 };
+          return {
+            ...m,
+            layout: { ...m.layout, regions: [...m.layout.regions, region] },
+          };
+        }),
+
+      updateRegion: (id, patch) =>
+        updateModel(set, (m) => ({
+          ...m,
+          layout: {
+            ...m.layout,
+            regions: m.layout.regions.map((r) => (r.id === id ? { ...r, ...patch } : r)),
+          },
+        })),
+
+      deleteRegion: (id) =>
+        updateModel(set, (m) => ({
+          ...m,
+          layout: {
+            ...m.layout,
+            regions: m.layout.regions.filter((r) => r.id !== id),
+          },
+        })),
+
+      updateRegionLayout: (id, x, y, width, height) =>
+        set((state) => ({
+          model: {
+            ...state.model,
+            layout: {
+              ...state.model.layout,
+              regions: state.model.layout.regions.map((r) =>
+                r.id === id ? { ...r, x, y, width, height } : r
+              ),
+            },
+          },
+          saveVersion: nextVersion(state),
+        })),
     }),
     {
       limit: 100,

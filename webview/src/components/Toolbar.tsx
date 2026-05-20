@@ -8,6 +8,7 @@ export function Toolbar() {
   const nameMode    = useDiagramStore((s) => s.model.layout.nameMode);
   const setNameMode = useDiagramStore((s) => s.setNameMode);
   const addTable    = useDiagramStore((s) => s.addTable);
+  const addRegion   = useDiagramStore((s) => s.addRegion);
   const applyAutoLayout = useDiagramStore((s) => s.applyAutoLayout);
   const viewport    = useDiagramStore((s) => s.model.layout.viewport);
   const tableCount  = useDiagramStore((s) => s.model.layout.tables.length);
@@ -29,6 +30,12 @@ export function Toolbar() {
     addTable(cx - 120 + offset, cy - 60 + offset);
   };
 
+  const handleAddRegion = () => {
+    const cx = (window.innerWidth  / 2 - viewport.x) / viewport.zoom;
+    const cy = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
+    addRegion(cx - 200, cy - 150);
+  };
+
   const handleLayout = (direction: LayoutDirection) => {
     setLayoutMenuOpen(false);
     applyAutoLayout(direction);
@@ -40,6 +47,9 @@ export function Toolbar() {
     <div style={toolbarStyle}>
       <button onClick={handleAddTable} style={btnStyle} title="Add table at canvas center">
         + Table
+      </button>
+      <button onClick={handleAddRegion} style={btnStyle} title="Add region group box at canvas center">
+        + Region
       </button>
 
       <div style={divider} />
