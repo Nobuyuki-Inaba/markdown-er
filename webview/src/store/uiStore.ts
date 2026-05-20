@@ -11,6 +11,7 @@ interface UiState {
   dialect: DdlDialect;
   ddlInsertSeedData: boolean;
   ddlSkipAutoIncrementPk: boolean;
+  showMinimap: boolean;
 
   selectTable: (id: string | null) => void;
   selectRelation: (id: string | null) => void;
@@ -21,6 +22,7 @@ interface UiState {
   closeDdl: () => void;
   setDialect: (dialect: DdlDialect) => void;
   setDdlOptions: (insertSeedData: boolean, skipAutoIncrementPk: boolean) => void;
+  toggleMinimap: () => void;
 }
 
 export const useUiStore = create<UiState>()((set) => ({
@@ -33,6 +35,7 @@ export const useUiStore = create<UiState>()((set) => ({
   dialect: 'mysql',
   ddlInsertSeedData: false,
   ddlSkipAutoIncrementPk: false,
+  showMinimap: true,
 
   selectTable: (id) => set({ selectedTableId: id, selectedRelationId: null, selectedRegionId: null }),
   selectRelation: (id) => set({ selectedRelationId: id, selectedTableId: null, selectedRegionId: null }),
@@ -43,4 +46,5 @@ export const useUiStore = create<UiState>()((set) => ({
   closeDdl: () => set({ isDdlOpen: false }),
   setDialect: (dialect) => set({ dialect }),
   setDdlOptions: (insertSeedData, skipAutoIncrementPk) => set({ ddlInsertSeedData: insertSeedData, ddlSkipAutoIncrementPk: skipAutoIncrementPk }),
+  toggleMinimap: () => set((s) => ({ showMinimap: !s.showMinimap })),
 }));
