@@ -19,6 +19,8 @@ export function Toolbar() {
   const toggleMinimap  = useUiStore((s) => s.toggleMinimap);
   const searchQuery    = useUiStore((s) => s.searchQuery);
   const setSearchQuery = useUiStore((s) => s.setSearchQuery);
+  const openVersions   = useUiStore((s) => s.openVersions);
+  const isVersionsOpen = useUiStore((s) => s.isVersionsOpen);
 
   const [layoutMenuOpen, setLayoutMenuOpen] = useState(false);
   const layoutBtnRef = useRef<HTMLButtonElement>(null);
@@ -129,6 +131,14 @@ export function Toolbar() {
 
       <button onClick={openDictionary} style={btnStyle} title="Manage column type dictionary">
         Dictionary
+      </button>
+
+      <button
+        onClick={openVersions}
+        style={{ ...btnStyle, ...(isVersionsOpen ? { borderColor: '#4a7c9e', color: '#4a7c9e' } : {}) }}
+        title="Schema version snapshots"
+      >
+        Versions
       </button>
 
       <div style={divider} />

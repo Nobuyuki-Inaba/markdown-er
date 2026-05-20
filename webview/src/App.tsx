@@ -7,6 +7,7 @@ import { DiagramCanvas } from './components/DiagramCanvas';
 import { TableEditPanel } from './components/TableEditPanel';
 import { RelationEditPanel } from './components/RelationEditPanel';
 import { DictionaryPanel } from './components/DictionaryPanel';
+import { VersionPanel } from './components/VersionPanel';
 
 export function App() {
   const setModel   = useDiagramStore((s) => s.setModel);
@@ -122,6 +123,7 @@ export function App() {
         <TableEditPanel />
         <RelationEditPanel />
         <DictionaryPanel />
+        <VersionPanel />
         {isDdlOpen && (
           <DdlModal ddl={lastDdl} onClose={closeDdl} />
         )}

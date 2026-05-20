@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { temporal } from 'zundo';
 import {
   DiagramModel, Table, Column, Relation, DictionaryEntry,
-  createEmptyModel, TableLayout, RegionLayout,
+  createEmptyModel, TableLayout, RegionLayout, SchemaSnapshot,
 } from '@shared/DiagramModel';
 import { genId } from '../util/idgen';
 import { computeAutoLayout, LayoutDirection, TablePosition } from '../util/autoLayout';
@@ -41,6 +41,9 @@ interface DiagramState {
   updateRegion: (id: string, patch: Partial<Pick<RegionLayout, 'label'>>) => void;
   deleteRegion: (id: string) => void;
   updateRegionLayout: (id: string, x: number, y: number, width: number, height: number) => void;
+
+  saveSnapshot: (name: string) => void;
+  deleteSnapshot: (id: string) => void;
 }
 
 function nextVersion(state: DiagramState): number {
@@ -296,6 +299,25 @@ export const useDiagramStore = create<DiagramState>()(
             },
           },
           saveVersion: nextVersion(state),
+        })),
+
+      saveSnapshot: (name) =>
+        updateModel(set, (m) => {
+          const snap: SchemaSnapshot = {
+            id: genId('snap'),
+            name,
+            date: new Date().toISOString(),
+            tables: m.tables,
+            relations: m.relations,
+            dictionary: m.dictionary,
+          };
+          return { ...m, snapshots: [...(m.snapshots ?? []), snap] };
+        }),
+
+      deleteSnapshot: (id) =>
+        updateModel(set, (m) => ({
+          ...m,
+          snapshots: (m.snapshots ?? []).filter((s) => s.id !== id),
         })),
     }),
     {
