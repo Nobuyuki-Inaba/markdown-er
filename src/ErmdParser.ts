@@ -41,6 +41,7 @@ export class ErmdParser {
                 physicalName: String(t['physicalName'] ?? ''),
                 comment: String(t['comment'] ?? ''),
                 designNote: t['designNote'] ? String(t['designNote']) : undefined,
+                headerColor: t['headerColor'] ? String(t['headerColor']) : undefined,
                 columns: Array.isArray(t['columns'])
                   ? (t['columns'] as Column[])
                   : [],

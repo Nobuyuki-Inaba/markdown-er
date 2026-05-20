@@ -6,6 +6,8 @@ import { SeedDataEditor } from './SeedDataEditor';
 
 type TabId = 'definition' | 'seed';
 
+const PRESET_COLORS = ['#4a7c9e', '#6a9e4a', '#9e6a4a', '#9e4a7c', '#4a6a9e', '#7c4a9e'];
+
 export function TableEditPanel() {
   const [noteOpen, setNoteOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('definition');
@@ -74,6 +76,39 @@ export function TableEditPanel() {
             value={table.comment}
             onChange={(e) => updateTable(selectedTableId, { comment: e.target.value })}
           />
+        </div>
+
+        {/* Header color */}
+        <div style={rowStyle}>
+          <label style={labelStyle}>Header color</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+            {PRESET_COLORS.map((color) => (
+              <button
+                key={color}
+                onClick={() => updateTable(selectedTableId, { headerColor: color })}
+                style={{
+                  width: 20, height: 20, borderRadius: 3, border: '2px solid',
+                  borderColor: table.headerColor === color ? '#333' : 'transparent',
+                  background: color, cursor: 'pointer', padding: 0,
+                }}
+                title={color}
+              />
+            ))}
+            <input
+              type="color"
+              value={table.headerColor ?? '#4a7c9e'}
+              onChange={(e) => updateTable(selectedTableId, { headerColor: e.target.value })}
+              style={{ width: 28, height: 24, padding: 1, border: '1px solid #ccc', borderRadius: 3, cursor: 'pointer' }}
+              title="Custom color"
+            />
+            {table.headerColor && (
+              <button
+                onClick={() => updateTable(selectedTableId, { headerColor: undefined })}
+                style={{ fontSize: 10, color: '#888', background: 'none', border: '1px solid #ccc', borderRadius: 3, cursor: 'pointer', padding: '1px 5px' }}
+                title="Reset to default"
+              >reset</button>
+            )}
+          </div>
         </div>
 
         {/* Design Note */}

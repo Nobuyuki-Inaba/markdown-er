@@ -45,7 +45,7 @@ export const TableNode = memo(({ data, selected }: NodeProps<TableNodeType>) => 
       {/* Header */}
       <div
         style={{
-          background: HEADER_BG,
+          background: table.headerColor ?? HEADER_BG,
           color: HEADER_FG,
           padding: '6px 10px',
           borderRadius: '2px 2px 0 0',

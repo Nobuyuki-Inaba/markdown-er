@@ -40,6 +40,7 @@ export interface Table {
   physicalName: string;
   comment: string;
   designNote?: string;
+  headerColor?: string;
   columns: Column[];
   seedData?: Record<string, string>[];
 }
