@@ -96,11 +96,19 @@ export function App() {
     return () => window.removeEventListener('keydown', handleKey);
   }, []);
 
-  // DDL export request from toolbar
+  // DDL export request from toolbar or DDL modal
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail as { mode: 'full' | 'diff' };
-      sendToExtension({ type: 'requestDdl', payload: { mode: detail.mode } });
+      const { ddlInsertSeedData, ddlSkipAutoIncrementPk } = useUiStore.getState();
+      sendToExtension({
+        type: 'requestDdl',
+        payload: {
+          mode: detail.mode,
+          insertSeedData: ddlInsertSeedData,
+          skipAutoIncrementPk: ddlSkipAutoIncrementPk,
+        },
+      });
     };
     window.addEventListener('er:requestDdl', handler);
     return () => window.removeEventListener('er:requestDdl', handler);
@@ -123,6 +131,20 @@ export function App() {
 }
 
 function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
+  const insertSeedData      = useUiStore((s) => s.ddlInsertSeedData);
+  const skipAutoIncrementPk = useUiStore((s) => s.ddlSkipAutoIncrementPk);
+  const setDdlOptions       = useUiStore((s) => s.setDdlOptions);
+
+  const handleInsertChange = (checked: boolean) => {
+    setDdlOptions(checked, checked ? skipAutoIncrementPk : false);
+    window.dispatchEvent(new CustomEvent('er:requestDdl', { detail: { mode: 'full' } }));
+  };
+
+  const handleSkipPkChange = (checked: boolean) => {
+    setDdlOptions(insertSeedData, checked);
+    window.dispatchEvent(new CustomEvent('er:requestDdl', { detail: { mode: 'full' } }));
+  };
+
   const copyToClipboard = useCallback(() => {
     navigator.clipboard.writeText(ddl).catch(() => {});
   }, [ddl]);
@@ -145,6 +167,30 @@ function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
             <button onClick={onClose} style={{ ...modalBtnStyle, background: '#555' }}>Close</button>
           </div>
         </div>
+
+        {/* INSERT options */}
+        <div style={{ padding: '8px 14px', borderBottom: '1px solid #2a2a2a', display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+          <label style={optionLabelStyle}>
+            <input
+              type="checkbox"
+              checked={insertSeedData}
+              onChange={(e) => handleInsertChange(e.target.checked)}
+              style={{ marginRight: 6 }}
+            />
+            Include seed data as INSERT statements
+          </label>
+          <label style={{ ...optionLabelStyle, opacity: insertSeedData ? 1 : 0.4, pointerEvents: insertSeedData ? 'auto' : 'none' }}>
+            <input
+              type="checkbox"
+              checked={skipAutoIncrementPk}
+              disabled={!insertSeedData}
+              onChange={(e) => handleSkipPkChange(e.target.checked)}
+              style={{ marginRight: 6 }}
+            />
+            Skip auto-increment PK columns
+          </label>
+        </div>
+
         <pre style={{ flex: 1, overflowY: 'auto', margin: 0, padding: 14, fontSize: 12, fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
           {ddl}
         </pre>
@@ -156,4 +202,8 @@ function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
 const modalBtnStyle: React.CSSProperties = {
   border: 'none', borderRadius: 4, padding: '4px 10px',
   color: '#fff', cursor: 'pointer', fontSize: 12,
+};
+
+const optionLabelStyle: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', fontSize: 12, color: '#ccc', cursor: 'pointer', userSelect: 'none',
 };

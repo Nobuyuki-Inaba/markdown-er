@@ -44,6 +44,13 @@ export class ErmdParser {
                 columns: Array.isArray(t['columns'])
                   ? (t['columns'] as Column[])
                   : [],
+                seedData: Array.isArray(t['seedData'])
+                  ? (t['seedData'] as Record<string, unknown>[]).map((row) =>
+                      Object.fromEntries(
+                        Object.entries(row).map(([k, v]) => [k, v == null ? '' : String(v)])
+                      )
+                    )
+                  : undefined,
               });
             }
             break;

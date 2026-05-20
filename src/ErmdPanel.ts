@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { ErmdParser } from './ErmdParser';
 import { ErmdSerializer } from './ErmdSerializer';
-import { DdlExporter } from './DdlExporter';
+import { DdlExporter, DdlOptions } from './DdlExporter';
 import { DdlDiffer } from './DdlDiffer';
 import { DiagramModel } from '../shared/DiagramModel';
 import { DdlDialect, ExtToWebMsg, WebToExtMsg } from '../shared/messages';
@@ -157,7 +157,12 @@ export class ErmdPanel {
 
       case 'requestDdl':
         if (this._model) {
-          await this._generateDdl(this._model, msg.payload.mode, msg.payload.baselineRef);
+          await this._generateDdl(
+            this._model,
+            msg.payload.mode,
+            msg.payload.baselineRef,
+            { insertSeedData: msg.payload.insertSeedData, skipAutoIncrementPk: msg.payload.skipAutoIncrementPk }
+          );
         }
         break;
 
@@ -176,11 +181,11 @@ export class ErmdPanel {
     await vscode.workspace.fs.writeFile(this._fileUri, Buffer.from(text, 'utf-8'));
   }
 
-  private async _generateDdl(model: DiagramModel, mode: 'full' | 'diff', baselineRef?: string) {
+  private async _generateDdl(model: DiagramModel, mode: 'full' | 'diff', baselineRef?: string, options: DdlOptions = {}) {
     const dialect = this._getDialect();
     let ddl: string;
     if (mode === 'full') {
-      ddl = DdlExporter.export(model, dialect);
+      ddl = DdlExporter.export(model, dialect, options);
     } else {
       ddl = await DdlDiffer.diff(model, this._fileUri, baselineRef ?? 'HEAD~1', dialect);
     }

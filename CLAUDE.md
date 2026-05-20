@@ -120,7 +120,7 @@ Defined in `shared/messages.ts`.
 | Extension → WebView | `undo` / `redo` | (empty) relay from extension host |
 | WebView → Extension | `ready` | Triggers initial `load` |
 | WebView → Extension | `save` | Full `DiagramModel` + monotonic `version` number (debounced 300 ms) |
-| WebView → Extension | `requestDdl` | `{ mode: 'full' | 'diff', baselineRef? }` |
+| WebView → Extension | `requestDdl` | `{ mode: 'full' | 'diff', baselineRef?, insertSeedData?, skipAutoIncrementPk? }` |
 
 ---
 
@@ -159,6 +159,13 @@ columns:
     isNullable: false
     defaultValue: null
     comment: ""
+seedData:
+  - user_id: '1'
+    name: Alice
+    email: alice@example.com
+  - user_id: '2'
+    name: Bob
+    email: bob@example.com
 ```
 
 ## Relations
@@ -221,6 +228,8 @@ viewport:
 - [x] Database dialect setting (`markdown-er.ddl.dialect`: mysql / postgresql / sqlite / sqlserver)
 - [x] Settings shortcut (⚙ gear button in toolbar → opens VSCode Settings filtered to `markdown-er`)
 - [x] Region group boxes (background rectangles with labels; double-click to rename; undo/redo; saved in `ermd-layout`)
+- [x] Seed data editor — spreadsheet-like row editor per table (Definition / Seed Data tabs in TableEditPanel); saved as `seedData` in `ermd-table` block; undo/redo
+- [x] DDL INSERT export — optional `INSERT INTO` statements for seed data; optional skip of auto-increment PK columns; options persisted in `uiStore`; output channel + DDL modal both updated
 
 ### DDL dialect notes
 
@@ -233,6 +242,24 @@ viewport:
 - Identifier quoting: MySQL `` ` ``, PostgreSQL/SQLite `"`, SQL Server `[bracket]`
 - SQLite: no separate `ALTER TABLE … ADD FOREIGN KEY` — FK constraints are inline only
 - SQL Server: `INT IDENTITY(1,1)` for PK auto-increment; `NVARCHAR`/`NCHAR` for string types
+
+### Seed data notes
+
+- Stored as `seedData: Record<string, string>[]` on the `Table` model — keys are column `physicalName`s
+- Parsed in `ErmdParser` with all values coerced to strings (YAML numbers → string on first save)
+- Serialized automatically by `yaml.dump(table, ...)` in `ErmdSerializer`; omitted when empty (`undefined`)
+- WebView: `SeedDataEditor.tsx` — pure React table with `<input>` cells; no external library
+- Store action: `updateSeedData(tableId, rows)` — sets `undefined` when rows become empty so YAML stays clean
+- Tab UI added to `TableEditPanel.tsx` — "Definition" and "Seed Data" tabs with local `activeTab` state
+
+### DDL INSERT export notes
+
+- `DdlExporter.export()` accepts optional `DdlOptions { insertSeedData?, skipAutoIncrementPk? }`
+- INSERT statements are appended after schema DDL under a `-- Seed Data` comment
+- Auto-increment detection: `isPrimaryKey && dbType ∈ {INT, BIGINT}` (SQLite also includes `TINYINT`)
+- SQL Server: explicit PK inserts are wrapped with `SET IDENTITY_INSERT table ON/OFF`
+- Options flow: WebView `uiStore.ddlInsertSeedData / ddlSkipAutoIncrementPk` → `requestDdl` message → `ErmdPanel._generateDdl()` → `DdlExporter.export()`
+- DDL modal checkboxes trigger immediate re-generation via `er:requestDdl` custom DOM event
 
 ### Auto Layout notes
 
