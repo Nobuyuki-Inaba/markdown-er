@@ -1,7 +1,6 @@
 import { memo, useState, useRef, useCallback } from 'react';
 import { NodeResizer, type NodeProps } from '@xyflow/react';
 import { useDiagramStore } from '../store/diagramStore';
-import { useUiStore } from '../store/uiStore';
 import type { RegionNodeType } from '../util/xyflowAdapters';
 
 export const RegionNode = memo(({ data, selected }: NodeProps<RegionNodeType>) => {
@@ -10,7 +9,6 @@ export const RegionNode = memo(({ data, selected }: NodeProps<RegionNodeType>) =
     s.model.layout.regions.find((r) => r.id === regionId)
   );
   const updateRegion = useDiagramStore((s) => s.updateRegion);
-  const selectRegion = useUiStore((s) => s.selectRegion);
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
@@ -51,10 +49,6 @@ export const RegionNode = memo(({ data, selected }: NodeProps<RegionNodeType>) =
         background: selected ? 'rgba(74,144,217,0.07)' : 'rgba(120,120,180,0.06)',
         boxSizing: 'border-box',
         pointerEvents: 'all',
-      }}
-      onClick={(e) => {
-        e.stopPropagation();
-        selectRegion(regionId);
       }}
       onDoubleClick={(e) => {
         e.stopPropagation();
