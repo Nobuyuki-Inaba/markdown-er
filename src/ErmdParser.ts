@@ -42,6 +42,8 @@ export class ErmdParser {
                 comment: String(t['comment'] ?? ''),
                 designNote: t['designNote'] ? String(t['designNote']) : undefined,
                 headerColor: t['headerColor'] ? String(t['headerColor']) : undefined,
+                indexes: Array.isArray(t['indexes']) ? t['indexes'] as import('../shared/DiagramModel').TableIndex[] : undefined,
+                constraints: Array.isArray(t['constraints']) ? t['constraints'] as import('../shared/DiagramModel').TableConstraint[] : undefined,
                 columns: Array.isArray(t['columns'])
                   ? (t['columns'] as Column[])
                   : [],

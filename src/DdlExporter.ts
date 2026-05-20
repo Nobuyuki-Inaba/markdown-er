@@ -1,4 +1,4 @@
-import { DiagramModel, DictionaryEntry, Table, Column } from '../shared/DiagramModel';
+import { DiagramModel, DictionaryEntry, Table, Column, TableIndex, TableConstraint } from '../shared/DiagramModel';
 import { DdlDialect } from '../shared/messages';
 
 export interface DdlOptions {
@@ -34,7 +34,11 @@ export class DdlExporter {
       .filter(Boolean)
       .join('\n\n');
 
-    const schemaPart = [creates, fkStatements].filter(Boolean).join('\n\n');
+    const indexStatements = model.tables.flatMap((t) =>
+      (t.indexes ?? []).map((idx) => indexToSql(t, idx, dialect))
+    ).join('\n\n');
+
+    const schemaPart = [creates, fkStatements, indexStatements].filter(Boolean).join('\n\n');
 
     if (!options.insertSeedData) {
       return schemaPart;
@@ -72,6 +76,15 @@ function tableToCreate(table: Table, dict: Map<string, DictionaryEntry>, dialect
     colLines.push(`  PRIMARY KEY (${pkCols.map(q).join(', ')})`);
   }
 
+  for (const c of (table.constraints ?? [])) {
+    if (c.type === 'UNIQUE' && c.name && c.expression) {
+      const cols = c.expression.split(',').map((s) => q(s.trim())).join(', ');
+      colLines.push(`  CONSTRAINT ${q(c.name)} UNIQUE (${cols})`);
+    } else if (c.type === 'CHECK' && c.name && c.expression) {
+      colLines.push(`  CONSTRAINT ${q(c.name)} CHECK (${c.expression})`);
+    }
+  }
+
   const trailer = tableTrailer(table, dialect);
   return (
     `CREATE TABLE ${q(table.physicalName)} (\n` +
@@ -81,14 +94,26 @@ function tableToCreate(table: Table, dict: Map<string, DictionaryEntry>, dialect
 }
 
 function tableTrailer(table: Table, dialect: DdlDialect): string {
+  const customDdl = (table.constraints ?? [])
+    .filter((c) => c.type === 'CUSTOM' && c.expression.trim())
+    .map((c) => c.expression.trimEnd() + (c.expression.trimEnd().endsWith(';') ? '' : ';'))
+    .join('\n');
+
   switch (dialect) {
     case 'mysql': {
       const comment = table.comment ? ` COMMENT='${table.comment.replace(/'/g, "\\'")}'` : '';
-      return ` ENGINE=InnoDB DEFAULT CHARSET=utf8mb4${comment}`;
+      return ` ENGINE=InnoDB DEFAULT CHARSET=utf8mb4${comment}${customDdl ? '\n' + customDdl : ''}`;
     }
     default:
-      return '';
+      return customDdl ? '\n' + customDdl : '';
   }
+}
+
+function indexToSql(table: Table, idx: TableIndex, dialect: DdlDialect): string {
+  const q = quoteIdentifier(dialect);
+  const unique = idx.unique ? 'UNIQUE ' : '';
+  const cols = idx.columns.map(q).join(', ');
+  return `CREATE ${unique}INDEX ${q(idx.name)} ON ${q(table.physicalName)} (${cols});`;
 }
 
 function defaultStringType(dialect: DdlDialect): string {
