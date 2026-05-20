@@ -40,6 +40,7 @@ export class ErmdParser {
                 logicalName: String(t['logicalName'] ?? ''),
                 physicalName: String(t['physicalName'] ?? ''),
                 comment: String(t['comment'] ?? ''),
+                designNote: t['designNote'] ? String(t['designNote']) : undefined,
                 columns: Array.isArray(t['columns'])
                   ? (t['columns'] as Column[])
                   : [],

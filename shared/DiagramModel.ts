@@ -31,6 +31,7 @@ export interface Column {
   isNullable: boolean;
   defaultValue: string | null;
   comment: string;
+  designNote?: string;
 }
 
 export interface Table {
@@ -38,6 +39,7 @@ export interface Table {
   logicalName: string;
   physicalName: string;
   comment: string;
+  designNote?: string;
   columns: Column[];
 }
 

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Column, DictionaryEntry } from '@shared/DiagramModel';
 import { useDiagramStore } from '../store/diagramStore';
 
@@ -10,73 +11,93 @@ interface Props {
 
 export function ColumnRow({ tableId, column, dictionary, onDelete }: Props) {
   const updateColumn = useDiagramStore((s) => s.updateColumn);
+  const [noteOpen, setNoteOpen] = useState(false);
 
   return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: '28px 1fr 1fr 1fr 50px 36px',
-        gap: 4,
-        alignItems: 'center',
-        padding: '4px 0',
-        borderBottom: '1px solid #eee',
-      }}
-    >
-      {/* PK toggle */}
-      <label style={{ textAlign: 'center', cursor: 'pointer' }} title="Primary Key">
-        <input
-          type="checkbox"
-          checked={column.isPrimaryKey}
-          onChange={(e) =>
-            updateColumn(tableId, column.id, { isPrimaryKey: e.target.checked })
-          }
-        />
-      </label>
-
-      {/* Logical name */}
-      <input
-        style={inputStyle}
-        value={column.logicalName}
-        placeholder="Logical name"
-        onChange={(e) => updateColumn(tableId, column.id, { logicalName: e.target.value })}
-      />
-
-      {/* Physical name */}
-      <input
-        style={inputStyle}
-        value={column.physicalName}
-        placeholder="Physical name"
-        onChange={(e) => updateColumn(tableId, column.id, { physicalName: e.target.value })}
-      />
-
-      {/* Dictionary type */}
-      <select
-        style={inputStyle}
-        value={column.dictionaryId}
-        onChange={(e) => updateColumn(tableId, column.id, { dictionaryId: e.target.value })}
+    <div style={{ borderBottom: '1px solid #eee' }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '28px 1fr 1fr 1fr 50px 28px 36px',
+          gap: 4,
+          alignItems: 'center',
+          padding: '4px 0',
+        }}
       >
-        <option value="">— select type —</option>
-        {dictionary.map((e) => (
-          <option key={e.id} value={e.id}>
-            {e.name}{e.length ? `(${e.length})` : ''} [{e.dbType}]
-          </option>
-        ))}
-      </select>
+        {/* PK toggle */}
+        <label style={{ textAlign: 'center', cursor: 'pointer' }} title="Primary Key">
+          <input
+            type="checkbox"
+            checked={column.isPrimaryKey}
+            onChange={(e) =>
+              updateColumn(tableId, column.id, { isPrimaryKey: e.target.checked })
+            }
+          />
+        </label>
 
-      {/* Nullable toggle */}
-      <label style={{ textAlign: 'center', cursor: 'pointer', fontSize: 11 }} title="Nullable">
+        {/* Logical name */}
         <input
-          type="checkbox"
-          checked={column.isNullable}
-          onChange={(e) => updateColumn(tableId, column.id, { isNullable: e.target.checked })}
+          style={inputStyle}
+          value={column.logicalName}
+          placeholder="Logical name"
+          onChange={(e) => updateColumn(tableId, column.id, { logicalName: e.target.value })}
         />
-        {' '}NULL
-      </label>
 
-      {/* Delete */}
-      <button onClick={onDelete} style={btnStyle} title="Delete column">
-        −
-      </button>
+        {/* Physical name */}
+        <input
+          style={inputStyle}
+          value={column.physicalName}
+          placeholder="Physical name"
+          onChange={(e) => updateColumn(tableId, column.id, { physicalName: e.target.value })}
+        />
+
+        {/* Dictionary type */}
+        <select
+          style={inputStyle}
+          value={column.dictionaryId}
+          onChange={(e) => updateColumn(tableId, column.id, { dictionaryId: e.target.value })}
+        >
+          <option value="">— select type —</option>
+          {dictionary.map((e) => (
+            <option key={e.id} value={e.id}>
+              {e.name}{e.length ? `(${e.length})` : ''} [{e.dbType}]
+            </option>
+          ))}
+        </select>
+
+        {/* Nullable toggle */}
+        <label style={{ textAlign: 'center', cursor: 'pointer', fontSize: 11 }} title="Nullable">
+          <input
+            type="checkbox"
+            checked={column.isNullable}
+            onChange={(e) => updateColumn(tableId, column.id, { isNullable: e.target.checked })}
+          />
+          {' '}NULL
+        </label>
+
+        {/* Note toggle */}
+        <button
+          onClick={() => setNoteOpen((o) => !o)}
+          style={{ ...noteBtnStyle, color: column.designNote ? '#4a7c9e' : '#aaa' }}
+          title="Design note"
+        >
+          {noteOpen ? '▲' : '▼'}
+        </button>
+
+        {/* Delete */}
+        <button onClick={onDelete} style={btnStyle} title="Delete column">
+          −
+        </button>
+      </div>
+
+      {noteOpen && (
+        <textarea
+          style={noteAreaStyle}
+          placeholder="Record design decisions, rationale, trade-offs…"
+          value={column.designNote ?? ''}
+          onChange={(e) => updateColumn(tableId, column.id, { designNote: e.target.value || undefined })}
+        />
+      )}
     </div>
   );
 }
@@ -101,4 +122,28 @@ const btnStyle: React.CSSProperties = {
   lineHeight: '22px',
   width: 28,
   height: 26,
+};
+
+const noteBtnStyle: React.CSSProperties = {
+  background: 'none',
+  border: '1px solid #ddd',
+  borderRadius: 3,
+  cursor: 'pointer',
+  fontSize: 10,
+  width: 28,
+  height: 26,
+  padding: 0,
+};
+
+const noteAreaStyle: React.CSSProperties = {
+  width: '100%',
+  minHeight: 60,
+  fontSize: 12,
+  padding: '4px 6px',
+  border: '1px solid #ccc',
+  borderRadius: 3,
+  resize: 'vertical',
+  boxSizing: 'border-box',
+  fontFamily: 'inherit',
+  marginBottom: 4,
 };
