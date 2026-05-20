@@ -7,9 +7,9 @@ This file gives Claude Code the context needed to work effectively in this repos
 
 ## Project overview
 
-`markdown-er` is a VSCode extension that renders interactive ER diagrams backed by ordinary `.md` files.
+`markdown-er` is a VSCode extension that renders interactive ER diagrams backed by `.ermd` files.
 A file becomes an ER diagram by adding `er-diagram: true` to its YAML front matter.
-The diagram state (tables, columns, relations, dictionary, layout) is stored in fenced `ermd-*` YAML blocks inside the Markdown file.
+The diagram state (tables, columns, relations, dictionary, layout) is stored in fenced `ermd-*` YAML blocks inside the file.
 
 ---
 
@@ -24,8 +24,8 @@ markdown-er/
 ├── src/                    # Extension host (Node.js / CommonJS)
 │   ├── extension.ts        # activate() – registers all VSCode commands
 │   ├── ErmdPanel.ts        # WebviewPanel lifecycle, postMessage bridge, debounced save
-│   ├── ErmdParser.ts       # .md text → DiagramModel  (uses js-yaml)
-│   ├── ErmdSerializer.ts   # DiagramModel → .md text  (uses js-yaml)
+│   ├── ErmdParser.ts       # .ermd text → DiagramModel  (uses js-yaml)
+│   ├── ErmdSerializer.ts   # DiagramModel → .ermd text  (uses js-yaml)
 │   ├── DdlExporter.ts      # DiagramModel → full CREATE TABLE DDL
 │   └── DdlDiffer.ts        # DiagramModel diff against git baseline → ALTER TABLE DDL
 │
@@ -57,7 +57,7 @@ markdown-er/
 ├── media/                  # Built WebView assets — gitignored, produced by `npm run build:webview`
 ├── out/                    # Compiled extension JS — gitignored, produced by `npm run compile`
 ├── examples/
-│   └── sample.md           # Working 4-table EC-site diagram for manual testing
+│   └── sample.ermd         # Working 4-table EC-site diagram for manual testing
 ├── package.json            # Extension manifest (main: ./out/src/extension.js)
 └── tsconfig.json           # Extension TS config (includes shared/)
 ```
@@ -85,7 +85,7 @@ Run from the **repo root** unless noted.
 ## Development workflow
 
 1. Press **F5** in VSCode to launch the extension host debug session (Extension Development Host).
-2. In the new window, open `examples/sample.md`.
+2. In the new window, open `examples/sample.ermd`.
 3. Click the **⊹** icon in the editor title bar → "Open as ER Diagram".
 4. Make changes to the WebView source, run `npm run build:webview`, then reload the window (`Ctrl+Shift+P` → "Developer: Reload Window").
 
@@ -98,7 +98,7 @@ Note: `acquireVsCodeApi` is stubbed in dev mode so the diagram starts empty.
 
 | Decision | Rationale |
 |---|---|
-| `.md` + YAML front matter | Human-readable, git-diffable, no custom file extension needed |
+| `.ermd` + YAML front matter | Human-readable, git-diffable, dedicated extension for ER diagrams |
 | `ermd-*` fenced blocks | Each section (dictionary, table, relation, layout) is a separate block → clean diffs |
 | @xyflow/react v12 | Built-in drag/pan/zoom, NodeResizer, custom node/edge components, MIT |
 | Zustand + zundo | Full undo/redo with one middleware line; `partialize` excludes UI state from history |
@@ -211,7 +211,7 @@ viewport:
 
 ## Implemented features
 
-- [x] Parse / serialize `.md` ER diagram files
+- [x] Parse / serialize `.ermd` ER diagram files
 - [x] Interactive diagram with ReactFlow (drag, pan, zoom, resize)
 - [x] Column-type dictionary (reusable DB types with name / type / length)
 - [x] Logical ↔ physical name toggle
@@ -283,6 +283,6 @@ Before merging a PR:
 - [ ] `npx tsc --noEmit` passes (repo root)
 - [ ] `cd webview && npx tsc --noEmit` passes
 - [ ] `npm run build` produces `media/webview.js` and `media/webview.css` without errors
-- [ ] Manually tested: open `examples/sample.md`, verify the affected feature works
+- [ ] Manually tested: open `examples/sample.ermd`, verify the affected feature works
 - [ ] CLAUDE.md updated if architecture / build / conventions changed
 - [ ] README.md updated if user-visible features or usage changed

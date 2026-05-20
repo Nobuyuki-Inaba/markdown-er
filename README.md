@@ -9,7 +9,7 @@
 ## Overview
 
 `markdown-er` lets you design and maintain ER diagrams entirely inside VSCode.  
-The diagram is stored in a standard `.md` file (with `er-diagram: true` in the front matter), so it is **human-readable, diffable, and version-control friendly** — no proprietary binary format, no separate toolchain.
+The diagram is stored in a `.ermd` file (with `er-diagram: true` in the front matter), so it is **human-readable, diffable, and version-control friendly** — no proprietary binary format, no separate toolchain.
 
 ---
 
@@ -22,13 +22,13 @@ The diagram is stored in a standard `.md` file (with `er-diagram: true` in the f
 | **Logical / Physical names** | Every table and column carries both a logical name (e.g. `ユーザー`) and a physical name (e.g. `users`). Toggle the view with one click. |
 | **Relations** | Drag from one table to another to create a relation. Click the relation to set cardinality (1:1 / 1:N / N:N) and optionally add a FK constraint. |
 | **Undo / Redo** | Full history via `Ctrl+Z` / `Ctrl+Y` |
-| **Persistent layout** | Positions and viewport are saved back to the `.md` file automatically |
+| **Persistent layout** | Positions and viewport are saved back to the `.ermd` file automatically |
 | **DDL export** | Export full `CREATE TABLE` DDL, or diff-only `ALTER TABLE` statements against a git baseline |
-| **Seed data editor** | Enter initial rows for each table in a spreadsheet-like editor. Data is saved in the `.md` file and is git-diffable |
+| **Seed data editor** | Enter initial rows for each table in a spreadsheet-like editor. Data is saved in the `.ermd` file and is git-diffable |
 | **INSERT export** | Optionally include seed data as `INSERT INTO` statements in the DDL output. Choose whether to include auto-increment PK columns |
 | **Auto Layout** | Arrange all tables automatically — Vertical, Horizontal, or Auto. The result is undo-able with `Ctrl+Z` |
 | **Database dialect** | Choose MySQL, PostgreSQL, SQLite, or SQL Server in Settings — DDL output uses the correct syntax for each |
-| **Plain Markdown storage** | The diagram lives in your repo alongside your code — review it in PRs like any other file |
+| **Plain text storage** | The `.ermd` file lives in your repo alongside your code — review it in PRs like any other file |
 
 ---
 
@@ -57,7 +57,7 @@ Press **F5** in VSCode to launch the Extension Development Host.
 
 ### Open a diagram
 
-1. Create a `.md` file with the following front matter (or open `examples/sample.md`):
+1. Create a `.ermd` file with the following front matter (or open `examples/sample.ermd`):
 
 ```markdown
 ---
@@ -148,7 +148,7 @@ Changing a checkbox immediately re-generates the DDL. The output channel is also
 
 ## File format
 
-The diagram is stored in a `.md` file using YAML front matter and `ermd-*` fenced blocks:
+The diagram is stored in a `.ermd` file using YAML front matter and `ermd-*` fenced blocks:
 
 ```markdown
 ---
