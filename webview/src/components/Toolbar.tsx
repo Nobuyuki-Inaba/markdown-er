@@ -17,6 +17,8 @@ export function Toolbar() {
   const dialect        = useUiStore((s) => s.dialect);
   const showMinimap    = useUiStore((s) => s.showMinimap);
   const toggleMinimap  = useUiStore((s) => s.toggleMinimap);
+  const searchQuery    = useUiStore((s) => s.searchQuery);
+  const setSearchQuery = useUiStore((s) => s.setSearchQuery);
 
   const [layoutMenuOpen, setLayoutMenuOpen] = useState(false);
   const layoutBtnRef = useRef<HTMLButtonElement>(null);
@@ -129,6 +131,27 @@ export function Toolbar() {
         Dictionary
       </button>
 
+      <div style={divider} />
+
+      {/* Search box */}
+      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+        <span style={{ position: 'absolute', left: 6, fontSize: 12, color: '#aaa', pointerEvents: 'none' }}>🔍</span>
+        <input
+          type="text"
+          placeholder="Search tables / columns…"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={searchInputStyle}
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            style={{ position: 'absolute', right: 4, background: 'none', border: 'none', color: '#aaa', cursor: 'pointer', fontSize: 12, padding: 0 }}
+            title="Clear search"
+          >✕</button>
+        )}
+      </div>
+
       <button
         onClick={toggleMinimap}
         style={{ ...btnStyle, ...(showMinimap ? {} : { color: '#888', borderColor: '#555' }) }}
@@ -191,6 +214,17 @@ const divider: React.CSSProperties = {
   height: 20,
   background: '#555',
   margin: '0 4px',
+};
+
+const searchInputStyle: React.CSSProperties = {
+  background: '#3a3a3a',
+  color: '#eee',
+  border: '1px solid #666',
+  borderRadius: 4,
+  padding: '4px 24px 4px 22px',
+  fontSize: 12,
+  width: 200,
+  outline: 'none',
 };
 
 const dropdownStyle: React.CSSProperties = {
