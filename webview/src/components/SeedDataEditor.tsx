@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react';
 import { Table } from '@shared/DiagramModel';
 
 interface Props {
@@ -5,9 +6,32 @@ interface Props {
   onUpdate: (seedData: Record<string, string>[]) => void;
 }
 
+function parseCsv(text: string): string[][] {
+  return text.split(/\r?\n/).filter((l) => l.trim()).map((line) => {
+    const cells: string[] = [];
+    let cur = '';
+    let inQuote = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuote && line[i + 1] === '"') { cur += '"'; i++; }
+        else { inQuote = !inQuote; }
+      } else if (ch === ',' && !inQuote) {
+        cells.push(cur); cur = '';
+      } else {
+        cur += ch;
+      }
+    }
+    cells.push(cur);
+    return cells;
+  });
+}
+
 export function SeedDataEditor({ table, onUpdate }: Props) {
   const { columns } = table;
   const seedData = table.seedData ?? [];
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importError, setImportError] = useState<string | null>(null);
 
   if (columns.length === 0) {
     return (
@@ -31,6 +55,47 @@ export function SeedDataEditor({ table, onUpdate }: Props) {
 
   const deleteRow = (rowIdx: number) => {
     onUpdate(seedData.filter((_, i) => i !== rowIdx));
+  };
+
+  const downloadTemplate = () => {
+    const header = columns.map((c) => `"${c.physicalName}"`).join(',');
+    const blob = new Blob([header + '\n'], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${table.physicalName}_template.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setImportError(null);
+    const file = e.target.files?.[0];
+    if (!fileInputRef.current) return;
+    fileInputRef.current.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const rows = parseCsv(text);
+      if (rows.length < 1) { setImportError('CSV is empty.'); return; }
+      const headers = rows[0];
+      if (headers.length === 0) { setImportError('Header row is required.'); return; }
+      const physicalNames = columns.map((c) => c.physicalName);
+      const colIndexes = headers.map((h) => physicalNames.indexOf(h.trim()));
+      const newRows: Record<string, string>[] = rows.slice(1).map((cells) => {
+        const row: Record<string, string> = {};
+        columns.forEach((c) => { row[c.physicalName] = ''; });
+        headers.forEach((h, i) => {
+          const idx = colIndexes[i];
+          if (idx >= 0) row[physicalNames[idx]] = cells[i] ?? '';
+        });
+        return row;
+      });
+      onUpdate([...seedData, ...newRows]);
+    };
+    reader.onerror = () => setImportError('Failed to read file.');
+    reader.readAsText(file);
   };
 
   return (
@@ -81,9 +146,25 @@ export function SeedDataEditor({ table, onUpdate }: Props) {
           </div>
         )}
       </div>
-      <button onClick={addRow} style={addBtnStyle}>
-        + Add Row
-      </button>
+      <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <button onClick={addRow} style={addBtnStyle}>+ Add Row</button>
+        <button onClick={downloadTemplate} style={subBtnStyle} title="Download CSV template with column headers">
+          ↓ CSV Template
+        </button>
+        <label style={{ ...subBtnStyle, cursor: 'pointer' }} title="Import rows from CSV (header row required)">
+          ↑ Import CSV
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            style={{ display: 'none' }}
+            onChange={handleImportFile}
+          />
+        </label>
+        {importError && (
+          <span style={{ fontSize: 11, color: '#c33' }}>{importError}</span>
+        )}
+      </div>
     </div>
   );
 }
@@ -125,7 +206,6 @@ const delBtnStyle: React.CSSProperties = {
 };
 
 const addBtnStyle: React.CSSProperties = {
-  marginTop: 8,
   background: '#4a7c9e',
   color: '#fff',
   border: 'none',
@@ -133,4 +213,15 @@ const addBtnStyle: React.CSSProperties = {
   padding: '5px 12px',
   cursor: 'pointer',
   fontSize: 12,
+};
+
+const subBtnStyle: React.CSSProperties = {
+  background: '#555',
+  color: '#eee',
+  border: '1px solid #888',
+  borderRadius: 4,
+  padding: '4px 10px',
+  cursor: 'pointer',
+  fontSize: 11,
+  display: 'inline-block',
 };
