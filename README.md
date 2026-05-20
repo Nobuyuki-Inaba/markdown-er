@@ -1,6 +1,6 @@
 # markdown-er
 
-**VSCode extension — Interactive ER diagram editor backed by plain Markdown files.**
+**VSCode extension — Interactive ER diagram editor backed by plain `.ermd` files.**
 
 ![Preview](docs/screenshots/preview.png)
 
@@ -21,36 +21,30 @@ The diagram is stored in a `.ermd` file (with `er-diagram: true` in the front ma
 | **Column-type dictionary** | Define reusable DB types (e.g. `UserID → INT`, `Name → VARCHAR(100)`) and apply them to columns |
 | **Logical / Physical names** | Every table and column carries both a logical name (e.g. `ユーザー`) and a physical name (e.g. `users`). Toggle the view with one click. |
 | **Relations** | Drag from one table to another to create a relation. Click the relation to set cardinality (1:1 / 1:N / N:N) and optionally add a FK constraint. |
+| **Region group boxes** | Group related tables with a labeled background rectangle |
 | **Undo / Redo** | Full history via `Ctrl+Z` / `Ctrl+Y` |
 | **Persistent layout** | Positions and viewport are saved back to the `.ermd` file automatically |
 | **DDL export** | Export full `CREATE TABLE` DDL, or diff-only `ALTER TABLE` statements against a git baseline |
 | **Seed data editor** | Enter initial rows for each table in a spreadsheet-like editor. Data is saved in the `.ermd` file and is git-diffable |
-| **INSERT export** | Optionally include seed data as `INSERT INTO` statements in the DDL output. Choose whether to include auto-increment PK columns |
-| **Auto Layout** | Arrange all tables automatically — Vertical, Horizontal, or Auto. The result is undo-able with `Ctrl+Z` |
-| **Database dialect** | Choose MySQL, PostgreSQL, SQLite, or SQL Server in Settings — DDL output uses the correct syntax for each |
-| **Plain text storage** | The `.ermd` file lives in your repo alongside your code — review it in PRs like any other file |
+| **INSERT export** | Optionally include seed data as `INSERT INTO` statements in the DDL output |
+| **Auto Layout** | Arrange all tables automatically — Vertical, Horizontal, or Auto. Undo-able with `Ctrl+Z` |
+| **Database dialect** | Choose MySQL, PostgreSQL, SQLite, or SQL Server in Settings |
+| **Minimap toggle** | Show or hide the minimap with the Minimap button in the toolbar |
 
 ---
 
 ## Getting started
 
-### Prerequisites
+### Install
 
-- VSCode 1.85+
-- Node.js 20+
-
-### Install from source
+> **Note:** This extension is currently distributed from source only. Marketplace release is planned.
 
 ```bash
 git clone https://github.com/Nobuyuki-Inaba/markdown-er.git
 cd markdown-er
-
-# Install dependencies
 npm install
 cd webview && npm install && cd ..
-
-# Build
-npm run build          # builds WebView (→ media/) and extension host (→ out/)
+npm run build
 ```
 
 Press **F5** in VSCode to launch the Extension Development Host.
@@ -59,7 +53,7 @@ Press **F5** in VSCode to launch the Extension Development Host.
 
 1. Create a `.ermd` file with the following front matter (or open `examples/sample.ermd`):
 
-```markdown
+```yaml
 ---
 er-diagram: true
 version: 1
@@ -107,7 +101,7 @@ Click a table or relation to select it, then press **Delete**.
 
 ### Toggle names
 
-Click **Logical names** / **Physical names** in the toolbar to switch all labels between logical and physical names.
+Click **Logical names** / **Physical names** in the toolbar to switch all labels.
 
 ### Zoom & fit
 
@@ -117,32 +111,24 @@ Click **Logical names** / **Physical names** in the toolbar to switch all labels
 | `Fit` | Fit all tables in view |
 | `+` | Zoom in |
 
-The bottom-left **Controls** widget also provides zoom and fit buttons.
-
 ### Edit seed data
 
-Double-click a table to open the **Table Edit Panel**, then select the **Seed Data** tab.
+Double-click a table → select the **Seed Data** tab.
 
 - Click **+ Add Row** to add a new row
 - Edit cell values directly in the table
 - Click **✕** to delete a row
-- Changes are saved automatically and are undo-able with `Ctrl+Z`
-
-Column headers show the logical name with the physical name underneath.
+- Changes are undo-able with `Ctrl+Z`
 
 ### Export DDL
 
 Click **Export DDL** in the toolbar (or run `ER Diagram: Export DDL (Full)` from the Command Palette).  
 For diff-only output run `ER Diagram: Export DDL (Diff)` and enter a git ref (e.g. `HEAD~1`).
 
-The DDL output dialog has two optional checkboxes:
-
-| Option | Effect |
+| DDL option | Effect |
 |---|---|
-| **Include seed data as INSERT statements** | Appends `INSERT INTO` statements for every table that has seed data |
-| **Skip auto-increment PK columns** | Omits auto-increment PK columns from the `INSERT` column list (e.g. `SERIAL`, `AUTO_INCREMENT`, `IDENTITY`) |
-
-Changing a checkbox immediately re-generates the DDL. The output channel is also updated.
+| **Include seed data as INSERT statements** | Appends `INSERT INTO` for every table with seed data |
+| **Skip auto-increment PK columns** | Omits auto-increment PK columns from the `INSERT` column list |
 
 ---
 
@@ -150,7 +136,7 @@ Changing a checkbox immediately re-generates the DDL. The output channel is also
 
 The diagram is stored in a `.ermd` file using YAML front matter and `ermd-*` fenced blocks:
 
-```markdown
+````
 ---
 er-diagram: true
 version: 1
@@ -159,6 +145,7 @@ version: 1
 # EC Site
 
 ## Dictionary
+
 ```ermd-dictionary
 - id: dict_id
   name: ID
@@ -169,6 +156,7 @@ version: 1
 ```
 
 ## Tables
+
 ```ermd-table
 id: tbl_user
 logicalName: ユーザー
@@ -186,11 +174,10 @@ columns:
 seedData:
   - user_id: '1'
     user_name: Alice
-  - user_id: '2'
-    user_name: Bob
 ```
 
 ## Relations
+
 ```ermd-relations
 - id: rel_1
   fromTableId: tbl_user
@@ -204,6 +191,7 @@ seedData:
 ```
 
 ## Layout
+
 ```ermd-layout
 nameMode: logical
 tables:
@@ -216,7 +204,7 @@ viewport:
   y: 0
   zoom: 1
 ```
-```
+````
 
 ---
 
@@ -231,16 +219,12 @@ viewport:
 
 ---
 
-## Tech stack
-
-| Layer | Technology |
-|---|---|
-| Extension host | TypeScript, VSCode Extension API, js-yaml |
-| WebView UI | React 18, @xyflow/react v12, Zustand + zundo |
-| Build | Vite (WebView), tsc (extension host) |
-
----
-
 ## License
 
 MIT — see [LICENSE](LICENSE)
+
+---
+
+## For contributors
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for build instructions, repository layout, and development workflow.

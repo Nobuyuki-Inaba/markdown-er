@@ -4,6 +4,10 @@
   "description": "Interactive ER diagram editor stored as Markdown",
   "version": "0.0.1",
   "publisher": "nobuyuki-inaba",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Nobuyuki-Inaba/markdown-er.git"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
