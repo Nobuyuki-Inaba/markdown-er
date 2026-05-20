@@ -1,4 +1,4 @@
-import { DiagramModel, DictionaryEntry, Table, Column } from '@shared/DiagramModel';
+import { DiagramModel, DictionaryEntry, Table, Column, TableIndex } from '@shared/DiagramModel';
 import type { DdlDialect } from '@shared/messages';
 
 function quoteIdentifier(dialect: DdlDialect): (name: string) => string {
@@ -49,6 +49,10 @@ export function exportFullDdl(model: DiagramModel, dialect: DdlDialect = 'mysql'
     return creates;
   }
 
+  const indexes = model.tables.flatMap((t) =>
+    (t.indexes ?? []).map((idx) => indexToSql(t, idx, q))
+  ).join('\n\n');
+
   const fks = model.relations
     .filter((r) => r.hasForeignKey && r.constraintName)
     .map((r) => {
@@ -67,7 +71,7 @@ export function exportFullDdl(model: DiagramModel, dialect: DdlDialect = 'mysql'
     .filter(Boolean)
     .join('\n\n');
 
-  return [creates, fks].filter(Boolean).join('\n\n');
+  return [creates, fks, indexes].filter(Boolean).join('\n\n');
 }
 
 function tableToCreate(
@@ -91,13 +95,33 @@ function tableToCreate(
     colLines.push(`  PRIMARY KEY (${pkCols.map(q).join(', ')})`);
   }
 
+  for (const c of (table.constraints ?? [])) {
+    if (c.type === 'UNIQUE' && c.name && c.expression) {
+      const cols = c.expression.split(',').map((s) => q(s.trim())).join(', ');
+      colLines.push(`  CONSTRAINT ${q(c.name)} UNIQUE (${cols})`);
+    } else if (c.type === 'CHECK' && c.name && c.expression) {
+      colLines.push(`  CONSTRAINT ${q(c.name)} CHECK (${c.expression})`);
+    }
+  }
+
+  const customDdl = (table.constraints ?? [])
+    .filter((c) => c.type === 'CUSTOM' && c.expression.trim())
+    .map((c) => c.expression.trimEnd() + (c.expression.trimEnd().endsWith(';') ? '' : ';'))
+    .join('\n');
+
   const trailer = dialect === 'mysql'
-    ? ` ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
-    : '';
+    ? ` ENGINE=InnoDB DEFAULT CHARSET=utf8mb4${customDdl ? '\n' + customDdl : ''}`
+    : customDdl ? '\n' + customDdl : '';
 
   return (
     `CREATE TABLE ${q(table.physicalName)} (\n` +
     colLines.join(',\n') +
     `\n)${trailer};`
   );
+}
+
+function indexToSql(table: Table, idx: TableIndex, q: (n: string) => string): string {
+  const unique = idx.unique ? 'UNIQUE ' : '';
+  const cols = idx.columns.map(q).join(', ');
+  return `CREATE ${unique}INDEX ${q(idx.name)} ON ${q(table.physicalName)} (${cols});`;
 }

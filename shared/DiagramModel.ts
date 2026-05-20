@@ -35,6 +35,24 @@ export interface Column {
   designNote?: string;
 }
 
+export interface TableIndex {
+  id: string;
+  name: string;
+  columns: string[];
+  unique: boolean;
+  comment?: string;
+}
+
+export type ConstraintType = 'UNIQUE' | 'CHECK' | 'CUSTOM';
+
+export interface TableConstraint {
+  id: string;
+  type: ConstraintType;
+  name: string;
+  expression: string;
+  comment?: string;
+}
+
 export interface Table {
   id: string;
   logicalName: string;
@@ -43,6 +61,8 @@ export interface Table {
   designNote?: string;
   headerColor?: string;
   columns: Column[];
+  indexes?: TableIndex[];
+  constraints?: TableConstraint[];
   seedData?: Record<string, string>[];
 }
 
