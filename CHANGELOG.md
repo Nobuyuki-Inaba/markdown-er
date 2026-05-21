@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.0.2] - 2026-05-21
+
+### Fixed
+
+- Extension failed to activate ("command not found") because `js-yaml` was excluded from the `.vsix` by `.vscodeignore`. Switched to esbuild bundling so all runtime dependencies are inlined into `out/extension.js`.
+
+---
+
 ## [0.0.1] - 2026-05-21
 
 ### Added
@@ -39,5 +47,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Indexes and constraints — define indexes (UNIQUE / INDEX) and check/unique constraints per table; exported in DDL
 - CSV import for seed data — import rows from a CSV file; download a column-header template CSV
 
-[Unreleased]: https://github.com/Nobuyuki-Inaba/markdown-er/compare/v0.0.1...HEAD
+[Unreleased]: https://github.com/Nobuyuki-Inaba/markdown-er/compare/v0.0.2...HEAD
+[0.0.2]: https://github.com/Nobuyuki-Inaba/markdown-er/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/Nobuyuki-Inaba/markdown-er/releases/tag/v0.0.1

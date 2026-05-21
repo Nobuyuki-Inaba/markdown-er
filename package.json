@@ -2,7 +2,7 @@
   "name": "markdown-er",
   "displayName": "Markdown ER Diagram",
   "description": "Interactive ER diagram editor stored as Markdown",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "nobuyuki-inaba",
   "repository": {
     "type": "git",
