@@ -3,7 +3,8 @@
 src/**
 shared/**
 webview/**
-out/test/**
+out/**
+!out/extension.js
 **/*.map
 **/*.ts
 node_modules/**
