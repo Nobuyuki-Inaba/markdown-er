@@ -35,9 +35,17 @@ The diagram is stored in a `.ermd` file (with `er-diagram: true` in the front ma
 
 ## Getting started
 
+> **v0.0.1 note:** This is an initial release. The `.ermd` file schema (YAML block structure, field names) may receive **breaking changes** in future versions before a stable 1.0 release. Back up or version-control your `.ermd` files if you rely on them long-term.
+
 ### Install
 
-> **Note:** This extension is currently distributed from source only. Marketplace release is planned.
+Search for **"Markdown ER Diagram"** in the VSCode Extensions panel, or run:
+
+```
+ext install nobuyuki-inaba.markdown-er
+```
+
+#### Build from source
 
 ```bash
 git clone https://github.com/Nobuyuki-Inaba/markdown-er.git
@@ -119,6 +127,45 @@ Double-click a table → select the **Seed Data** tab.
 - Edit cell values directly in the table
 - Click **✕** to delete a row
 - Changes are undo-able with `Ctrl+Z`
+
+### Add a region group box
+
+Click **+ Region** in the toolbar. A labeled rectangle appears at the canvas center.
+
+- Drag the border to reposition the box; drag the bottom-right corner to resize it
+- Double-click the label to rename the region
+- Click to select, then press **Delete** to remove
+
+### Auto Layout
+
+Click **Auto Layout** in the toolbar to arrange all tables automatically.  
+Click the **▾** dropdown next to it to choose a specific direction:
+
+| Option | Effect |
+|---|---|
+| **↕ Vertical** | Arranges tables top-to-bottom |
+| **↔ Horizontal** | Arranges tables left-to-right |
+| **✦ Auto** | Picks the best direction based on the diagram shape |
+
+Auto Layout is undo-able with `Ctrl+Z`.
+
+### Search tables and columns
+
+Type in the **Search** box in the toolbar to filter tables and columns by name.  
+Matching tables are highlighted; non-matching tables are dimmed. Click **✕** to clear.
+
+### Minimap
+
+Click **Minimap** in the toolbar to show or hide the minimap overlay.
+
+### Database dialect and settings
+
+The active DDL dialect is shown as a badge next to **Export DDL** (e.g. `mysql`).  
+Click the **⚙** gear button in the toolbar to open VSCode Settings filtered to `markdown-er`.
+
+| Setting | Values | Default |
+|---|---|---|
+| `markdown-er.ddl.dialect` | `mysql` / `postgresql` / `sqlite` / `sqlserver` | `mysql` |
 
 ### Export DDL
 
