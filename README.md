@@ -39,11 +39,7 @@ The diagram is stored in a `.ermd` file (with `er-diagram: true` in the front ma
 
 ### Install
 
-Search for **"Markdown ER Diagram"** in the VSCode Extensions panel, or run:
-
-```
-ext install nobuyuki-inaba.markdown-er
-```
+Search for **"Markdown ER Diagram"** in the VSCode Extensions panel and click **Install**.
 
 #### Build from source
 
