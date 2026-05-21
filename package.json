@@ -13,7 +13,7 @@
   },
   "categories": ["Other"],
   "activationEvents": ["onLanguage:ermd"],
-  "main": "./out/src/extension.js",
+  "main": "./out/extension.js",
   "contributes": {
     "languages": [
       {
@@ -77,10 +77,10 @@
     }
   },
   "scripts": {
-    "compile": "tsc -p tsconfig.json",
-    "watch": "tsc -watch -p tsconfig.json",
+    "compile": "tsc -p tsconfig.json --noEmit",
+    "build:ext": "esbuild src/extension.ts --bundle --outfile=out/extension.js --format=cjs --platform=node --external:vscode --target=node20",
     "build:webview": "cd webview && npm run build",
-    "build": "npm run build:webview && npm run compile",
+    "build": "npm run build:ext && npm run build:webview",
     "vscode:prepublish": "npm run build",
     "package": "vsce package"
   },
@@ -89,6 +89,7 @@
     "@types/vscode": "^1.85.0",
     "@types/js-yaml": "^4.0.9",
     "@vscode/vsce": "^3.0.0",
+    "esbuild": "^0.25.0",
     "typescript": "^5.4.0"
   },
   "dependencies": {
