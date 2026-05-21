@@ -81,12 +81,14 @@
     "watch": "tsc -watch -p tsconfig.json",
     "build:webview": "cd webview && npm run build",
     "build": "npm run build:webview && npm run compile",
-    "vscode:prepublish": "npm run build"
+    "vscode:prepublish": "npm run build",
+    "package": "vsce package"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.85.0",
     "@types/js-yaml": "^4.0.9",
+    "@vscode/vsce": "^3.0.0",
     "typescript": "^5.4.0"
   },
   "dependencies": {
