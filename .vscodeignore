@@ -6,7 +6,7 @@ webview/**
 out/test/**
 **/*.map
 **/*.ts
-!**/*.d.ts
 node_modules/**
 .gitignore
 tsconfig.json
+CLAUDE.md
