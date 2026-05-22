@@ -16,6 +16,7 @@ export function Toolbar() {
   const model       = useDiagramStore((s) => s.model);
 
   const openDictionary = useUiStore((s) => s.openDictionary);
+  const openCsvImport  = useUiStore((s) => s.openCsvImport);
   const openVersions   = useUiStore((s) => s.openVersions);
   const dialect        = useUiStore((s) => s.dialect);
   const showMinimap    = useUiStore((s) => s.showMinimap);
@@ -132,6 +133,10 @@ export function Toolbar() {
 
       <button onClick={openDictionary} style={btnStyle} title="Manage column type dictionary">
         Dictionary
+      </button>
+
+      <button onClick={openCsvImport} style={btnStyle} title="Import tables or dictionary entries from CSV">
+        Import CSV
       </button>
 
       <div style={divider} />

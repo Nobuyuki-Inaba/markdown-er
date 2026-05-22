@@ -1,0 +1,7 @@
+name,dbType,length,notNull,comment
+Status,TINYINT,1,true,Status flag (0=inactive 1=active)
+Code,VARCHAR,20,true,Short code / slug
+Quantity,INT,,true,Item quantity
+JSON Data,JSON,,false,Arbitrary JSON payload
+Nullable ID,INT,,false,Nullable foreign key reference
+Postal Code,VARCHAR,10,true,Postal / zip code

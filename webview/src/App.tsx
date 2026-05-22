@@ -7,6 +7,7 @@ import { DiagramCanvas } from './components/DiagramCanvas';
 import { TableEditPanel } from './components/TableEditPanel';
 import { RelationEditPanel } from './components/RelationEditPanel';
 import { DictionaryPanel } from './components/DictionaryPanel';
+import { CsvImportPanel } from './components/CsvImportPanel';
 import { VersionsPanel } from './components/VersionsPanel';
 
 export function App() {
@@ -127,6 +128,7 @@ export function App() {
         <TableEditPanel />
         <RelationEditPanel />
         <DictionaryPanel />
+        <CsvImportPanel />
         <VersionsPanel />
         {isDdlOpen && (
           <DdlModal ddl={lastDdl} onClose={closeDdl} />
