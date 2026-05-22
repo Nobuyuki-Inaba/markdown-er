@@ -7,6 +7,7 @@ import {
   TABLE_CSV_EXAMPLE,
   DICTIONARY_CSV_HEADERS,
   DICTIONARY_CSV_EXAMPLE,
+  BUILTIN_PRESETS,
   parseTableCsv,
   parseDictionaryCsv,
 } from '../util/csvImport';
@@ -164,12 +165,42 @@ export function CsvImportPanel() {
           </div>
 
           {category === 'table' && (
-            <p style={{ fontSize: 11, color: '#666', margin: 0 }}>
-              Each row is one column. Rows sharing the same <code>tablePhysicalName</code> are
-              grouped into one table. Column <code>dbType</code>/<code>length</code>/<code>notNull</code>
-              is matched against existing dictionary entries; if no match a new entry is auto-created.
-              Tables whose <code>tablePhysicalName</code> already exists in the diagram are skipped.
-            </p>
+            <>
+              <p style={{ fontSize: 11, color: '#666', margin: '0 0 10px' }}>
+                Each row is one column. Rows sharing the same <code>tablePhysicalName</code> are
+                grouped into one table. Tables whose <code>tablePhysicalName</code> already exists
+                in the diagram are skipped.
+                <br />
+                <strong>Type resolution order:</strong> (1) <code>dictionaryName</code> matches an
+                existing dictionary entry by name → (2) matches a built-in preset below →
+                (3) falls back to <code>dbType</code>/<code>length</code>/<code>notNull</code>.
+              </p>
+              <div style={{ marginBottom: 4, fontSize: 12, fontWeight: 700, color: '#555' }}>
+                Built-in presets (usable as <code>dictionaryName</code>):
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                <thead>
+                  <tr style={{ background: '#f0f4ff' }}>
+                    <th style={th}>Name</th>
+                    <th style={th}>dbType</th>
+                    <th style={th}>length</th>
+                    <th style={th}>notNull</th>
+                    <th style={th}>Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {BUILTIN_PRESETS.map((p) => (
+                    <tr key={p.name} style={{ borderBottom: '1px solid #eee' }}>
+                      <td style={{ ...td, fontFamily: 'monospace', fontWeight: 600 }}>{p.name}</td>
+                      <td style={td}>{p.dbType}</td>
+                      <td style={{ ...td, textAlign: 'center' }}>{p.length ?? '—'}</td>
+                      <td style={{ ...td, textAlign: 'center' }}>{p.notNull ? 'true' : 'false'}</td>
+                      <td style={td}>{p.comment}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
           )}
           {category === 'dictionary' && (
             <p style={{ fontSize: 11, color: '#666', margin: 0 }}>
@@ -188,9 +219,10 @@ const TABLE_FIELDS: { name: string; required: boolean; desc: string }[] = [
   { name: 'tableComment',       required: false, desc: 'Optional comment for the table' },
   { name: 'columnLogicalName',  required: true,  desc: 'Logical name of the column' },
   { name: 'columnPhysicalName', required: true,  desc: 'Physical name of the column' },
-  { name: 'dbType',             required: true,  desc: 'DB type: INT, BIGINT, VARCHAR, CHAR, TEXT, DATETIME, DATE, DECIMAL, FLOAT, DOUBLE, BOOLEAN, JSON, BLOB, …' },
+  { name: 'dictionaryName',     required: false, desc: 'Name of an existing dictionary entry or a built-in preset (see below). When matched, dbType/length/notNull are ignored.' },
+  { name: 'dbType',             required: false, desc: 'DB type used when dictionaryName is absent: INT, BIGINT, VARCHAR, TEXT, DATETIME, DECIMAL, BOOLEAN, JSON, …' },
   { name: 'length',             required: false, desc: 'Type length (e.g. 255 for VARCHAR); leave blank for types without length' },
-  { name: 'notNull',            required: true,  desc: 'true / false — whether the column is NOT NULL' },
+  { name: 'notNull',            required: false, desc: 'true / false — whether the column is NOT NULL (default false)' },
   { name: 'isPrimaryKey',       required: false, desc: 'true / false — whether the column is a primary key (default false)' },
   { name: 'isNullable',         required: false, desc: 'true / false — whether the column allows NULL (default true)' },
   { name: 'defaultValue',       required: false, desc: 'Default value expression; leave blank for none' },

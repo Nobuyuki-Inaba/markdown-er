@@ -47,6 +47,7 @@ interface DiagramState {
 
   importTables: (parsed: ParsedTableImport) => void;
   importDictionaryEntries: (parsed: ParsedDictionaryImport) => void;
+  addColumnType: (tableId: string, columnId: string, entry: Omit<DictionaryEntry, 'id'>) => void;
 
   addIndex: (tableId: string) => void;
   updateIndex: (tableId: string, indexId: string, patch: Partial<Omit<TableIndex, 'id'>>) => void;
@@ -341,6 +342,25 @@ export const useDiagramStore = create<DiagramState>()(
           ...m,
           dictionary: [...m.dictionary, ...entries],
         })),
+
+      addColumnType: (tableId, columnId, entry) =>
+        updateModel(set, (m) => {
+          const dictEntry: DictionaryEntry = { ...entry, id: genId('dict') };
+          return {
+            ...m,
+            dictionary: [...m.dictionary, dictEntry],
+            tables: m.tables.map((t) =>
+              t.id === tableId
+                ? {
+                    ...t,
+                    columns: t.columns.map((c) =>
+                      c.id === columnId ? { ...c, dictionaryId: dictEntry.id } : c
+                    ),
+                  }
+                : t
+            ),
+          };
+        }),
 
       addIndex: (tableId) =>
         updateModel(set, (m) => ({

@@ -1,17 +1,17 @@
-tableLogicalName,tablePhysicalName,tableComment,columnLogicalName,columnPhysicalName,dbType,length,notNull,isPrimaryKey,isNullable,defaultValue,comment
-カテゴリー,categories,Product categories,カテゴリーID,category_id,INT,,true,true,false,,
-カテゴリー,categories,Product categories,カテゴリー名,category_name,VARCHAR,100,true,false,false,,
-カテゴリー,categories,Product categories,説明,description,TEXT,,false,false,true,,
-レビュー,reviews,Product reviews,レビューID,review_id,INT,,true,true,false,,
-レビュー,reviews,Product reviews,ユーザーID,user_id,INT,,true,false,false,,FK to users
-レビュー,reviews,Product reviews,商品ID,product_id,INT,,true,false,false,,FK to products
-レビュー,reviews,Product reviews,評価,rating,TINYINT,1,true,false,false,,1-5 stars
-レビュー,reviews,Product reviews,コメント,comment,TEXT,,false,false,true,,
-レビュー,reviews,Product reviews,作成日時,created_at,DATETIME,,true,false,false,CURRENT_TIMESTAMP,
-住所,addresses,Customer shipping addresses,住所ID,address_id,INT,,true,true,false,,
-住所,addresses,Customer shipping addresses,ユーザーID,user_id,INT,,true,false,false,,FK to users
-住所,addresses,Customer shipping addresses,郵便番号,postal_code,VARCHAR,10,true,false,false,,
-住所,addresses,Customer shipping addresses,都道府県,prefecture,VARCHAR,100,true,false,false,,
-住所,addresses,Customer shipping addresses,市区町村,city,VARCHAR,100,true,false,false,,
-住所,addresses,Customer shipping addresses,番地,address_line,VARCHAR,255,true,false,false,,
-住所,addresses,Customer shipping addresses,デフォルト,is_default,TINYINT,1,true,false,false,0,Default address flag
+tableLogicalName,tablePhysicalName,tableComment,columnLogicalName,columnPhysicalName,dictionaryName,dbType,length,notNull,isPrimaryKey,isNullable,defaultValue,comment
+カテゴリー,categories,Product categories,カテゴリーID,category_id,ID,,,,,false,,
+カテゴリー,categories,Product categories,カテゴリー名,category_name,Name,,,,,false,,
+カテゴリー,categories,Product categories,説明,description,Text,,,,,true,,
+レビュー,reviews,Product reviews,レビューID,review_id,ID,,,,,false,,
+レビュー,reviews,Product reviews,ユーザーID,user_id,NullableID,,,,,false,,FK to users
+レビュー,reviews,Product reviews,商品ID,product_id,NullableID,,,,,false,,FK to products
+レビュー,reviews,Product reviews,評価,rating,Flag,,,,,false,,1-5 stars
+レビュー,reviews,Product reviews,コメント,comment,Text,,,,,true,,
+レビュー,reviews,Product reviews,作成日時,created_at,Timestamp,,,,,false,CURRENT_TIMESTAMP,
+住所,addresses,Customer shipping addresses,住所ID,address_id,ID,,,,,false,,
+住所,addresses,Customer shipping addresses,ユーザーID,user_id,NullableID,,,,,false,,FK to users
+住所,addresses,Customer shipping addresses,郵便番号,postal_code,,VARCHAR,10,true,,false,,
+住所,addresses,Customer shipping addresses,都道府県,prefecture,Name,,,,,false,,
+住所,addresses,Customer shipping addresses,市区町村,city,Name,,,,,false,,
+住所,addresses,Customer shipping addresses,番地,address_line,Title,,,,,false,,
+住所,addresses,Customer shipping addresses,デフォルト,is_default,Flag,,,,,false,0,Default address flag
