@@ -213,7 +213,7 @@ const overlayStyle: React.CSSProperties = {
 
 const panelStyle: React.CSSProperties = {
   background: '#fff', borderRadius: 6,
-  width: 760, maxWidth: '95vw',
+  width: 760, maxWidth: '95vw', maxHeight: '90vh',
   display: 'flex', flexDirection: 'column',
   boxShadow: '0 8px 32px #0006',
   border: '1px solid #ccc',
@@ -235,8 +235,8 @@ const topFixedStyle: React.CSSProperties = {
 const specPaneStyle: React.CSSProperties = {
   padding: '14px 20px',
   overflowY: 'auto',
-  height: 340,
-  flexShrink: 0,
+  flex: 1,
+  minHeight: 0,
 };
 
 const closeBtnStyle: React.CSSProperties = {
