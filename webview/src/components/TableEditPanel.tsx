@@ -3,8 +3,9 @@ import { useDiagramStore } from '../store/diagramStore';
 import { useUiStore } from '../store/uiStore';
 import { ColumnRow } from './ColumnRow';
 import { SeedDataEditor } from './SeedDataEditor';
+import type { ConstraintType } from '@shared/DiagramModel';
 
-type TabId = 'definition' | 'seed';
+type TabId = 'definition' | 'indexes' | 'seed';
 
 const PRESET_COLORS = ['#4a7c9e', '#6a9e4a', '#9e6a4a', '#9e4a7c', '#4a6a9e', '#7c4a9e'];
 
@@ -16,11 +17,17 @@ export function TableEditPanel() {
 
   const table      = useDiagramStore((s) => s.model.tables.find((t) => t.id === selectedTableId));
   const dictionary = useDiagramStore((s) => s.model.dictionary);
-  const updateTable    = useDiagramStore((s) => s.updateTable);
-  const deleteTable    = useDiagramStore((s) => s.deleteTable);
-  const addColumn      = useDiagramStore((s) => s.addColumn);
-  const deleteColumn   = useDiagramStore((s) => s.deleteColumn);
-  const updateSeedData = useDiagramStore((s) => s.updateSeedData);
+  const updateTable      = useDiagramStore((s) => s.updateTable);
+  const deleteTable      = useDiagramStore((s) => s.deleteTable);
+  const addColumn        = useDiagramStore((s) => s.addColumn);
+  const deleteColumn     = useDiagramStore((s) => s.deleteColumn);
+  const updateSeedData   = useDiagramStore((s) => s.updateSeedData);
+  const addIndex         = useDiagramStore((s) => s.addIndex);
+  const updateIndex      = useDiagramStore((s) => s.updateIndex);
+  const deleteIndex      = useDiagramStore((s) => s.deleteIndex);
+  const addConstraint    = useDiagramStore((s) => s.addConstraint);
+  const updateConstraint = useDiagramStore((s) => s.updateConstraint);
+  const deleteConstraint = useDiagramStore((s) => s.deleteConstraint);
 
   if (!selectedTableId || !table) return null;
 
@@ -33,13 +40,13 @@ export function TableEditPanel() {
 
       {/* Tab bar */}
       <div style={tabBarStyle}>
-        {(['definition', 'seed'] as TabId[]).map((tab) => (
+        {(['definition', 'indexes', 'seed'] as TabId[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             style={tabBtnStyle(tab === activeTab)}
           >
-            {tab === 'definition' ? 'Definition' : 'Seed Data'}
+            {tab === 'definition' ? 'Definition' : tab === 'indexes' ? 'Indexes' : 'Seed Data'}
           </button>
         ))}
       </div>
@@ -49,6 +56,17 @@ export function TableEditPanel() {
           <SeedDataEditor
             table={table}
             onUpdate={(data) => updateSeedData(selectedTableId, data)}
+          />
+        ) : activeTab === 'indexes' ? (
+          <IndexesTab
+            table={table}
+            tableId={selectedTableId}
+            addIndex={() => addIndex(selectedTableId)}
+            updateIndex={(id, p) => updateIndex(selectedTableId, id, p)}
+            deleteIndex={(id) => deleteIndex(selectedTableId, id)}
+            addConstraint={(t) => addConstraint(selectedTableId, t)}
+            updateConstraint={(id, p) => updateConstraint(selectedTableId, id, p)}
+            deleteConstraint={(id) => deleteConstraint(selectedTableId, id)}
           />
         ) : (
           <>
@@ -278,3 +296,120 @@ const tabBtnStyle = (active: boolean): React.CSSProperties => ({
   padding: '6px 14px',
   marginBottom: -1,
 });
+
+// ── Indexes tab ────────────────────────────────────────────────────────────────
+
+import type { Table, TableIndex, TableConstraint } from '@shared/DiagramModel';
+
+interface IndexesTabProps {
+  table: Table;
+  tableId: string;
+  addIndex: () => void;
+  updateIndex: (id: string, patch: Partial<Omit<TableIndex, 'id'>>) => void;
+  deleteIndex: (id: string) => void;
+  addConstraint: (type: ConstraintType) => void;
+  updateConstraint: (id: string, patch: Partial<Omit<TableConstraint, 'id'>>) => void;
+  deleteConstraint: (id: string) => void;
+}
+
+function IndexesTab({ table, addIndex, updateIndex, deleteIndex, addConstraint, updateConstraint, deleteConstraint }: IndexesTabProps) {
+  const colOptions = table.columns.map((c) => c.physicalName);
+
+  return (
+    <div>
+      {/* Indexes section */}
+      <div style={sectionHeaderStyle}>Indexes</div>
+      {(table.indexes ?? []).map((idx) => (
+        <div key={idx.id} style={idxRowStyle}>
+          <input
+            style={{ ...idxInputStyle, flex: 1 }}
+            placeholder="Index name"
+            value={idx.name}
+            onChange={(e) => updateIndex(idx.id, { name: e.target.value })}
+          />
+          <label style={idxLabelStyle}>
+            <input type="checkbox" checked={idx.unique} onChange={(e) => updateIndex(idx.id, { unique: e.target.checked })} />
+            UNIQUE
+          </label>
+          <div style={{ flex: 2 }}>
+            <div style={{ fontSize: 10, color: '#888', marginBottom: 2 }}>Columns (check to include)</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {colOptions.map((col) => (
+                <label key={col} style={idxLabelStyle}>
+                  <input
+                    type="checkbox"
+                    checked={idx.columns.includes(col)}
+                    onChange={(e) => {
+                      const cols = e.target.checked
+                        ? [...idx.columns, col]
+                        : idx.columns.filter((c) => c !== col);
+                      updateIndex(idx.id, { columns: cols });
+                    }}
+                  />
+                  {col}
+                </label>
+              ))}
+            </div>
+          </div>
+          <button onClick={() => deleteIndex(idx.id)} style={delBtnStyle}>−</button>
+        </div>
+      ))}
+      <button onClick={addIndex} style={addSubBtnStyle}>+ Add Index</button>
+
+      {/* Constraints section */}
+      <div style={{ ...sectionHeaderStyle, marginTop: 14 }}>Constraints</div>
+      {(table.constraints ?? []).map((c) => (
+        <div key={c.id} style={idxRowStyle}>
+          <select
+            style={idxInputStyle}
+            value={c.type}
+            onChange={(e) => updateConstraint(c.id, { type: e.target.value as ConstraintType })}
+          >
+            <option value="UNIQUE">UNIQUE</option>
+            <option value="CHECK">CHECK</option>
+            <option value="CUSTOM">CUSTOM</option>
+          </select>
+          <input
+            style={{ ...idxInputStyle, flex: 1 }}
+            placeholder="Constraint name"
+            value={c.name}
+            onChange={(e) => updateConstraint(c.id, { name: e.target.value })}
+          />
+          <input
+            style={{ ...idxInputStyle, flex: 2 }}
+            placeholder={c.type === 'UNIQUE' ? 'col1, col2' : c.type === 'CHECK' ? 'age > 0' : 'Raw SQL'}
+            value={c.expression}
+            onChange={(e) => updateConstraint(c.id, { expression: e.target.value })}
+          />
+          <button onClick={() => deleteConstraint(c.id)} style={delBtnStyle}>−</button>
+        </div>
+      ))}
+      <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+        {(['UNIQUE', 'CHECK', 'CUSTOM'] as ConstraintType[]).map((t) => (
+          <button key={t} onClick={() => addConstraint(t)} style={addSubBtnStyle}>+ {t}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const sectionHeaderStyle: React.CSSProperties = {
+  fontSize: 11, fontWeight: 700, color: '#4a7c9e',
+  borderBottom: '1px solid #e0e8f0', paddingBottom: 2, marginBottom: 6,
+};
+const idxRowStyle: React.CSSProperties = {
+  display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 6, flexWrap: 'wrap',
+};
+const idxInputStyle: React.CSSProperties = {
+  fontSize: 12, padding: '2px 5px', border: '1px solid #ccc', borderRadius: 3, minWidth: 80,
+};
+const idxLabelStyle: React.CSSProperties = {
+  fontSize: 11, display: 'flex', alignItems: 'center', gap: 3, whiteSpace: 'nowrap',
+};
+const delBtnStyle: React.CSSProperties = {
+  background: '#e55', color: '#fff', border: 'none', borderRadius: 3, cursor: 'pointer', padding: '2px 7px', fontSize: 12,
+};
+const addSubBtnStyle: React.CSSProperties = {
+  background: '#5a8a6a', color: '#fff', border: 'none', borderRadius: 3,
+  padding: '3px 9px', cursor: 'pointer', fontSize: 11,
+};

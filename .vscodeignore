@@ -3,10 +3,11 @@
 src/**
 shared/**
 webview/**
-out/test/**
+out/**
+!out/extension.js
 **/*.map
 **/*.ts
-!**/*.d.ts
 node_modules/**
 .gitignore
 tsconfig.json
+CLAUDE.md

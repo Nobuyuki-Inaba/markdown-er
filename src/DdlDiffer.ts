@@ -21,6 +21,10 @@ export class DdlDiffer {
 
     return generateAlterStatements(baseline, current, dialect);
   }
+
+  static diffModels(baseline: DiagramModel, current: DiagramModel, dialect: DdlDialect = 'mysql'): string {
+    return generateAlterStatements(baseline, current, dialect);
+  }
 }
 
 async function getBaselineModel(fileUri: vscode.Uri, ref: string): Promise<DiagramModel> {

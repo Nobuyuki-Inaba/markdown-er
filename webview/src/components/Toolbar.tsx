@@ -3,6 +3,7 @@ import { useDiagramStore } from '../store/diagramStore';
 import { useUiStore } from '../store/uiStore';
 import { sendToExtension } from '../vscodeApi';
 import type { LayoutDirection } from '../util/autoLayout';
+import type { DiagramModel } from '@shared/DiagramModel';
 
 export function Toolbar() {
   const nameMode    = useDiagramStore((s) => s.model.layout.nameMode);
@@ -12,12 +13,16 @@ export function Toolbar() {
   const applyAutoLayout = useDiagramStore((s) => s.applyAutoLayout);
   const viewport    = useDiagramStore((s) => s.model.layout.viewport);
   const tableCount  = useDiagramStore((s) => s.model.layout.tables.length);
+  const model       = useDiagramStore((s) => s.model);
 
-  const openDictionary  = useUiStore((s) => s.openDictionary);
-  const openCsvImport   = useUiStore((s) => s.openCsvImport);
-  const dialect         = useUiStore((s) => s.dialect);
+  const openDictionary = useUiStore((s) => s.openDictionary);
+  const openCsvImport  = useUiStore((s) => s.openCsvImport);
+  const openVersions   = useUiStore((s) => s.openVersions);
+  const dialect        = useUiStore((s) => s.dialect);
   const showMinimap    = useUiStore((s) => s.showMinimap);
   const toggleMinimap  = useUiStore((s) => s.toggleMinimap);
+  const searchQuery    = useUiStore((s) => s.searchQuery);
+  const setSearchQuery = useUiStore((s) => s.setSearchQuery);
 
   const [layoutMenuOpen, setLayoutMenuOpen] = useState(false);
   const layoutBtnRef = useRef<HTMLButtonElement>(null);
@@ -134,6 +139,27 @@ export function Toolbar() {
         Import CSV
       </button>
 
+      <div style={divider} />
+
+      {/* Search box */}
+      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+        <span style={{ position: 'absolute', left: 6, fontSize: 12, color: '#aaa', pointerEvents: 'none' }}>🔍</span>
+        <input
+          type="text"
+          placeholder="Search tables / columns…"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={searchInputStyle}
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            style={{ position: 'absolute', right: 4, background: 'none', border: 'none', color: '#aaa', cursor: 'pointer', fontSize: 12, padding: 0 }}
+            title="Clear search"
+          >✕</button>
+        )}
+      </div>
+
       <button
         onClick={toggleMinimap}
         style={{ ...btnStyle, ...(showMinimap ? {} : { color: '#888', borderColor: '#555' }) }}
@@ -143,6 +169,21 @@ export function Toolbar() {
       </button>
 
       <div style={{ flex: 1 }} />
+
+      <button
+        onClick={() => sendToExtension({ type: 'saveVersion', payload: { model: model as DiagramModel } })}
+        style={{ ...btnStyle, background: '#5a5a8a', color: '#fff' }}
+        title="現在のスキーマ状態をバージョンとして保存"
+      >
+        Save Version
+      </button>
+      <button
+        onClick={openVersions}
+        style={{ ...btnStyle, background: '#5a5a8a', color: '#fff' }}
+        title="保存済みバージョンの一覧・管理"
+      >
+        Versions
+      </button>
 
       <button
         onClick={() => {
@@ -196,6 +237,17 @@ const divider: React.CSSProperties = {
   height: 20,
   background: '#555',
   margin: '0 4px',
+};
+
+const searchInputStyle: React.CSSProperties = {
+  background: '#3a3a3a',
+  color: '#eee',
+  border: '1px solid #666',
+  borderRadius: 4,
+  padding: '4px 24px 4px 22px',
+  fontSize: 12,
+  width: 200,
+  outline: 'none',
 };
 
 const dropdownStyle: React.CSSProperties = {

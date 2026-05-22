@@ -20,6 +20,7 @@ export interface DictionaryEntry {
   length: number | null;
   notNull: boolean;
   comment: string;
+  category?: string;
 }
 
 export interface Column {
@@ -34,6 +35,24 @@ export interface Column {
   designNote?: string;
 }
 
+export interface TableIndex {
+  id: string;
+  name: string;
+  columns: string[];
+  unique: boolean;
+  comment?: string;
+}
+
+export type ConstraintType = 'UNIQUE' | 'CHECK' | 'CUSTOM';
+
+export interface TableConstraint {
+  id: string;
+  type: ConstraintType;
+  name: string;
+  expression: string;
+  comment?: string;
+}
+
 export interface Table {
   id: string;
   logicalName: string;
@@ -42,6 +61,8 @@ export interface Table {
   designNote?: string;
   headerColor?: string;
   columns: Column[];
+  indexes?: TableIndex[];
+  constraints?: TableConstraint[];
   seedData?: Record<string, string>[];
 }
 
@@ -75,6 +96,21 @@ export interface RegionLayout {
   height: number;
 }
 
+export interface SchemaVersion {
+  id: string;
+  name: string;
+  date: string;
+  tables: Table[];
+  relations: Relation[];
+  dictionary: DictionaryEntry[];
+  layout: {
+    nameMode: 'logical' | 'physical';
+    tables: TableLayout[];
+    regions: RegionLayout[];
+    viewport: { x: number; y: number; zoom: number };
+  };
+}
+
 export interface DiagramModel {
   version: number;
   dictionary: DictionaryEntry[];
@@ -86,6 +122,7 @@ export interface DiagramModel {
     regions: RegionLayout[];
     viewport: { x: number; y: number; zoom: number };
   };
+  schemaVersions?: SchemaVersion[];
 }
 
 export function createEmptyModel(): DiagramModel {

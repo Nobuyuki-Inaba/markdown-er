@@ -30,14 +30,19 @@ The diagram is stored in a `.ermd` file (with `er-diagram: true` in the front ma
 | **Auto Layout** | Arrange all tables automatically — Vertical, Horizontal, or Auto. Undo-able with `Ctrl+Z` |
 | **Database dialect** | Choose MySQL, PostgreSQL, SQLite, or SQL Server in Settings |
 | **Minimap toggle** | Show or hide the minimap with the Minimap button in the toolbar |
+| **Schema versioning** | Save named snapshots of the schema inside the `.ermd` file; generate `ALTER TABLE` DDL between any two versions — no git commit required |
 
 ---
 
 ## Getting started
 
+> **v0.0.1 note:** This is an initial release. The `.ermd` file schema (YAML block structure, field names) may receive **breaking changes** in future versions before a stable 1.0 release. Back up or version-control your `.ermd` files if you rely on them long-term.
+
 ### Install
 
-> **Note:** This extension is currently distributed from source only. Marketplace release is planned.
+Search for **"Markdown ER Diagram"** in the VSCode Extensions panel and click **Install**.
+
+#### Build from source
 
 ```bash
 git clone https://github.com/Nobuyuki-Inaba/markdown-er.git
@@ -119,6 +124,66 @@ Double-click a table → select the **Seed Data** tab.
 - Edit cell values directly in the table
 - Click **✕** to delete a row
 - Changes are undo-able with `Ctrl+Z`
+
+### Add a region group box
+
+Click **+ Region** in the toolbar. A labeled rectangle appears at the canvas center.
+
+- Drag the border to reposition the box; drag the bottom-right corner to resize it
+- Double-click the label to rename the region
+- Click to select, then press **Delete** to remove
+
+### Auto Layout
+
+Click **Auto Layout** in the toolbar to arrange all tables automatically.  
+Click the **▾** dropdown next to it to choose a specific direction:
+
+| Option | Effect |
+|---|---|
+| **↕ Vertical** | Arranges tables top-to-bottom |
+| **↔ Horizontal** | Arranges tables left-to-right |
+| **✦ Auto** | Picks the best direction based on the diagram shape |
+
+Auto Layout is undo-able with `Ctrl+Z`.
+
+### Search tables and columns
+
+Type in the **Search** box in the toolbar to filter tables and columns by name.  
+Matching tables are highlighted; non-matching tables are dimmed. Click **✕** to clear.
+
+### Minimap
+
+Click **Minimap** in the toolbar to show or hide the minimap overlay.
+
+### Database dialect and settings
+
+The active DDL dialect is shown as a badge next to **Export DDL** (e.g. `mysql`).  
+Click the **⚙** gear button in the toolbar to open VSCode Settings filtered to `markdown-er`.
+
+| Setting | Values | Default |
+|---|---|---|
+| `markdown-er.ddl.dialect` | `mysql` / `postgresql` / `sqlite` / `sqlserver` | `mysql` |
+
+### Schema versioning
+
+#### Save a version
+
+Click **Save Version** in the toolbar. A VSCode input box opens — type a name (e.g. `v1.0`, `before-refactor`) and press **Enter**.  
+The snapshot is saved in the `ermd-versions` block at the bottom of the `.ermd` file. No git commit required.
+
+#### Manage versions
+
+Click **Versions** in the toolbar to open the Versions panel.  
+Each row shows the version name, save date, table count, and relation count.  
+Click **削除** (Delete) and confirm to remove a version from the file.
+
+#### Generate Version Diff DDL
+
+Click **Export DDL** → select the **Version Diff** radio button.  
+Choose a **From** version and a **To** version (defaults to "current state").  
+The `ALTER TABLE` statements needed to migrate from the From snapshot to the To state are generated automatically.
+
+---
 
 ### Export DDL
 

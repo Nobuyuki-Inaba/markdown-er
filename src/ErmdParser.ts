@@ -1,7 +1,7 @@
 import * as yaml from 'js-yaml';
 import {
   DiagramModel, DictionaryEntry, Table, Column, Relation,
-  TableLayout, RegionLayout, createEmptyModel,
+  TableLayout, RegionLayout, SchemaVersion, createEmptyModel,
 } from '../shared/DiagramModel';
 
 export class ErmdParser {
@@ -42,6 +42,8 @@ export class ErmdParser {
                 comment: String(t['comment'] ?? ''),
                 designNote: t['designNote'] ? String(t['designNote']) : undefined,
                 headerColor: t['headerColor'] ? String(t['headerColor']) : undefined,
+                indexes: Array.isArray(t['indexes']) ? t['indexes'] as import('../shared/DiagramModel').TableIndex[] : undefined,
+                constraints: Array.isArray(t['constraints']) ? t['constraints'] as import('../shared/DiagramModel').TableConstraint[] : undefined,
                 columns: Array.isArray(t['columns'])
                   ? (t['columns'] as Column[])
                   : [],
@@ -58,6 +60,11 @@ export class ErmdParser {
           case 'ermd-relations':
             if (Array.isArray(data)) {
               model.relations = data as Relation[];
+            }
+            break;
+          case 'ermd-versions':
+            if (Array.isArray(data)) {
+              model.schemaVersions = data as SchemaVersion[];
             }
             break;
           case 'ermd-layout': {

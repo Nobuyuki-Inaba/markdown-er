@@ -3,10 +3,12 @@ import { temporal } from 'zundo';
 import {
   DiagramModel, Table, Column, Relation, DictionaryEntry,
   createEmptyModel, TableLayout, RegionLayout,
+  TableIndex, TableConstraint, ConstraintType,
 } from '@shared/DiagramModel';
 import { genId } from '../util/idgen';
 import { computeAutoLayout, LayoutDirection, TablePosition } from '../util/autoLayout';
 import type { ParsedTableImport, ParsedDictionaryImport } from '../util/csvImport';
+
 
 interface DiagramState {
   model: DiagramModel;
@@ -45,6 +47,14 @@ interface DiagramState {
 
   importTables: (parsed: ParsedTableImport) => void;
   importDictionaryEntries: (parsed: ParsedDictionaryImport) => void;
+
+  addIndex: (tableId: string) => void;
+  updateIndex: (tableId: string, indexId: string, patch: Partial<Omit<TableIndex, 'id'>>) => void;
+  deleteIndex: (tableId: string, indexId: string) => void;
+
+  addConstraint: (tableId: string, type: ConstraintType) => void;
+  updateConstraint: (tableId: string, constraintId: string, patch: Partial<Omit<TableConstraint, 'id'>>) => void;
+  deleteConstraint: (tableId: string, constraintId: string) => void;
 }
 
 function nextVersion(state: DiagramState): number {
@@ -330,6 +340,66 @@ export const useDiagramStore = create<DiagramState>()(
         updateModel(set, (m) => ({
           ...m,
           dictionary: [...m.dictionary, ...entries],
+        })),
+
+      addIndex: (tableId) =>
+        updateModel(set, (m) => ({
+          ...m,
+          tables: m.tables.map((t) =>
+            t.id === tableId
+              ? { ...t, indexes: [...(t.indexes ?? []), { id: genId('idx'), name: '', columns: [], unique: false }] }
+              : t
+          ),
+        })),
+
+      updateIndex: (tableId, indexId, patch) =>
+        updateModel(set, (m) => ({
+          ...m,
+          tables: m.tables.map((t) =>
+            t.id === tableId
+              ? { ...t, indexes: (t.indexes ?? []).map((i) => i.id === indexId ? { ...i, ...patch } : i) }
+              : t
+          ),
+        })),
+
+      deleteIndex: (tableId, indexId) =>
+        updateModel(set, (m) => ({
+          ...m,
+          tables: m.tables.map((t) =>
+            t.id === tableId
+              ? { ...t, indexes: (t.indexes ?? []).filter((i) => i.id !== indexId) || undefined }
+              : t
+          ),
+        })),
+
+      addConstraint: (tableId, type) =>
+        updateModel(set, (m) => ({
+          ...m,
+          tables: m.tables.map((t) =>
+            t.id === tableId
+              ? { ...t, constraints: [...(t.constraints ?? []), { id: genId('cst'), type, name: '', expression: '' }] }
+              : t
+          ),
+        })),
+
+      updateConstraint: (tableId, constraintId, patch) =>
+        updateModel(set, (m) => ({
+          ...m,
+          tables: m.tables.map((t) =>
+            t.id === tableId
+              ? { ...t, constraints: (t.constraints ?? []).map((c) => c.id === constraintId ? { ...c, ...patch } : c) }
+              : t
+          ),
+        })),
+
+      deleteConstraint: (tableId, constraintId) =>
+        updateModel(set, (m) => ({
+          ...m,
+          tables: m.tables.map((t) =>
+            t.id === tableId
+              ? { ...t, constraints: (t.constraints ?? []).filter((c) => c.id !== constraintId) || undefined }
+              : t
+          ),
         })),
     }),
     {

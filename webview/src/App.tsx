@@ -8,6 +8,7 @@ import { TableEditPanel } from './components/TableEditPanel';
 import { RelationEditPanel } from './components/RelationEditPanel';
 import { DictionaryPanel } from './components/DictionaryPanel';
 import { CsvImportPanel } from './components/CsvImportPanel';
+import { VersionsPanel } from './components/VersionsPanel';
 
 export function App() {
   const setModel   = useDiagramStore((s) => s.setModel);
@@ -32,6 +33,9 @@ export function App() {
           break;
         case 'ddlResult':
           openDdl(msg.payload.ddl);
+          break;
+        case 'versionSaved':
+          setModel(msg.payload);
           break;
         case 'dialectChanged':
           setDialect(msg.payload.dialect);
@@ -100,12 +104,13 @@ export function App() {
   // DDL export request from toolbar or DDL modal
   useEffect(() => {
     const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail as { mode: 'full' | 'diff' };
-      const { ddlInsertSeedData, ddlSkipAutoIncrementPk } = useUiStore.getState();
+      const detail = (e as CustomEvent).detail as { mode: 'full' | 'diff' | 'version-diff' };
+      const { ddlInsertSeedData, ddlSkipAutoIncrementPk, ddlFromVersionId, ddlToVersionId } = useUiStore.getState();
       sendToExtension({
         type: 'requestDdl',
         payload: {
           mode: detail.mode,
+          ...(detail.mode === 'version-diff' ? { fromVersionId: ddlFromVersionId ?? undefined, toVersionId: ddlToVersionId } : {}),
           insertSeedData: ddlInsertSeedData,
           skipAutoIncrementPk: ddlSkipAutoIncrementPk,
         },
@@ -124,6 +129,7 @@ export function App() {
         <RelationEditPanel />
         <DictionaryPanel />
         <CsvImportPanel />
+        <VersionsPanel />
         {isDdlOpen && (
           <DdlModal ddl={lastDdl} onClose={closeDdl} />
         )}
@@ -135,21 +141,50 @@ export function App() {
 function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
   const insertSeedData      = useUiStore((s) => s.ddlInsertSeedData);
   const skipAutoIncrementPk = useUiStore((s) => s.ddlSkipAutoIncrementPk);
+  const ddlMode             = useUiStore((s) => s.ddlMode);
+  const ddlFromVersionId    = useUiStore((s) => s.ddlFromVersionId);
+  const ddlToVersionId      = useUiStore((s) => s.ddlToVersionId);
   const setDdlOptions       = useUiStore((s) => s.setDdlOptions);
+  const setDdlMode          = useUiStore((s) => s.setDdlMode);
+  const setDdlVersions      = useUiStore((s) => s.setDdlVersions);
+  const schemaVersions      = useDiagramStore((s) => s.model.schemaVersions ?? []);
 
   const handleInsertChange = (checked: boolean) => {
     setDdlOptions(checked, checked ? skipAutoIncrementPk : false);
-    window.dispatchEvent(new CustomEvent('er:requestDdl', { detail: { mode: 'full' } }));
+    window.dispatchEvent(new CustomEvent('er:requestDdl', { detail: { mode: ddlMode } }));
   };
 
   const handleSkipPkChange = (checked: boolean) => {
     setDdlOptions(insertSeedData, checked);
-    window.dispatchEvent(new CustomEvent('er:requestDdl', { detail: { mode: 'full' } }));
+    window.dispatchEvent(new CustomEvent('er:requestDdl', { detail: { mode: ddlMode } }));
+  };
+
+  const handleModeChange = (mode: 'full' | 'version-diff') => {
+    setDdlMode(mode);
+    if (mode === 'full') {
+      window.dispatchEvent(new CustomEvent('er:requestDdl', { detail: { mode: 'full' } }));
+    } else if (schemaVersions.length > 0) {
+      const firstId = ddlFromVersionId ?? schemaVersions[0].id;
+      setDdlVersions(firstId, ddlToVersionId);
+      window.dispatchEvent(new CustomEvent('er:requestDdl', { detail: { mode: 'version-diff' } }));
+    }
+  };
+
+  const handleFromChange = (id: string) => {
+    setDdlVersions(id, ddlToVersionId);
+    window.dispatchEvent(new CustomEvent('er:requestDdl', { detail: { mode: 'version-diff' } }));
+  };
+
+  const handleToChange = (id: string | null) => {
+    setDdlVersions(ddlFromVersionId, id);
+    window.dispatchEvent(new CustomEvent('er:requestDdl', { detail: { mode: 'version-diff' } }));
   };
 
   const copyToClipboard = useCallback(() => {
     navigator.clipboard.writeText(ddl).catch(() => {});
   }, [ddl]);
+
+  const hasVersions = schemaVersions.length > 0;
 
   return (
     <div style={{
@@ -162,6 +197,7 @@ function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
         display: 'flex', flexDirection: 'column',
         boxShadow: '0 8px 32px #0008',
       }}>
+        {/* header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderBottom: '1px solid #333' }}>
           <span style={{ fontWeight: 700, fontSize: 14 }}>Generated DDL</span>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -170,28 +206,71 @@ function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
           </div>
         </div>
 
-        {/* INSERT options */}
-        <div style={{ padding: '8px 14px', borderBottom: '1px solid #2a2a2a', display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+        {/* mode selector */}
+        <div style={{ padding: '8px 14px', borderBottom: '1px solid #2a2a2a', display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
           <label style={optionLabelStyle}>
-            <input
-              type="checkbox"
-              checked={insertSeedData}
-              onChange={(e) => handleInsertChange(e.target.checked)}
-              style={{ marginRight: 6 }}
-            />
-            Include seed data as INSERT statements
+            <input type="radio" name="ddlMode" checked={ddlMode === 'full'} onChange={() => handleModeChange('full')} style={{ marginRight: 5 }} />
+            Full DDL
           </label>
-          <label style={{ ...optionLabelStyle, opacity: insertSeedData ? 1 : 0.4, pointerEvents: insertSeedData ? 'auto' : 'none' }}>
-            <input
-              type="checkbox"
-              checked={skipAutoIncrementPk}
-              disabled={!insertSeedData}
-              onChange={(e) => handleSkipPkChange(e.target.checked)}
-              style={{ marginRight: 6 }}
-            />
-            Skip auto-increment PK columns
+          <label style={{ ...optionLabelStyle, opacity: hasVersions ? 1 : 0.4 }}>
+            <input type="radio" name="ddlMode" checked={ddlMode === 'version-diff'} disabled={!hasVersions} onChange={() => handleModeChange('version-diff')} style={{ marginRight: 5 }} />
+            Version Diff
           </label>
+          {!hasVersions && <span style={{ fontSize: 11, color: '#777' }}>（バージョンを保存すると比較できます）</span>}
         </div>
+
+        {/* version diff controls */}
+        {ddlMode === 'version-diff' && hasVersions && (
+          <div style={{ padding: '8px 14px', borderBottom: '1px solid #2a2a2a', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12, color: '#aaa' }}>From:</span>
+            <select
+              value={ddlFromVersionId ?? ''}
+              onChange={(e) => handleFromChange(e.target.value)}
+              style={selectStyle}
+            >
+              <option value="" disabled>選択…</option>
+              {schemaVersions.map((v) => (
+                <option key={v.id} value={v.id}>{v.name} ({formatDate(v.date)})</option>
+              ))}
+            </select>
+            <span style={{ fontSize: 12, color: '#aaa' }}>To:</span>
+            <select
+              value={ddlToVersionId ?? '__current__'}
+              onChange={(e) => handleToChange(e.target.value === '__current__' ? null : e.target.value)}
+              style={selectStyle}
+            >
+              <option value="__current__">現在の状態</option>
+              {schemaVersions.map((v) => (
+                <option key={v.id} value={v.id}>{v.name} ({formatDate(v.date)})</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* INSERT options */}
+        {ddlMode === 'full' && (
+          <div style={{ padding: '8px 14px', borderBottom: '1px solid #2a2a2a', display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+            <label style={optionLabelStyle}>
+              <input
+                type="checkbox"
+                checked={insertSeedData}
+                onChange={(e) => handleInsertChange(e.target.checked)}
+                style={{ marginRight: 6 }}
+              />
+              Include seed data as INSERT statements
+            </label>
+            <label style={{ ...optionLabelStyle, opacity: insertSeedData ? 1 : 0.4, pointerEvents: insertSeedData ? 'auto' : 'none' }}>
+              <input
+                type="checkbox"
+                checked={skipAutoIncrementPk}
+                disabled={!insertSeedData}
+                onChange={(e) => handleSkipPkChange(e.target.checked)}
+                style={{ marginRight: 6 }}
+              />
+              Skip auto-increment PK columns
+            </label>
+          </div>
+        )}
 
         <pre style={{ flex: 1, overflowY: 'auto', margin: 0, padding: 14, fontSize: 12, fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
           {ddl}
@@ -200,6 +279,19 @@ function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
     </div>
   );
 }
+
+function formatDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return iso;
+  }
+}
+
+const selectStyle: React.CSSProperties = {
+  background: '#2a2a2a', color: '#ddd', border: '1px solid #555',
+  borderRadius: 3, padding: '3px 6px', fontSize: 12,
+};
 
 const modalBtnStyle: React.CSSProperties = {
   border: 'none', borderRadius: 4, padding: '4px 10px',
