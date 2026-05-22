@@ -20,11 +20,44 @@ interface CustomTypeForm {
 const EMPTY_FORM: CustomTypeForm = { name: '', dbType: 'VARCHAR', length: '', notNull: true, comment: '' };
 
 export function ColumnRow({ tableId, column, dictionary, onDelete }: Props) {
-  const updateColumn   = useDiagramStore((s) => s.updateColumn);
-  const addColumnType  = useDiagramStore((s) => s.addColumnType);
+  const updateColumn  = useDiagramStore((s) => s.updateColumn);
+  const addColumnType = useDiagramStore((s) => s.addColumnType);
   const [noteOpen, setNoteOpen]     = useState(false);
   const [customOpen, setCustomOpen] = useState(false);
   const [form, setForm]             = useState<CustomTypeForm>(EMPTY_FORM);
+  // Free-form text the user is currently typing in the type field
+  const [typeText, setTypeText]     = useState('');
+
+  const currentEntry = dictionary.find((e) => e.id === column.dictionaryId);
+  // Show typeText while the user is typing; otherwise show the current entry name
+  const typeDisplayValue = typeText !== '' ? typeText : (currentEntry?.name ?? '');
+
+  // True when the user has typed something that doesn't match any dict entry
+  const unregistered = typeText.trim() !== '' &&
+    !dictionary.find((e) => e.name.toLowerCase() === typeText.trim().toLowerCase());
+
+  const handleTypeChange = (value: string) => {
+    setTypeText(value);
+    if (!value.trim()) {
+      updateColumn(tableId, column.id, { dictionaryId: '' });
+      return;
+    }
+    const match = dictionary.find((e) => e.name.toLowerCase() === value.trim().toLowerCase());
+    if (match) {
+      updateColumn(tableId, column.id, { dictionaryId: match.id });
+      setTypeText('');   // commit — input reverts to entry name display
+      setCustomOpen(false);
+    }
+  };
+
+  const handleOpenCustom = () => {
+    const next = !customOpen;
+    setCustomOpen(next);
+    if (next) {
+      // Pre-fill name from whatever the user typed (if unregistered)
+      setForm(typeText.trim() ? { ...EMPTY_FORM, name: typeText.trim() } : EMPTY_FORM);
+    }
+  };
 
   const handleRegister = () => {
     if (!form.name.trim()) return;
@@ -37,7 +70,10 @@ export function ColumnRow({ tableId, column, dictionary, onDelete }: Props) {
     });
     setCustomOpen(false);
     setForm(EMPTY_FORM);
+    setTypeText('');
   };
+
+  const datalistId = `dict-list-${column.id}`;
 
   return (
     <div style={{ borderBottom: '1px solid #eee' }}>
@@ -56,9 +92,7 @@ export function ColumnRow({ tableId, column, dictionary, onDelete }: Props) {
           <input
             type="checkbox"
             checked={column.isPrimaryKey}
-            onChange={(e) =>
-              updateColumn(tableId, column.id, { isPrimaryKey: e.target.checked })
-            }
+            onChange={(e) => updateColumn(tableId, column.id, { isPrimaryKey: e.target.checked })}
           />
         </label>
 
@@ -78,24 +112,38 @@ export function ColumnRow({ tableId, column, dictionary, onDelete }: Props) {
           onChange={(e) => updateColumn(tableId, column.id, { physicalName: e.target.value })}
         />
 
-        {/* Dictionary type + custom-type toggle */}
+        {/* Type combo: free-text input + datalist + register toggle */}
         <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          <select
-            style={{ ...inputStyle, flex: 1 }}
-            value={column.dictionaryId}
-            onChange={(e) => updateColumn(tableId, column.id, { dictionaryId: e.target.value })}
-          >
-            <option value="">— select type —</option>
+          <input
+            list={datalistId}
+            style={{
+              ...inputStyle,
+              flex: 1,
+              borderColor: unregistered ? '#e8a000' : undefined,
+              background: unregistered ? '#fffbe6' : undefined,
+            }}
+            value={typeDisplayValue}
+            placeholder="Type…"
+            onChange={(e) => handleTypeChange(e.target.value)}
+            title={unregistered ? `"${typeText.trim()}" is not in the dictionary — click + to register` : 'Select or type a column type'}
+          />
+          <datalist id={datalistId}>
             {dictionary.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.name}{e.length ? `(${e.length})` : ''} [{e.dbType}]
+              <option key={e.id} value={e.name}>
+                {e.dbType}{e.length ? `(${e.length})` : ''}
               </option>
             ))}
-          </select>
+          </datalist>
           <button
-            onClick={() => setCustomOpen((o) => !o)}
-            style={customToggleBtnStyle(customOpen)}
-            title="Define a new type and register it to the dictionary"
+            onClick={handleOpenCustom}
+            style={customToggleBtnStyle(customOpen, unregistered)}
+            title={
+              unregistered
+                ? `Register "${typeText.trim()}" to dictionary`
+                : customOpen
+                  ? 'Close custom type form'
+                  : 'Define a new type and register it to the dictionary'
+            }
           >
             {customOpen ? '▲' : '+'}
           </button>
@@ -197,10 +245,10 @@ const inputStyle: React.CSSProperties = {
   boxSizing: 'border-box',
 };
 
-const customToggleBtnStyle = (active: boolean): React.CSSProperties => ({
-  background: active ? '#4a7c9e' : '#e8f0fe',
-  color: active ? '#fff' : '#4a7c9e',
-  border: '1px solid #4a7c9e',
+const customToggleBtnStyle = (active: boolean, warn: boolean): React.CSSProperties => ({
+  background: warn ? '#e8a000' : active ? '#4a7c9e' : '#e8f0fe',
+  color: warn || active ? '#fff' : '#4a7c9e',
+  border: `1px solid ${warn ? '#e8a000' : '#4a7c9e'}`,
   borderRadius: 3,
   cursor: 'pointer',
   fontSize: 12,
