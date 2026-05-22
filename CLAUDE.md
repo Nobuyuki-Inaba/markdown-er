@@ -230,6 +230,7 @@ viewport:
 - [x] Region group boxes (background rectangles with labels; double-click to rename; undo/redo; saved in `ermd-layout`)
 - [x] Seed data editor — spreadsheet-like row editor per table (Definition / Seed Data tabs in TableEditPanel); saved as `seedData` in `ermd-table` block; undo/redo
 - [x] DDL INSERT export — optional `INSERT INTO` statements for seed data; optional skip of auto-increment PK columns; options persisted in `uiStore`; output channel + DDL modal both updated
+- [x] Schema versioning — named snapshots saved in `ermd-versions` block; Versions panel (list + delete); Version Diff DDL modal mode; `DdlDiffer.diffModels()` for in-memory diff
 
 ### DDL dialect notes
 
@@ -260,6 +261,17 @@ viewport:
 - SQL Server: explicit PK inserts are wrapped with `SET IDENTITY_INSERT table ON/OFF`
 - Options flow: WebView `uiStore.ddlInsertSeedData / ddlSkipAutoIncrementPk` → `requestDdl` message → `ErmdPanel._generateDdl()` → `DdlExporter.export()`
 - DDL modal checkboxes trigger immediate re-generation via `er:requestDdl` custom DOM event
+
+### Schema versioning notes
+
+- `SchemaVersion` stores: `id`, `name`, `date` (ISO 8601), `tables`, `relations`, `dictionary`, `layout` — full snapshot including layout
+- Stored as `ermd-versions` YAML block (array) at the bottom of the `.ermd` file; omitted when empty
+- **Save Version flow**: Toolbar button → WebView sends `saveVersion` with current model → extension shows `showInputBox` for name → snapshot created and written to disk → `versionSaved` (full updated model) sent back to WebView
+- **Delete Version flow**: VersionsPanel sends `deleteVersion` → extension filters out the version and writes to disk → `versionSaved` sent back
+- **Version Diff DDL**: DDL modal `version-diff` mode → `requestDdl` with `fromVersionId` / `toVersionId` → `ErmdPanel._generateDdl()` calls `DdlDiffer.diffModels(fromModel, toModel, dialect)`
+- `DdlDiffer.diffModels()` is a pure function wrapping the existing `generateAlterStatements()` — no git required
+- WebView state: `uiStore.ddlMode`, `uiStore.ddlFromVersionId`, `uiStore.ddlToVersionId` (null = current state)
+- VersionsPanel is a floating panel (same pattern as DictionaryPanel); delete has 2-step confirmation
 
 ### Auto Layout notes
 
