@@ -13,6 +13,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.0.4] - 2026-05-22
+
+### Added
+
+- **CSV import — Tables** — Click **Import CSV** in the toolbar, select the **Table** tab, and upload a CSV file to import multiple tables and columns at once. Rows sharing the same `tablePhysicalName` are grouped into one table. Tables whose `tablePhysicalName` already exists in the diagram are skipped.
+- **CSV import — Dictionary** — Select the **Dictionary** tab to bulk-import column-type dictionary entries from a CSV file. Entries with duplicate names are skipped.
+- **Built-in type presets** — 14 named presets (ID, BigID, Name, Title, Email, Code, Text, Flag, Quantity, Amount, Timestamp, Date, JSON, NullableID) are available as `dictionaryName` values in the table CSV. Preset entries are auto-created in the dictionary on import.
+- **`dictionaryName` column in table CSV** — Specify a dictionary entry or built-in preset by name instead of raw `dbType`/`length`/`notNull`. Resolution order: existing dictionary entry → built-in preset → raw type fields.
+- **Free-form type input with autocomplete** — The type field in the column editor is now a text input with `<datalist>` suggestions from the dictionary. Typing an existing entry name selects it automatically.
+- **Inline custom type registration** — When a typed type name is not in the dictionary, the input border turns amber and the **+** button turns orange. Clicking **+** opens an inline form (name pre-filled) to define dbType / length / notNull and register the new entry — all in a single undo-able action.
+
+---
+
 ## [0.0.3] - 2026-05-22
 
 ### Added
@@ -57,7 +70,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Indexes and constraints — define indexes (UNIQUE / INDEX) and check/unique constraints per table; exported in DDL
 - CSV import for seed data — import rows from a CSV file; download a column-header template CSV
 
-[Unreleased]: https://github.com/Nobuyuki-Inaba/markdown-er/compare/v0.0.3...HEAD
+[Unreleased]: https://github.com/Nobuyuki-Inaba/markdown-er/compare/v0.0.4...HEAD
+[0.0.4]: https://github.com/Nobuyuki-Inaba/markdown-er/compare/v0.0.3...v0.0.4
 [0.0.3]: https://github.com/Nobuyuki-Inaba/markdown-er/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/Nobuyuki-Inaba/markdown-er/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/Nobuyuki-Inaba/markdown-er/releases/tag/v0.0.1
