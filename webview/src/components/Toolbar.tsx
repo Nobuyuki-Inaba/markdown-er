@@ -13,8 +13,9 @@ export function Toolbar() {
   const viewport    = useDiagramStore((s) => s.model.layout.viewport);
   const tableCount  = useDiagramStore((s) => s.model.layout.tables.length);
 
-  const openDictionary = useUiStore((s) => s.openDictionary);
-  const dialect        = useUiStore((s) => s.dialect);
+  const openDictionary  = useUiStore((s) => s.openDictionary);
+  const openCsvImport   = useUiStore((s) => s.openCsvImport);
+  const dialect         = useUiStore((s) => s.dialect);
   const showMinimap    = useUiStore((s) => s.showMinimap);
   const toggleMinimap  = useUiStore((s) => s.toggleMinimap);
 
@@ -127,6 +128,10 @@ export function Toolbar() {
 
       <button onClick={openDictionary} style={btnStyle} title="Manage column type dictionary">
         Dictionary
+      </button>
+
+      <button onClick={openCsvImport} style={btnStyle} title="Import tables or dictionary entries from CSV">
+        Import CSV
       </button>
 
       <button

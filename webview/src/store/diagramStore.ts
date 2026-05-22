@@ -6,6 +6,7 @@ import {
 } from '@shared/DiagramModel';
 import { genId } from '../util/idgen';
 import { computeAutoLayout, LayoutDirection, TablePosition } from '../util/autoLayout';
+import type { ParsedTableImport, ParsedDictionaryImport } from '../util/csvImport';
 
 interface DiagramState {
   model: DiagramModel;
@@ -41,6 +42,9 @@ interface DiagramState {
   updateRegion: (id: string, patch: Partial<Pick<RegionLayout, 'label'>>) => void;
   deleteRegion: (id: string) => void;
   updateRegionLayout: (id: string, x: number, y: number, width: number, height: number) => void;
+
+  importTables: (parsed: ParsedTableImport) => void;
+  importDictionaryEntries: (parsed: ParsedDictionaryImport) => void;
 }
 
 function nextVersion(state: DiagramState): number {
@@ -296,6 +300,36 @@ export const useDiagramStore = create<DiagramState>()(
             },
           },
           saveVersion: nextVersion(state),
+        })),
+
+      importTables: ({ tables, autoCreatedDictEntries }) =>
+        updateModel(set, (m) => {
+          const GRID_COLS = 4;
+          const STEP_X = 280;
+          const STEP_Y = 200;
+          const startX = 60;
+          const startY = 60 + m.layout.tables.length * 10;
+          const newLayouts: TableLayout[] = tables.map((t, i) => ({
+            tableId: t.id,
+            x: startX + (i % GRID_COLS) * STEP_X,
+            y: startY + Math.floor(i / GRID_COLS) * STEP_Y,
+            width: 260,
+          }));
+          return {
+            ...m,
+            dictionary: [...m.dictionary, ...autoCreatedDictEntries],
+            tables: [...m.tables, ...tables],
+            layout: {
+              ...m.layout,
+              tables: [...m.layout.tables, ...newLayouts],
+            },
+          };
+        }),
+
+      importDictionaryEntries: ({ entries }) =>
+        updateModel(set, (m) => ({
+          ...m,
+          dictionary: [...m.dictionary, ...entries],
         })),
     }),
     {
