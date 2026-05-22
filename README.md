@@ -30,6 +30,7 @@ The diagram is stored in a `.ermd` file (with `er-diagram: true` in the front ma
 | **Auto Layout** | Arrange all tables automatically — Vertical, Horizontal, or Auto. Undo-able with `Ctrl+Z` |
 | **Database dialect** | Choose MySQL, PostgreSQL, SQLite, or SQL Server in Settings |
 | **Minimap toggle** | Show or hide the minimap with the Minimap button in the toolbar |
+| **Schema versioning** | Save named snapshots of the schema inside the `.ermd` file; generate `ALTER TABLE` DDL between any two versions — no git commit required |
 
 ---
 
@@ -162,6 +163,27 @@ Click the **⚙** gear button in the toolbar to open VSCode Settings filtered to
 | Setting | Values | Default |
 |---|---|---|
 | `markdown-er.ddl.dialect` | `mysql` / `postgresql` / `sqlite` / `sqlserver` | `mysql` |
+
+### Schema versioning
+
+#### Save a version
+
+Click **Save Version** in the toolbar. A VSCode input box opens — type a name (e.g. `v1.0`, `before-refactor`) and press **Enter**.  
+The snapshot is saved in the `ermd-versions` block at the bottom of the `.ermd` file. No git commit required.
+
+#### Manage versions
+
+Click **Versions** in the toolbar to open the Versions panel.  
+Each row shows the version name, save date, table count, and relation count.  
+Click **削除** (Delete) and confirm to remove a version from the file.
+
+#### Generate Version Diff DDL
+
+Click **Export DDL** → select the **Version Diff** radio button.  
+Choose a **From** version and a **To** version (defaults to "current state").  
+The `ALTER TABLE` statements needed to migrate from the From snapshot to the To state are generated automatically.
+
+---
 
 ### Export DDL
 

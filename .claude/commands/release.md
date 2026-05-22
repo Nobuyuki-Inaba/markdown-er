@@ -25,6 +25,9 @@ git checkout -b chore/release-v<VERSION>
 ### Added / Fixed / Changed
 - ...
 
+**README.md** - 前回リリースとの差分を更新し、ユーザが機能を理解できるようにする
+**CLAUDE.md** - 前回リリースとの差分を更新
+
 ---
 ```
 末尾のリンクも更新:
@@ -65,7 +68,6 @@ gh run list --limit 3
 npm install
 npm run package
 ```
-
 生成物: `markdown-er-<VERSION>.vsix`
 
 > `npm run package` は内部で `vsce package` → `vscode:prepublish` → `npm run build` の順に実行するため、これ1コマンドで完結する。`npm run build` 単体はソースのビルドのみで .vsix は作らない。

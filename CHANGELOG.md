@@ -13,6 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.0.3] - 2026-05-22
+
+### Added
+
+- **Schema versioning** — Click **Save Version** in the toolbar to snapshot the current ER schema (tables, columns, relations, dictionary, layout) directly inside the `.ermd` file as an `ermd-versions` block. No git commit required.
+- **Versions panel** — Click **Versions** in the toolbar to open a panel listing all saved versions (name, date, table count, relation count). Versions can be deleted with a two-step confirmation.
+- **Version Diff DDL** — In the DDL modal, switch to **Version Diff** mode and select a From / To version (or "current state") to generate `ALTER TABLE` statements between any two snapshots. Powered by `DdlDiffer.diffModels()` which performs an in-memory structural diff with no git dependency.
+
+---
+
 ## [0.0.2] - 2026-05-21
 
 ### Fixed
@@ -47,6 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Indexes and constraints — define indexes (UNIQUE / INDEX) and check/unique constraints per table; exported in DDL
 - CSV import for seed data — import rows from a CSV file; download a column-header template CSV
 
-[Unreleased]: https://github.com/Nobuyuki-Inaba/markdown-er/compare/v0.0.2...HEAD
+[Unreleased]: https://github.com/Nobuyuki-Inaba/markdown-er/compare/v0.0.3...HEAD
+[0.0.3]: https://github.com/Nobuyuki-Inaba/markdown-er/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/Nobuyuki-Inaba/markdown-er/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/Nobuyuki-Inaba/markdown-er/releases/tag/v0.0.1
