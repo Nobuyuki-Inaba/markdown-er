@@ -3,6 +3,7 @@ import { useDiagramStore } from '../store/diagramStore';
 import { useUiStore } from '../store/uiStore';
 import { sendToExtension } from '../vscodeApi';
 import type { LayoutDirection } from '../util/autoLayout';
+import type { DiagramModel } from '@shared/DiagramModel';
 
 export function Toolbar() {
   const nameMode    = useDiagramStore((s) => s.model.layout.nameMode);
@@ -12,8 +13,10 @@ export function Toolbar() {
   const applyAutoLayout = useDiagramStore((s) => s.applyAutoLayout);
   const viewport    = useDiagramStore((s) => s.model.layout.viewport);
   const tableCount  = useDiagramStore((s) => s.model.layout.tables.length);
+  const model       = useDiagramStore((s) => s.model);
 
   const openDictionary = useUiStore((s) => s.openDictionary);
+  const openVersions   = useUiStore((s) => s.openVersions);
   const dialect        = useUiStore((s) => s.dialect);
   const showMinimap    = useUiStore((s) => s.showMinimap);
   const toggleMinimap  = useUiStore((s) => s.toggleMinimap);
@@ -161,6 +164,21 @@ export function Toolbar() {
       </button>
 
       <div style={{ flex: 1 }} />
+
+      <button
+        onClick={() => sendToExtension({ type: 'saveVersion', payload: { model: model as DiagramModel } })}
+        style={{ ...btnStyle, background: '#5a5a8a', color: '#fff' }}
+        title="現在のスキーマ状態をバージョンとして保存"
+      >
+        Save Version
+      </button>
+      <button
+        onClick={openVersions}
+        style={{ ...btnStyle, background: '#5a5a8a', color: '#fff' }}
+        title="保存済みバージョンの一覧・管理"
+      >
+        Versions
+      </button>
 
       <button
         onClick={() => {

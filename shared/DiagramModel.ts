@@ -96,6 +96,21 @@ export interface RegionLayout {
   height: number;
 }
 
+export interface SchemaVersion {
+  id: string;
+  name: string;
+  date: string;
+  tables: Table[];
+  relations: Relation[];
+  dictionary: DictionaryEntry[];
+  layout: {
+    nameMode: 'logical' | 'physical';
+    tables: TableLayout[];
+    regions: RegionLayout[];
+    viewport: { x: number; y: number; zoom: number };
+  };
+}
+
 export interface DiagramModel {
   version: number;
   dictionary: DictionaryEntry[];
@@ -107,6 +122,7 @@ export interface DiagramModel {
     regions: RegionLayout[];
     viewport: { x: number; y: number; zoom: number };
   };
+  schemaVersions?: SchemaVersion[];
 }
 
 export function createEmptyModel(): DiagramModel {

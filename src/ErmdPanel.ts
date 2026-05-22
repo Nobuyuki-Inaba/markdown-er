@@ -3,7 +3,7 @@ import { ErmdParser } from './ErmdParser';
 import { ErmdSerializer } from './ErmdSerializer';
 import { DdlExporter, DdlOptions } from './DdlExporter';
 import { DdlDiffer } from './DdlDiffer';
-import { DiagramModel } from '../shared/DiagramModel';
+import { DiagramModel, SchemaVersion } from '../shared/DiagramModel';
 import { DdlDialect, ExtToWebMsg, WebToExtMsg } from '../shared/messages';
 
 export class ErmdPanel {
@@ -161,10 +161,53 @@ export class ErmdPanel {
             this._model,
             msg.payload.mode,
             msg.payload.baselineRef,
-            { insertSeedData: msg.payload.insertSeedData, skipAutoIncrementPk: msg.payload.skipAutoIncrementPk }
+            {
+              insertSeedData: msg.payload.insertSeedData,
+              skipAutoIncrementPk: msg.payload.skipAutoIncrementPk,
+              fromVersionId: msg.payload.fromVersionId,
+              toVersionId: msg.payload.toVersionId,
+            }
           );
         }
         break;
+
+      case 'saveVersion': {
+        const name = await vscode.window.showInputBox({
+          prompt: 'バージョン名を入力してください',
+          placeHolder: `v${((msg.payload.model.schemaVersions?.length ?? 0) + 1)}`,
+          value: `v${((msg.payload.model.schemaVersions?.length ?? 0) + 1)}`,
+        });
+        if (name === undefined) { break; }
+        const newVersion: SchemaVersion = {
+          id: `ver_${Date.now()}`,
+          name,
+          date: new Date().toISOString(),
+          tables: JSON.parse(JSON.stringify(msg.payload.model.tables)),
+          relations: JSON.parse(JSON.stringify(msg.payload.model.relations)),
+          dictionary: JSON.parse(JSON.stringify(msg.payload.model.dictionary)),
+          layout: JSON.parse(JSON.stringify(msg.payload.model.layout)),
+        };
+        const updatedModel: DiagramModel = {
+          ...(this._model ?? msg.payload.model),
+          schemaVersions: [...((this._model ?? msg.payload.model).schemaVersions ?? []), newVersion],
+        };
+        await this._writeToDiskImmediate(updatedModel);
+        this._send({ type: 'versionSaved', payload: updatedModel });
+        break;
+      }
+
+      case 'deleteVersion': {
+        if (!this._model) { break; }
+        const updatedModel: DiagramModel = {
+          ...this._model,
+          schemaVersions: (this._model.schemaVersions ?? []).filter(
+            (v) => v.id !== msg.payload.versionId
+          ),
+        };
+        await this._writeToDiskImmediate(updatedModel);
+        this._send({ type: 'versionSaved', payload: updatedModel });
+        break;
+      }
 
       case 'openSettings':
         vscode.commands.executeCommand('workbench.action.openSettings', 'markdown-er');
@@ -175,17 +218,41 @@ export class ErmdPanel {
   private async _writeToDisk(model: DiagramModel, version: number) {
     this._saveTimer = undefined;
     this._saveVersion = version;
+    await this._writeToDiskImmediate(model);
+  }
+
+  private async _writeToDiskImmediate(model: DiagramModel) {
     this._model = model;
     const text = ErmdSerializer.serialize(model, this._fileUri);
     this._suppressNextFileChange = true;
     await vscode.workspace.fs.writeFile(this._fileUri, Buffer.from(text, 'utf-8'));
   }
 
-  private async _generateDdl(model: DiagramModel, mode: 'full' | 'diff', baselineRef?: string, options: DdlOptions = {}) {
+  private async _generateDdl(
+    model: DiagramModel,
+    mode: 'full' | 'diff' | 'version-diff',
+    baselineRef?: string,
+    options: DdlOptions & { fromVersionId?: string; toVersionId?: string | null } = {}
+  ) {
     const dialect = this._getDialect();
     let ddl: string;
     if (mode === 'full') {
       ddl = DdlExporter.export(model, dialect, options);
+    } else if (mode === 'version-diff') {
+      const versions = model.schemaVersions ?? [];
+      const fromVer = versions.find((v) => v.id === options.fromVersionId);
+      if (!fromVer) {
+        ddl = '-- バージョンが見つかりません';
+      } else {
+        const toVer = options.toVersionId
+          ? versions.find((v) => v.id === options.toVersionId)
+          : undefined;
+        const fromModel: DiagramModel = { ...model, tables: fromVer.tables, relations: fromVer.relations, dictionary: fromVer.dictionary };
+        const toModel: DiagramModel = toVer
+          ? { ...model, tables: toVer.tables, relations: toVer.relations, dictionary: toVer.dictionary }
+          : model;
+        ddl = DdlDiffer.diffModels(fromModel, toModel, dialect);
+      }
     } else {
       ddl = await DdlDiffer.diff(model, this._fileUri, baselineRef ?? 'HEAD~1', dialect);
     }
