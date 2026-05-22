@@ -31,6 +31,8 @@ The diagram is stored in a `.ermd` file (with `er-diagram: true` in the front ma
 | **Database dialect** | Choose MySQL, PostgreSQL, SQLite, or SQL Server in Settings |
 | **Minimap toggle** | Show or hide the minimap with the Minimap button in the toolbar |
 | **Schema versioning** | Save named snapshots of the schema inside the `.ermd` file; generate `ALTER TABLE` DDL between any two versions — no git commit required |
+| **CSV import** | Import tables and columns (or dictionary entries) from a CSV file via the **Import CSV** button in the toolbar |
+| **Inline type registration** | Type any type name directly in the column editor; autocomplete suggests existing dictionary entries; unrecognised names can be registered to the dictionary inline |
 
 ---
 
@@ -91,6 +93,62 @@ Double-click any table to open the **Table Edit Panel** on the right.
 Click **Dictionary** in the toolbar.  
 Add reusable types like `UserID → INT`, `Name → VARCHAR(100)`, `Timestamp → DATETIME`.  
 Columns pick a dictionary entry instead of specifying type and length directly.
+
+### Column type — select, type, or register inline
+
+The type field in the column editor supports three workflows:
+
+| Workflow | How |
+|---|---|
+| **Select from dictionary** | Click the input and pick a suggestion from the dropdown list |
+| **Type directly** | Start typing a name (e.g. `VARCHAR2`). If it matches a dictionary entry the field commits automatically |
+| **Register a new type** | If the typed name is not in the dictionary the input border turns amber and the **+** button turns orange. Click **+** to open an inline form (name pre-filled). Fill in dbType / length / notNull and click **Register & use** to add the entry to the dictionary and assign it to the column in one step |
+
+### Import tables from CSV
+
+Click **Import CSV** in the toolbar → select the **Table** tab.
+
+Expected headers (in order):
+
+```
+tableLogicalName,tablePhysicalName,tableComment,columnLogicalName,columnPhysicalName,dictionaryName,dbType,length,notNull,isPrimaryKey,isNullable,defaultValue,comment
+```
+
+- Each row represents one column. Rows sharing the same `tablePhysicalName` are grouped into one table.
+- Use the `dictionaryName` column to reference an existing dictionary entry or one of the 14 built-in presets (ID, Name, Email, Flag, Timestamp, …). When matched, `dbType` / `length` / `notNull` are ignored.
+- Tables whose `tablePhysicalName` already exists in the diagram are skipped.
+- A sample file is available at `examples/import-tables.csv`.
+
+**Built-in presets:**
+
+| Name | dbType | length | notNull |
+|---|---|---|---|
+| ID | INT | — | true |
+| BigID | BIGINT | — | true |
+| Name | VARCHAR | 100 | true |
+| Title | VARCHAR | 255 | true |
+| Email | VARCHAR | 255 | true |
+| Code | VARCHAR | 20 | true |
+| Text | TEXT | — | false |
+| Flag | TINYINT | 1 | true |
+| Quantity | INT | — | true |
+| Amount | DECIMAL | 10 | true |
+| Timestamp | DATETIME | — | true |
+| Date | DATE | — | true |
+| JSON | JSON | — | false |
+| NullableID | INT | — | false |
+
+### Import dictionary entries from CSV
+
+Click **Import CSV** → select the **Dictionary** tab.
+
+Expected headers:
+
+```
+name,dbType,length,notNull,comment
+```
+
+Entries whose `name` already exists in the dictionary are skipped.
 
 ### Create a relation
 

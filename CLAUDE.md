@@ -46,11 +46,13 @@ markdown-er/
 │   │   │   ├── TableEditPanel.tsx      # Double-click → edit table name + columns
 │   │   │   ├── RelationEditPanel.tsx   # Click edge → cardinality + FK settings
 │   │   │   ├── DictionaryPanel.tsx     # CRUD for column-type dictionary entries
-│   │   │   └── ColumnRow.tsx           # Single column row inside TableEditPanel
+│   │   │   ├── CsvImportPanel.tsx      # CSV import dialog (Table / Dictionary tabs)
+│   │   │   └── ColumnRow.tsx           # Single column row inside TableEditPanel (free-form type input + inline register)
 │   │   └── util/
 │   │       ├── xyflowAdapters.ts # DiagramModel ↔ ReactFlow Node[]/Edge[] conversion
 │   │       ├── idgen.ts          # Lightweight ID generator (no external dep)
-│   │       └── ddlPreview.ts     # Client-side DDL generation (mirrors DdlExporter)
+│   │       ├── ddlPreview.ts     # Client-side DDL generation (mirrors DdlExporter)
+│   │       └── csvImport.ts      # CSV parsing for table/dictionary import; BUILTIN_PRESETS
 │   ├── package.json        # Webview-only deps (React, @xyflow/react, Zustand, zundo, Vite)
 │   └── vite.config.ts      # Builds to ../media/webview.js + ../media/webview.css
 │
@@ -231,6 +233,8 @@ viewport:
 - [x] Seed data editor — spreadsheet-like row editor per table (Definition / Seed Data tabs in TableEditPanel); saved as `seedData` in `ermd-table` block; undo/redo
 - [x] DDL INSERT export — optional `INSERT INTO` statements for seed data; optional skip of auto-increment PK columns; options persisted in `uiStore`; output channel + DDL modal both updated
 - [x] Schema versioning — named snapshots saved in `ermd-versions` block; Versions panel (list + delete); Version Diff DDL modal mode; `DdlDiffer.diffModels()` for in-memory diff
+- [x] CSV import — tables/columns from CSV (`webview/src/util/csvImport.ts`); 14 built-in presets; `dictionaryName` column for preset/dict resolution; `CsvImportPanel.tsx`; `importTables` / `importDictionaryEntries` store actions
+- [x] Inline custom type registration in ColumnRow — free-form `<input>` + `<datalist>` for type field; amber border signals unregistered input; `+` button pre-fills register form; `addColumnType` store action creates dict entry and assigns to column atomically
 
 ### DDL dialect notes
 
@@ -272,6 +276,23 @@ viewport:
 - `DdlDiffer.diffModels()` is a pure function wrapping the existing `generateAlterStatements()` — no git required
 - WebView state: `uiStore.ddlMode`, `uiStore.ddlFromVersionId`, `uiStore.ddlToVersionId` (null = current state)
 - VersionsPanel is a floating panel (same pattern as DictionaryPanel); delete has 2-step confirmation
+
+### CSV import notes
+
+- Entry point: `webview/src/util/csvImport.ts` — `parseTableCsv()` and `parseDictionaryCsv()`
+- `BUILTIN_PRESETS`: 14 named presets (ID=INT, Name=VARCHAR(100), Email=VARCHAR(255), Code=VARCHAR(20), Text=TEXT, Flag=TINYINT(1), Quantity=INT, Amount=DECIMAL(10), Timestamp=DATETIME, Date=DATE, JSON=JSON, NullableID=INT nullable, BigID=BIGINT, Title=VARCHAR(255))
+- Table CSV `dictionaryName` resolution order: (1) existing dict entry by name (case-insensitive) → (2) built-in preset (auto-created as dict entry) → (3) raw `dbType`/`length`/`notNull` (find-or-create)
+- `ParsedTableImport.autoCreatedDictEntries` carries newly created entries; `importTables` in `diagramStore.ts` appends them atomically with the tables
+- `CsvImportPanel.tsx`: fixed-height dialog with scrollable spec pane; two category tabs; upload zone always visible at top
+- UI state: `uiStore.isCsvImportOpen` / `openCsvImport` / `closeCsvImport`
+
+### Inline custom type registration notes
+
+- `ColumnRow.tsx` type field is an `<input type="text">` with `<datalist id="dict-list-{columnId}">` (all dict entry names as options)
+- On change: exact name match → `updateColumn(dictionaryId)` + clear `typeText`; no match → set `typeText`, show amber border
+- `unregistered` flag: `typeText.trim() !== '' && no dict entry matches` → amber border on input, orange `+` button
+- Clicking `+` opens the inline form with `name` pre-filled from `typeText`
+- `addColumnType(tableId, columnId, entry)` in `diagramStore.ts`: creates `DictionaryEntry` with new id, pushes to `model.dictionary`, updates `column.dictionaryId` — single `updateModel` call → one undo entry
 
 ### Auto Layout notes
 
