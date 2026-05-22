@@ -52,6 +52,15 @@ export class ErmdSerializer {
     lines.push(yaml.dump(model.layout, { indent: 2, lineWidth: -1 }).trimEnd());
     lines.push('```');
 
+    if (model.schemaVersions && model.schemaVersions.length > 0) {
+      lines.push('');
+      lines.push('## Versions');
+      lines.push('');
+      lines.push('```ermd-versions');
+      lines.push(yaml.dump(model.schemaVersions, { indent: 2, lineWidth: -1 }).trimEnd());
+      lines.push('```');
+    }
+
     return lines.join('\n') + '\n';
   }
 }

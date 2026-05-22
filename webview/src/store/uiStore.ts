@@ -6,11 +6,15 @@ interface UiState {
   selectedRelationId: string | null;
   selectedRegionId: string | null;
   isDictionaryOpen: boolean;
+  isVersionsOpen: boolean;
   isDdlOpen: boolean;
   lastDdl: string;
   dialect: DdlDialect;
   ddlInsertSeedData: boolean;
   ddlSkipAutoIncrementPk: boolean;
+  ddlMode: 'full' | 'version-diff';
+  ddlFromVersionId: string | null;
+  ddlToVersionId: string | null;
   showMinimap: boolean;
   searchQuery: string;
 
@@ -19,10 +23,14 @@ interface UiState {
   selectRegion: (id: string | null) => void;
   openDictionary: () => void;
   closeDictionary: () => void;
+  openVersions: () => void;
+  closeVersions: () => void;
   openDdl: (ddl: string) => void;
   closeDdl: () => void;
   setDialect: (dialect: DdlDialect) => void;
   setDdlOptions: (insertSeedData: boolean, skipAutoIncrementPk: boolean) => void;
+  setDdlMode: (mode: 'full' | 'version-diff') => void;
+  setDdlVersions: (fromVersionId: string | null, toVersionId: string | null) => void;
   toggleMinimap: () => void;
   setSearchQuery: (query: string) => void;
 }
@@ -32,11 +40,15 @@ export const useUiStore = create<UiState>()((set) => ({
   selectedRelationId: null,
   selectedRegionId: null,
   isDictionaryOpen: false,
+  isVersionsOpen: false,
   isDdlOpen: false,
   lastDdl: '',
   dialect: 'mysql',
   ddlInsertSeedData: false,
   ddlSkipAutoIncrementPk: false,
+  ddlMode: 'full',
+  ddlFromVersionId: null,
+  ddlToVersionId: null,
   showMinimap: true,
   searchQuery: '',
 
@@ -45,10 +57,14 @@ export const useUiStore = create<UiState>()((set) => ({
   selectRegion: (id) => set({ selectedRegionId: id, selectedTableId: null, selectedRelationId: null }),
   openDictionary: () => set({ isDictionaryOpen: true }),
   closeDictionary: () => set({ isDictionaryOpen: false }),
+  openVersions: () => set({ isVersionsOpen: true }),
+  closeVersions: () => set({ isVersionsOpen: false }),
   openDdl: (ddl) => set({ isDdlOpen: true, lastDdl: ddl }),
   closeDdl: () => set({ isDdlOpen: false }),
   setDialect: (dialect) => set({ dialect }),
   setDdlOptions: (insertSeedData, skipAutoIncrementPk) => set({ ddlInsertSeedData: insertSeedData, ddlSkipAutoIncrementPk: skipAutoIncrementPk }),
+  setDdlMode: (mode) => set({ ddlMode: mode }),
+  setDdlVersions: (fromVersionId, toVersionId) => set({ ddlFromVersionId: fromVersionId, ddlToVersionId: toVersionId }),
   toggleMinimap: () => set((s) => ({ showMinimap: !s.showMinimap })),
   setSearchQuery: (query) => set({ searchQuery: query }),
 }));
