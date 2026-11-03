@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
-  Column, DbType, DB_TYPES, DictionaryEntry, TypeSpec, formatTypeSpec,
+  Column, DbType, DbTypeKind, DB_TYPES, DB_TYPE_KINDS, DictionaryEntry, TypeSpec, dbTypeKind, formatTypeSpec,
 } from '@shared/DiagramModel';
 import { useMessages } from '../i18n';
 
@@ -69,12 +69,12 @@ export function TypePicker({ column, dictionary, onSelectEntry, onSelectType, on
   useLayoutEffect(() => {
     if (!open || !triggerRef.current) return;
     const r = triggerRef.current.getBoundingClientRect();
-    const width = 320;
+    const width = Math.min(380, window.innerWidth - 8);
     const left = Math.max(4, Math.min(r.left, window.innerWidth - width - 4));
     const below = window.innerHeight - r.bottom;
     setPos(below >= 360 || below >= r.top
-      ? { left, top: r.bottom + 2, width, maxHeight: Math.min(420, below - 8) }
-      : { left, bottom: window.innerHeight - r.top + 2, width, maxHeight: Math.min(420, r.top - 8) });
+      ? { left, top: r.bottom + 2, width, maxHeight: Math.min(480, below - 8) }
+      : { left, bottom: window.innerHeight - r.top + 2, width, maxHeight: Math.min(480, r.top - 8) });
   }, [open]);
 
   // Close on outside click (capture: other panels stop propagation), Escape, or scrolling the page behind
@@ -98,19 +98,32 @@ export function TypePicker({ column, dictionary, onSelectEntry, onSelectType, on
   const q = query.trim().toLowerCase();
   const matches = (...texts: (string | undefined)[]) => !q || texts.some((s) => s?.toLowerCase().includes(q));
 
+  // Dictionary: named categories alphabetically, then uncategorised entries by type kind
   const groups = useMemo(() => {
-    const byCategory = new Map<string, DictionaryEntry[]>();
+    const named = new Map<string, DictionaryEntry[]>();
+    const byKind = new Map<DbTypeKind, DictionaryEntry[]>();
     for (const e of dictionary) {
       if (!matches(e.name, formatTypeSpec(e), e.category, e.comment)) continue;
-      const cat = e.category?.trim() ?? '';
-      byCategory.set(cat, [...(byCategory.get(cat) ?? []), e]);
+      const cat = e.category?.trim();
+      if (cat) named.set(cat, [...(named.get(cat) ?? []), e]);
+      else byKind.set(dbTypeKind(e.dbType), [...(byKind.get(dbTypeKind(e.dbType)) ?? []), e]);
     }
-    // Named categories alphabetically, uncategorised last
-    return [...byCategory.entries()].sort(([a], [b]) => (a === '' ? 1 : b === '' ? -1 : a.localeCompare(b)));
+    return [
+      ...[...named.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([label, entries]) => ({ label, entries })),
+      ...DB_TYPE_KINDS.filter(({ kind }) => byKind.has(kind)).map(({ kind }) => ({ label: t.kinds[kind], entries: byKind.get(kind)! })),
+    ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dictionary, q]);
+  }, [dictionary, q, t]);
 
-  const basicTypes = DB_TYPES.filter((d) => matches(d));
+  const basicGroups = DB_TYPE_KINDS
+    .map(({ kind, types }) => ({ label: t.kinds[kind], types: types.filter((d) => matches(d, t.kinds[kind])) }))
+    .filter((g) => g.types.length > 0);
+
+  // Bring the current type into view when the list opens
+  const listRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (open && !form) listRef.current?.querySelector('[data-selected="true"]')?.scrollIntoView({ block: 'nearest' });
+  }, [open, form]);
   const parsed = parseTypeText(query);
   const categories = [...new Set(dictionary.map((e) => e.category?.trim()).filter(Boolean))].sort() as string[];
 
@@ -216,14 +229,14 @@ export function TypePicker({ column, dictionary, onSelectEntry, onSelectType, on
                   onChange={(e) => setQuery(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key !== 'Enter') return;
-                    const first = groups[0]?.[1][0];
+                    const first = groups[0]?.entries[0];
                     if (first) pickEntry(first);
                     else if (parsed) pickType(parsed);
                   }}
                 />
               </div>
 
-              <div style={{ overflowY: 'auto', flex: 1 }}>
+              <div ref={listRef} style={{ overflowY: 'auto', flex: 1, minHeight: 0 }}>
                 {parsed && (
                   <button style={itemStyle(false)} onClick={() => pickType(parsed)}>
                     <span>{t.useDirect(formatTypeSpec(parsed))}</span>
@@ -248,28 +261,47 @@ export function TypePicker({ column, dictionary, onSelectEntry, onSelectType, on
                 )}
 
                 {groups.length > 0 && <div style={groupHeader}>{t.dictionary}</div>}
-                {groups.map(([category, entries]) => (
-                  <div key={category || '__none__'}>
-                    <div style={categoryHeader}>{category || t.uncategorized}</div>
-                    {entries.map((e) => (
-                      <button key={e.id} style={itemStyle(e.id === entry?.id)} onClick={() => pickEntry(e)} title={e.comment || undefined}>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.name}</span>
-                        <span style={itemTypeStyle}>{formatTypeSpec(e)}{e.notNull ? '' : ' · NULL'}</span>
-                      </button>
-                    ))}
+                {groups.map(({ label, entries }) => (
+                  <div key={label} style={rowStyle}>
+                    <div style={rowLabel} title={label}>{label}</div>
+                    <div style={chipsStyle}>
+                      {entries.map((e) => (
+                        <button
+                          key={e.id}
+                          data-selected={e.id === entry?.id}
+                          style={chipStyle(e.id === entry?.id)}
+                          onClick={() => pickEntry(e)}
+                          title={[`${formatTypeSpec(e)}${e.notNull ? ' NOT NULL' : ''}`, e.comment].filter(Boolean).join('\n')}
+                        >
+                          {e.name}
+                          <span style={chipTypeStyle}>{formatTypeSpec(e)}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 ))}
 
-                {basicTypes.length > 0 && <div style={groupHeader}>{t.basicTypes}</div>}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '4px 10px 8px' }}>
-                  {basicTypes.map((d) => (
-                    <button key={d} style={chipStyle(direct?.dbType === d)} onClick={() => pickType(basicType(d))}>
-                      {formatTypeSpec(basicType(d))}
-                    </button>
-                  ))}
-                </div>
+                {basicGroups.length > 0 && <div style={groupHeader}>{t.basicTypes}</div>}
+                {basicGroups.map(({ label, types }) => (
+                  <div key={label} style={rowStyle}>
+                    <div style={rowLabel}>{label}</div>
+                    <div style={chipsStyle}>
+                      {types.map((d) => (
+                        <button
+                          key={d}
+                          data-selected={direct?.dbType === d}
+                          style={{ ...chipStyle(direct?.dbType === d), fontFamily: 'monospace' }}
+                          onClick={() => pickType(basicType(d))}
+                        >
+                          {formatTypeSpec(basicType(d))}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                <div style={{ height: 6 }} />
 
-                {groups.length === 0 && basicTypes.length === 0 && !parsed && (
+                {groups.length === 0 && basicGroups.length === 0 && !parsed && (
                   <div style={{ padding: 10, fontSize: 12, color: '#999' }}>{t.noMatch}</div>
                 )}
               </div>
@@ -318,10 +350,18 @@ const popoverStyle: React.CSSProperties = {
   color: '#222',
 };
 
+/** Sticky, so the section stays named while a long dictionary scrolls */
 const groupHeader: React.CSSProperties = {
-  fontSize: 10, fontWeight: 700, color: '#4a7c9e', padding: '8px 10px 2px', textTransform: 'uppercase', letterSpacing: 0.5,
+  position: 'sticky', top: 0, zIndex: 1, background: '#fff', borderBottom: '1px solid #f0f0f0',
+  fontSize: 10, fontWeight: 700, color: '#4a7c9e', padding: '6px 10px 3px', textTransform: 'uppercase', letterSpacing: 0.5,
 };
-const categoryHeader: React.CSSProperties = { fontSize: 11, color: '#888', padding: '4px 10px 2px 14px' };
+const rowStyle: React.CSSProperties = {
+  display: 'grid', gridTemplateColumns: '64px 1fr', gap: 6, alignItems: 'start', padding: '4px 10px',
+};
+const rowLabel: React.CSSProperties = {
+  fontSize: 11, color: '#777', paddingTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+};
+const chipsStyle: React.CSSProperties = { display: 'flex', flexWrap: 'wrap', gap: 4, minWidth: 0 };
 const sectionTitle: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: '#555', marginBottom: 6 };
 
 const itemStyle = (selected: boolean): React.CSSProperties => ({
@@ -337,17 +377,20 @@ const itemStyle = (selected: boolean): React.CSSProperties => ({
   textAlign: 'left',
   color: '#222',
 });
-const itemTypeStyle: React.CSSProperties = { fontSize: 11, color: '#888', whiteSpace: 'nowrap', flexShrink: 0 };
-
 const chipStyle = (selected: boolean): React.CSSProperties => ({
   fontSize: 11,
   padding: '2px 6px',
   border: `1px solid ${selected ? '#4a7c9e' : '#d0d7de'}`,
   background: selected ? '#e8f0fe' : '#f6f8fa',
+  color: '#222',
   borderRadius: 3,
   cursor: 'pointer',
-  fontFamily: 'monospace',
+  maxWidth: '100%',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
 });
+const chipTypeStyle: React.CSSProperties = { marginLeft: 5, fontSize: 10, color: '#888', fontFamily: 'monospace' };
 
 const formGrid: React.CSSProperties = { display: 'grid', gridTemplateColumns: '64px 1fr', gap: '6px 8px', alignItems: 'center' };
 const formLabel: React.CSSProperties = { fontSize: 11, color: '#555' };

@@ -103,8 +103,9 @@ export const en = {
     useDirect: (type: string) => `Use ${type} directly`,
     editDirect: 'Size of the direct type',
     dictionary: 'Dictionary',
-    uncategorized: '(no category)',
     basicTypes: 'Basic types',
+    /** Labels for basic type kinds; also used for dictionary entries without a category */
+    kinds: { string: 'String', number: 'Number', datetime: 'Date/time', other: 'Other' },
     noMatch: 'No matching types',
     register: '+ Register a new dictionary type…',
     registerTitle: 'New dictionary type',

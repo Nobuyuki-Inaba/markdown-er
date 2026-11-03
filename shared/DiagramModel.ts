@@ -15,6 +15,20 @@ export const DB_TYPES: DbType[] = [
   'BOOLEAN', 'JSON', 'BLOB',
 ];
 
+export type DbTypeKind = 'string' | 'number' | 'datetime' | 'other';
+
+/** Basic types by kind, in display order */
+export const DB_TYPE_KINDS: { kind: DbTypeKind; types: DbType[] }[] = [
+  { kind: 'string',   types: ['VARCHAR', 'CHAR', 'TEXT', 'LONGTEXT'] },
+  { kind: 'number',   types: ['INT', 'BIGINT', 'SMALLINT', 'TINYINT', 'DECIMAL', 'FLOAT', 'DOUBLE'] },
+  { kind: 'datetime', types: ['DATETIME', 'DATE', 'TIMESTAMP', 'TIME'] },
+  { kind: 'other',    types: ['BOOLEAN', 'JSON', 'BLOB'] },
+];
+
+export function dbTypeKind(dbType: DbType): DbTypeKind {
+  return DB_TYPE_KINDS.find((k) => k.types.includes(dbType))?.kind ?? 'other';
+}
+
 /** A concrete column type, e.g. VARCHAR(100) or DECIMAL(10,2) */
 export interface TypeSpec {
   dbType: DbType;
