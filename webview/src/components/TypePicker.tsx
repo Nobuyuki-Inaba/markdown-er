@@ -158,7 +158,8 @@ export function TypePicker({ column, dictionary, onSelectEntry, onSelectType, on
   };
 
   const label = entry ? entry.name : direct ? formatTypeSpec(direct) : t.placeholder;
-  const sub = entry ? formatTypeSpec(entry) : direct ? t.directBadge : '';
+  // A dictionary entry shows only its name (the column is narrow); its type is in the tooltip
+  const sub = direct ? t.directBadge : '';
 
   return (
     <>
