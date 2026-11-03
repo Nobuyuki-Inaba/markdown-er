@@ -20,6 +20,8 @@ const DEFAULT_SIZE: Partial<Record<DbType, Pick<TypeSpec, 'length' | 'scale'>>> 
   DECIMAL: { length: 10, scale: 2 },
 };
 
+const SIZED_TYPES = Object.keys(DEFAULT_SIZE) as DbType[];
+
 function basicType(dbType: DbType): TypeSpec {
   return { dbType, length: null, ...DEFAULT_SIZE[dbType] };
 }
@@ -63,7 +65,8 @@ export function TypePicker({ column, dictionary, onSelectEntry, onSelectType, on
   const entry = dictionary.find((e) => e.id === column.dictionaryId);
   const direct = entry ? undefined : column.type;
 
-  const close = () => { setOpen(false); setQuery(''); setForm(null); };
+  const [sizing, setSizing] = useState(false);
+  const close = () => { setOpen(false); setQuery(''); setForm(null); setSizing(false); };
 
   // Fixed position next to the trigger, so the panel's scroll area doesn't clip it
   useLayoutEffect(() => {
@@ -129,6 +132,13 @@ export function TypePicker({ column, dictionary, onSelectEntry, onSelectType, on
 
   const pickEntry = (e: DictionaryEntry) => { onSelectEntry(e); close(); };
   const pickType = (spec: TypeSpec) => { onSelectType(spec); close(); };
+  // Type first, then size: a sized type keeps the picker open with the length focused
+  const pickBasic = (dbType: DbType) => {
+    if (!SIZED_TYPES.includes(dbType)) return pickType(basicType(dbType));
+    onSelectType(basicType(dbType));
+    setQuery('');
+    setSizing(true);
+  };
 
   const startRegister = () => {
     const base = parsed ?? (direct ?? { dbType: 'VARCHAR' as DbType, length: 255 });
@@ -237,28 +247,41 @@ export function TypePicker({ column, dictionary, onSelectEntry, onSelectType, on
                 />
               </div>
 
+              {/* Size of the chosen type — outside the scroll area so it is visible right after picking */}
+              {direct && !q && SIZED_TYPES.includes(direct.dbType) && (
+                <div style={{ padding: '6px 10px', background: '#f6f9fc', borderBottom: '1px solid #eee' }}>
+                  <div style={sectionTitle}>{t.editDirect}</div>
+                  <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, fontFamily: 'monospace' }}>{direct.dbType}(</span>
+                    <input
+                      key={direct.dbType}
+                      autoFocus={sizing}
+                      onFocus={(e) => e.target.select()}
+                      style={{ ...formInput, width: 56 }} type="number" placeholder={t.length}
+                      value={direct.length ?? ''}
+                      onChange={(e) => onSelectType({ ...direct, length: e.target.value === '' ? null : parseInt(e.target.value, 10) })}
+                      onKeyDown={(e) => { if (e.key === 'Enter') close(); }} />
+                    {direct.dbType === 'DECIMAL' && (
+                      <>
+                        <span style={{ fontSize: 12 }}>,</span>
+                        <input style={{ ...formInput, width: 48 }} type="number" placeholder={t.scale}
+                          onFocus={(e) => e.target.select()}
+                          value={direct.scale ?? ''}
+                          onChange={(e) => onSelectType({ ...direct, scale: e.target.value === '' ? null : parseInt(e.target.value, 10) })}
+                          onKeyDown={(e) => { if (e.key === 'Enter') close(); }} />
+                      </>
+                    )}
+                    <span style={{ fontSize: 12, fontWeight: 600 }}>)</span>
+                    <button style={{ ...primaryBtn(false), marginLeft: 'auto', padding: '3px 10px' }} onClick={close}>{t.done}</button>
+                  </div>
+                </div>
+              )}
+
               <div ref={listRef} style={{ overflowY: 'auto', flex: 1, minHeight: 0 }}>
                 {parsed && (
                   <button style={itemStyle(false)} onClick={() => pickType(parsed)}>
                     <span>{t.useDirect(formatTypeSpec(parsed))}</span>
                   </button>
-                )}
-
-                {direct && !q && (
-                  <div style={{ padding: '6px 10px', background: '#f6f9fc', borderBottom: '1px solid #eee' }}>
-                    <div style={sectionTitle}>{t.editDirect}</div>
-                    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                      <span style={{ fontSize: 12, fontWeight: 600 }}>{direct.dbType}</span>
-                      <input style={{ ...formInput, width: 56 }} type="number" placeholder={t.length}
-                        value={direct.length ?? ''}
-                        onChange={(e) => onSelectType({ ...direct, length: e.target.value === '' ? null : parseInt(e.target.value, 10) })} />
-                      {direct.dbType === 'DECIMAL' && (
-                        <input style={{ ...formInput, width: 48 }} type="number" placeholder={t.scale}
-                          value={direct.scale ?? ''}
-                          onChange={(e) => onSelectType({ ...direct, scale: e.target.value === '' ? null : parseInt(e.target.value, 10) })} />
-                      )}
-                    </div>
-                  </div>
                 )}
 
                 {groups.length > 0 && <div style={groupHeader}>{t.dictionary}</div>}
@@ -292,9 +315,9 @@ export function TypePicker({ column, dictionary, onSelectEntry, onSelectType, on
                           key={d}
                           data-selected={direct?.dbType === d}
                           style={{ ...chipStyle(direct?.dbType === d), fontFamily: 'monospace' }}
-                          onClick={() => pickType(basicType(d))}
+                          onClick={() => pickBasic(d)}
                         >
-                          {formatTypeSpec(basicType(d))}
+                          {d}
                         </button>
                       ))}
                     </div>

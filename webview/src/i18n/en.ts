@@ -101,7 +101,8 @@ export const en = {
     directBadge: 'direct',
     search: 'Search name, type or category — or type e.g. varchar(50)',
     useDirect: (type: string) => `Use ${type} directly`,
-    editDirect: 'Size of the direct type',
+    editDirect: 'Size',
+    done: 'OK',
     dictionary: 'Dictionary',
     basicTypes: 'Basic types',
     /** Labels for basic type kinds; also used for dictionary entries without a category */
