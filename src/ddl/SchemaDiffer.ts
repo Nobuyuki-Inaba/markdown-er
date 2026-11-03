@@ -128,6 +128,7 @@ export class SchemaDiffer {
       defaultChanged:       (before.defaultValue || null) !== (after.defaultValue || null),
       commentChanged:       commentText(before) !== commentText(after),
       autoIncrementChanged: base.isAutoIncrement(before) !== cur.isAutoIncrement(after),
+      isAutoIncrement:      cur.isAutoIncrement(after),
       definition:           dialect.columnDefinition(after, cur),
     };
     const changed = change.typeChanged || change.nullChanged || change.defaultChanged

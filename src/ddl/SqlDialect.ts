@@ -28,6 +28,8 @@ export interface ColumnChange {
   defaultChanged: boolean;
   commentChanged: boolean;
   autoIncrementChanged: boolean;
+  /** Current auto-increment state */
+  isAutoIncrement: boolean;
   /** Full current column definition */
   definition: string;
 }
@@ -152,8 +154,8 @@ export abstract class SqlDialect {
     return [];
   }
 
-  /** Hook for INSERTs that set an auto-increment column explicitly (see SqlServerDialect) */
-  wrapExplicitIdentityInsert(_table: Table, insert: string): string {
+  /** Hook for INSERTs that set an auto-increment column explicitly (see SqlServerDialect, PostgresDialect) */
+  wrapExplicitIdentityInsert(_table: Table, _identity: Column, insert: string): string {
     return insert;
   }
 

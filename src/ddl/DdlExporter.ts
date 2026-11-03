@@ -79,8 +79,7 @@ export class DdlExporter {
 
     const t = dialect.quote(table.physicalName);
     const insert = `INSERT INTO ${t} (${cols.map((c) => dialect.quote(c.physicalName)).join(', ')})\nVALUES\n${rows.join(',\n')};`;
-    return cols.some((c) => schema.isAutoIncrement(c))
-      ? dialect.wrapExplicitIdentityInsert(table, insert)
-      : insert;
+    const identity = cols.find((c) => schema.isAutoIncrement(c));
+    return identity ? dialect.wrapExplicitIdentityInsert(table, identity, insert) : insert;
   }
 }

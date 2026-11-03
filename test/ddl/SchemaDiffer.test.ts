@@ -127,6 +127,17 @@ describe('SchemaDiffer', () => {
     expect(diff((m) => { tableOf(m, 't_items').columns[1].isPrimaryKey = false; }, dialect)).toContain(expected);
   });
 
+  it('PostgreSQL adds / drops identity when a key becomes / stops being auto-increment', () => {
+    // order_items.order_id becomes the only PK column and is still a FK: no identity
+    expect(diff((m) => { tableOf(m, 't_items').columns[1].isPrimaryKey = false; }, 'postgresql')).not.toContain('IDENTITY');
+    // products.id becomes a FK child column: loses identity
+    const lost = diff((m) => {
+      m.relations.push({ id: 'x', fromTableId: 't_users', fromColumnId: 'u_id', toTableId: 't_products', toColumnId: 'pr_id',
+        cardinality: 'ONE_TO_ONE', hasForeignKey: false, constraintName: '', comment: '' });
+    }, 'postgresql');
+    expect(lost).toBe('ALTER TABLE "products" ALTER COLUMN "id" DROP IDENTITY IF EXISTS;');
+  });
+
   it('drops and re-creates a changed index', () => {
     const ddl = diff((m) => { tableOf(m, 't_items').indexes![0].unique = true; }, 'mysql');
     expect(ddl).toBe(

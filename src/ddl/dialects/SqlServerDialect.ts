@@ -34,7 +34,7 @@ export class SqlServerDialect extends SqlDialect {
     }
   }
 
-  wrapExplicitIdentityInsert(table: Table, insert: string): string {
+  wrapExplicitIdentityInsert(table: Table, _identity: Column, insert: string): string {
     const t = this.quote(table.physicalName);
     return `SET IDENTITY_INSERT ${t} ON;\n${insert}\nSET IDENTITY_INSERT ${t} OFF;`;
   }
