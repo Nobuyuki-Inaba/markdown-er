@@ -3,6 +3,7 @@ import { ErmdParser } from './ErmdParser';
 import { ErmdSerializer } from './ErmdSerializer';
 import { DdlExporter, DdlOptions, SchemaDiffer } from './ddl';
 import { loadGitBaseline } from './GitBaseline';
+import { languageSetting, resolveLocale, t } from './i18n';
 import { DiagramModel, SchemaVersion } from '../shared/DiagramModel';
 import { DdlDialect, ExtToWebMsg, WebToExtMsg } from '../shared/messages';
 
@@ -78,12 +79,20 @@ export class ErmdPanel {
     this._disposables.push(watcher);
     this._disposables.push(outputChannel);
 
-    // Push updated dialect to WebView whenever the setting changes
+    // Push updated dialect / language to WebView whenever the settings change
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration('markdown-er.ddl.dialect')) {
         this._send({ type: 'dialectChanged', payload: { dialect: this._getDialect() } });
       }
+      if (e.affectsConfiguration('markdown-er.language')) {
+        this._sendLocale();
+      }
     }, null, this._disposables);
+  }
+
+  private _sendLocale() {
+    const setting = languageSetting();
+    this._send({ type: 'localeChanged', payload: { locale: resolveLocale(setting), setting } });
   }
 
   public requestDdl(mode: 'full' | 'diff', baselineRef?: string) {
@@ -112,8 +121,9 @@ export class ErmdPanel {
       this._send({ type: 'load', payload: this._model });
       // Also send current dialect so WebView is in sync from the start
       this._send({ type: 'dialectChanged', payload: { dialect: this._getDialect() } });
+      this._sendLocale();
     } catch (err) {
-      vscode.window.showErrorMessage(`Failed to load ER diagram: ${err}`);
+      vscode.window.showErrorMessage(t().loadFailed(err));
     }
   }
 
@@ -174,7 +184,7 @@ export class ErmdPanel {
 
       case 'saveVersion': {
         const name = await vscode.window.showInputBox({
-          prompt: 'バージョン名を入力してください',
+          prompt: t().versionNamePrompt,
           placeHolder: `v${((msg.payload.model.schemaVersions?.length ?? 0) + 1)}`,
           value: `v${((msg.payload.model.schemaVersions?.length ?? 0) + 1)}`,
         });
@@ -210,6 +220,12 @@ export class ErmdPanel {
         break;
       }
 
+      case 'setLanguage':
+        // The setting is the single source of truth; the change event re-sends localeChanged
+        await vscode.workspace.getConfiguration('markdown-er')
+          .update('language', msg.payload.setting, vscode.ConfigurationTarget.Global);
+        break;
+
       case 'openSettings':
         vscode.commands.executeCommand('workbench.action.openSettings', 'markdown-er');
         break;
@@ -243,7 +259,7 @@ export class ErmdPanel {
       const versions = model.schemaVersions ?? [];
       const fromVer = versions.find((v) => v.id === options.fromVersionId);
       if (!fromVer) {
-        ddl = '-- バージョンが見つかりません';
+        ddl = t().versionNotFound;
       } else {
         const toVer = options.toVersionId
           ? versions.find((v) => v.id === options.toVersionId)

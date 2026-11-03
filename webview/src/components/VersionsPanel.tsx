@@ -2,11 +2,15 @@ import { useState } from 'react';
 import { useDiagramStore } from '../store/diagramStore';
 import { useUiStore } from '../store/uiStore';
 import { sendToExtension } from '../vscodeApi';
+import { useMessages, formatDateTime } from '../i18n';
 
 export function VersionsPanel() {
   const isOpen       = useUiStore((s) => s.isVersionsOpen);
   const close        = useUiStore((s) => s.closeVersions);
   const schemaVersions = useDiagramStore((s) => s.model.schemaVersions ?? []);
+
+  const locale       = useUiStore((s) => s.locale);
+  const t = useMessages().versions;
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
@@ -20,24 +24,24 @@ export function VersionsPanel() {
   return (
     <div style={panelStyle}>
       <div style={headerStyle}>
-        <span style={{ fontWeight: 700 }}>Saved Versions</span>
+        <span style={{ fontWeight: 700 }}>{t.title}</span>
         <button onClick={close} style={closeBtnStyle}>✕</button>
       </div>
 
       <div style={{ padding: '10px 12px', overflowY: 'auto', maxHeight: 'calc(100vh - 160px)' }}>
         {schemaVersions.length === 0 ? (
           <div style={{ color: '#888', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>
-            <div style={{ marginBottom: 6 }}>保存済みバージョンはありません</div>
-            <div style={{ fontSize: 11, color: '#aaa' }}>ツールバーの「Save Version」でスナップショットを保存できます</div>
+            <div style={{ marginBottom: 6 }}>{t.empty}</div>
+            <div style={{ fontSize: 11, color: '#aaa' }}>{t.emptyHint}</div>
           </div>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead>
               <tr style={{ background: '#f5f5f5' }}>
-                <th style={th}>バージョン名</th>
-                <th style={th}>保存日時</th>
-                <th style={th}>テーブル数</th>
-                <th style={th}>リレーション数</th>
+                <th style={th}>{t.name}</th>
+                <th style={th}>{t.date}</th>
+                <th style={th}>{t.tables}</th>
+                <th style={th}>{t.relations}</th>
                 <th style={th}></th>
               </tr>
             </thead>
@@ -45,7 +49,7 @@ export function VersionsPanel() {
               {schemaVersions.map((v) => (
                 <tr key={v.id} style={{ borderBottom: '1px solid #eee' }}>
                   <td style={{ ...td, fontWeight: 600 }}>{v.name}</td>
-                  <td style={{ ...td, color: '#555' }}>{formatDate(v.date)}</td>
+                  <td style={{ ...td, color: '#555' }}>{formatDateTime(v.date, locale)}</td>
                   <td style={{ ...td, textAlign: 'center', color: '#555' }}>{v.tables.length}</td>
                   <td style={{ ...td, textAlign: 'center', color: '#555' }}>{v.relations.length}</td>
                   <td style={{ ...td, textAlign: 'right' }}>
@@ -55,22 +59,22 @@ export function VersionsPanel() {
                           onClick={() => handleDelete(v.id)}
                           style={{ ...actionBtnStyle, background: '#c0392b', color: '#fff' }}
                         >
-                          削除する
+                          {t.confirmDelete}
                         </button>
                         <button
                           onClick={() => setConfirmDeleteId(null)}
                           style={{ ...actionBtnStyle, background: '#888', color: '#fff' }}
                         >
-                          取消
+                          {t.cancel}
                         </button>
                       </span>
                     ) : (
                       <button
                         onClick={() => setConfirmDeleteId(v.id)}
                         style={{ ...actionBtnStyle, background: '#e55', color: '#fff' }}
-                        title={`${v.name} を削除`}
+                        title={t.deleteTitle(v.name)}
                       >
-                        削除
+                        {t.delete}
                       </button>
                     )}
                   </td>
@@ -82,17 +86,6 @@ export function VersionsPanel() {
       </div>
     </div>
   );
-}
-
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString('ja-JP', {
-      year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit',
-    });
-  } catch {
-    return iso;
-  }
 }
 
 const panelStyle: React.CSSProperties = {

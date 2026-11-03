@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Column, DictionaryEntry, DbType, DB_TYPES } from '@shared/DiagramModel';
+import { Column, DictionaryEntry, DbType, DB_TYPES, typeSizeSuffix } from '@shared/DiagramModel';
 import { useDiagramStore } from '../store/diagramStore';
+import { useMessages } from '../i18n';
 
 interface Props {
   tableId: string;
@@ -13,11 +14,12 @@ interface CustomTypeForm {
   name: string;
   dbType: DbType;
   length: string;
+  scale: string;
   notNull: boolean;
   comment: string;
 }
 
-const EMPTY_FORM: CustomTypeForm = { name: '', dbType: 'VARCHAR', length: '', notNull: true, comment: '' };
+const EMPTY_FORM: CustomTypeForm = { name: '', dbType: 'VARCHAR', length: '', scale: '', notNull: true, comment: '' };
 
 export function ColumnRow({ tableId, column, dictionary, onDelete }: Props) {
   const updateColumn  = useDiagramStore((s) => s.updateColumn);
@@ -27,6 +29,8 @@ export function ColumnRow({ tableId, column, dictionary, onDelete }: Props) {
   const [form, setForm]             = useState<CustomTypeForm>(EMPTY_FORM);
   // Free-form text the user is currently typing in the type field
   const [typeText, setTypeText]     = useState('');
+  const messages = useMessages();
+  const t = messages.column;
 
   const currentEntry = dictionary.find((e) => e.id === column.dictionaryId);
   // Show typeText while the user is typing; otherwise show the current entry name
@@ -65,6 +69,7 @@ export function ColumnRow({ tableId, column, dictionary, onDelete }: Props) {
       name: form.name.trim(),
       dbType: form.dbType,
       length: form.length ? parseInt(form.length, 10) : null,
+      scale: form.dbType === 'DECIMAL' && form.scale ? parseInt(form.scale, 10) : null,
       notNull: form.notNull,
       comment: form.comment,
     });
@@ -88,7 +93,7 @@ export function ColumnRow({ tableId, column, dictionary, onDelete }: Props) {
         }}
       >
         {/* PK toggle */}
-        <label style={{ textAlign: 'center', cursor: 'pointer' }} title="Primary Key">
+        <label style={{ textAlign: 'center', cursor: 'pointer' }} title={messages.table.colPrimaryKey}>
           <input
             type="checkbox"
             checked={column.isPrimaryKey}
@@ -100,7 +105,7 @@ export function ColumnRow({ tableId, column, dictionary, onDelete }: Props) {
         <input
           style={inputStyle}
           value={column.logicalName}
-          placeholder="Logical name"
+          placeholder={messages.common.logicalName}
           onChange={(e) => updateColumn(tableId, column.id, { logicalName: e.target.value })}
         />
 
@@ -108,7 +113,7 @@ export function ColumnRow({ tableId, column, dictionary, onDelete }: Props) {
         <input
           style={inputStyle}
           value={column.physicalName}
-          placeholder="Physical name"
+          placeholder={messages.common.physicalName}
           onChange={(e) => updateColumn(tableId, column.id, { physicalName: e.target.value })}
         />
 
@@ -123,14 +128,14 @@ export function ColumnRow({ tableId, column, dictionary, onDelete }: Props) {
               background: unregistered ? '#fffbe6' : undefined,
             }}
             value={typeDisplayValue}
-            placeholder="Type…"
+            placeholder={t.typePlaceholder}
             onChange={(e) => handleTypeChange(e.target.value)}
-            title={unregistered ? `"${typeText.trim()}" is not in the dictionary — click + to register` : 'Select or type a column type'}
+            title={unregistered ? t.unregisteredTitle(typeText.trim()) : t.typeTitle}
           />
           <datalist id={datalistId}>
             {dictionary.map((e) => (
               <option key={e.id} value={e.name}>
-                {e.dbType}{e.length ? `(${e.length})` : ''}
+                {e.dbType}{typeSizeSuffix(e)}
               </option>
             ))}
           </datalist>
@@ -139,10 +144,10 @@ export function ColumnRow({ tableId, column, dictionary, onDelete }: Props) {
             style={customToggleBtnStyle(customOpen, unregistered)}
             title={
               unregistered
-                ? `Register "${typeText.trim()}" to dictionary`
+                ? t.registerTitle(typeText.trim())
                 : customOpen
-                  ? 'Close custom type form'
-                  : 'Define a new type and register it to the dictionary'
+                  ? t.closeCustomTitle
+                  : t.openCustomTitle
             }
           >
             {customOpen ? '▲' : '+'}
@@ -150,7 +155,7 @@ export function ColumnRow({ tableId, column, dictionary, onDelete }: Props) {
         </div>
 
         {/* Nullable toggle */}
-        <label style={{ textAlign: 'center', cursor: 'pointer', fontSize: 11 }} title="Nullable">
+        <label style={{ textAlign: 'center', cursor: 'pointer', fontSize: 11 }} title={t.nullableTitle}>
           <input
             type="checkbox"
             checked={column.isNullable}
@@ -163,13 +168,13 @@ export function ColumnRow({ tableId, column, dictionary, onDelete }: Props) {
         <button
           onClick={() => setNoteOpen((o) => !o)}
           style={{ ...noteBtnStyle, color: column.designNote ? '#4a7c9e' : '#aaa' }}
-          title="Design note"
+          title={messages.table.colNoteTitle}
         >
           {noteOpen ? '▲' : '▼'}
         </button>
 
         {/* Delete */}
-        <button onClick={onDelete} style={deleteBtnStyle} title="Delete column">
+        <button onClick={onDelete} style={deleteBtnStyle} title={t.deleteTitle}>
           −
         </button>
       </div>
@@ -177,10 +182,10 @@ export function ColumnRow({ tableId, column, dictionary, onDelete }: Props) {
       {/* Custom type form */}
       {customOpen && (
         <div style={customFormStyle}>
-          <span style={{ fontSize: 11, color: '#555', whiteSpace: 'nowrap' }}>New type:</span>
+          <span style={{ fontSize: 11, color: '#555', whiteSpace: 'nowrap' }}>{t.newType}</span>
           <input
             style={{ ...formInput, flex: 1, minWidth: 80 }}
-            placeholder="Name *"
+            placeholder={t.namePlaceholder}
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
           />
@@ -194,10 +199,19 @@ export function ColumnRow({ tableId, column, dictionary, onDelete }: Props) {
           <input
             style={{ ...formInput, width: 44 }}
             type="number"
-            placeholder="len"
+            placeholder={t.lengthPlaceholder}
             value={form.length}
             onChange={(e) => setForm({ ...form, length: e.target.value })}
           />
+          {form.dbType === 'DECIMAL' && (
+            <input
+              style={{ ...formInput, width: 44 }}
+              type="number"
+              placeholder={t.scalePlaceholder}
+              value={form.scale}
+              onChange={(e) => setForm({ ...form, scale: e.target.value })}
+            />
+          )}
           <label style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, whiteSpace: 'nowrap', cursor: 'pointer' }}>
             <input
               type="checkbox"
@@ -208,7 +222,7 @@ export function ColumnRow({ tableId, column, dictionary, onDelete }: Props) {
           </label>
           <input
             style={{ ...formInput, flex: 1, minWidth: 60 }}
-            placeholder="comment"
+            placeholder={t.commentPlaceholder}
             value={form.comment}
             onChange={(e) => setForm({ ...form, comment: e.target.value })}
           />
@@ -216,9 +230,9 @@ export function ColumnRow({ tableId, column, dictionary, onDelete }: Props) {
             onClick={handleRegister}
             disabled={!form.name.trim()}
             style={registerBtnStyle(!form.name.trim())}
-            title="Create dictionary entry and assign to this column"
+            title={t.registerButtonTitle}
           >
-            Register &amp; use
+            {t.register}
           </button>
         </div>
       )}
@@ -227,7 +241,7 @@ export function ColumnRow({ tableId, column, dictionary, onDelete }: Props) {
       {noteOpen && (
         <textarea
           style={noteAreaStyle}
-          placeholder="Record design decisions, rationale, trade-offs…"
+          placeholder={messages.common.designNotePlaceholder}
           value={column.designNote ?? ''}
           onChange={(e) => updateColumn(tableId, column.id, { designNote: e.target.value || undefined })}
         />

@@ -1,0 +1,10 @@
+{
+  "description": "Markdown で保存するインタラクティブな ER 図エディタ",
+  "command.openDiagram": "ER 図として開く",
+  "command.exportDdl": "ER 図: DDL を出力（全体）",
+  "command.exportDdlDiff": "ER 図: DDL を出力（差分）",
+  "config.dialect": "DDL 出力の対象データベース。",
+  "config.language": "ER 図エディタの表示言語。",
+  "config.language.auto": "VS Code の表示言語に合わせる",
+  "config.mcp": "AI アシスタント連携用の MCP サーバーを有効にする"
+}

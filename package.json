@@ -1,7 +1,7 @@
 {
   "name": "markdown-er",
   "displayName": "Markdown ER Diagram",
-  "description": "Interactive ER diagram editor stored as Markdown",
+  "description": "%description%",
   "version": "0.0.4",
   "publisher": "nobuyuki-inaba",
   "icon": "images/icon.png",
@@ -35,16 +35,16 @@
     "commands": [
       {
         "command": "markdown-er.openDiagram",
-        "title": "Open as ER Diagram",
+        "title": "%command.openDiagram%",
         "icon": "$(type-hierarchy)"
       },
       {
         "command": "markdown-er.exportDdl",
-        "title": "ER Diagram: Export DDL (Full)"
+        "title": "%command.exportDdl%"
       },
       {
         "command": "markdown-er.exportDdlDiff",
-        "title": "ER Diagram: Export DDL (Diff)"
+        "title": "%command.exportDdlDiff%"
       }
     ],
     "menus": {
@@ -71,22 +71,39 @@
           "enum": [
             "mysql",
             "postgresql",
-            "sqlite",
-            "sqlserver"
+            "oracle",
+            "sqlserver",
+            "sqlite"
           ],
           "enumDescriptions": [
             "MySQL / MariaDB",
             "PostgreSQL",
-            "SQLite",
-            "Microsoft SQL Server / Azure SQL"
+            "Oracle Database (12c+)",
+            "Microsoft SQL Server / Azure SQL",
+            "SQLite"
           ],
           "default": "mysql",
-          "description": "Target database dialect for DDL export."
+          "description": "%config.dialect%"
         },
         "markdown-er.mcp.enabled": {
           "type": "boolean",
           "default": false,
-          "description": "Enable the MCP server for AI assistant integration"
+          "description": "%config.mcp%"
+        },
+        "markdown-er.language": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "en",
+            "ja"
+          ],
+          "enumDescriptions": [
+            "%config.language.auto%",
+            "English",
+            "日本語"
+          ],
+          "default": "auto",
+          "description": "%config.language%"
         }
       }
     }

@@ -3,7 +3,7 @@ import { temporal } from 'zundo';
 import {
   DiagramModel, Table, Column, Relation, DictionaryEntry,
   createEmptyModel, TableLayout, RegionLayout,
-  TableIndex, TableConstraint, ConstraintType,
+  TableIndex, TableConstraint, ConstraintType, DatabaseSettings, DatabaseOptions, DdlDialect,
 } from '@shared/DiagramModel';
 import { genId } from '../util/idgen';
 import { computeAutoLayout, LayoutDirection, TablePosition } from '../util/autoLayout';
@@ -33,6 +33,9 @@ interface DiagramState {
   updateLayout: (tableId: string, x: number, y: number, width: number) => void;
   updateViewport: (x: number, y: number, zoom: number) => void;
   setNameMode: (mode: 'logical' | 'physical') => void;
+
+  updateDatabase: (patch: Partial<Pick<DatabaseSettings, 'name' | 'schema' | 'user'>>) => void;
+  updateDatabaseOptions: (dialect: DdlDialect, patch: Partial<DatabaseOptions>) => void;
 
   addDictionaryEntry: (entry: Omit<DictionaryEntry, 'id'>) => void;
   updateDictionaryEntry: (id: string, patch: Partial<Omit<DictionaryEntry, 'id'>>) => void;
@@ -235,6 +238,18 @@ export const useDiagramStore = create<DiagramState>()(
           ...m,
           layout: { ...m.layout, nameMode: mode },
         })),
+
+      updateDatabase: (patch) =>
+        updateModel(set, (m) => ({
+          ...m,
+          database: { name: '', options: {}, ...m.database, ...patch },
+        })),
+
+      updateDatabaseOptions: (dialect, patch) =>
+        updateModel(set, (m) => {
+          const db = m.database ?? { name: '', options: {} };
+          return { ...m, database: { ...db, options: { ...db.options, [dialect]: { ...db.options[dialect], ...patch } } } };
+        }),
 
       addDictionaryEntry: (entry) =>
         updateModel(set, (m) => ({

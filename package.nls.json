@@ -1,0 +1,10 @@
+{
+  "description": "Interactive ER diagram editor stored as Markdown",
+  "command.openDiagram": "Open as ER Diagram",
+  "command.exportDdl": "ER Diagram: Export DDL (Full)",
+  "command.exportDdlDiff": "ER Diagram: Export DDL (Diff)",
+  "config.dialect": "Target database dialect for DDL export.",
+  "config.language": "Language of the ER diagram editor.",
+  "config.language.auto": "Follow the VS Code display language",
+  "config.mcp": "Enable the MCP server for AI assistant integration"
+}

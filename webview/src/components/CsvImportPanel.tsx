@@ -11,6 +11,7 @@ import {
   parseTableCsv,
   parseDictionaryCsv,
 } from '../util/csvImport';
+import { useMessages, Messages } from '../i18n';
 
 type ImportStatus = { ok: true; message: string } | { ok: false; message: string } | null;
 
@@ -26,6 +27,7 @@ export function CsvImportPanel() {
   const [category, setCategory] = useState<CsvImportCategory>('table');
   const [status, setStatus] = useState<ImportStatus>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const t = useMessages().csv;
 
   if (!isOpen) return null;
 
@@ -40,12 +42,12 @@ export function CsvImportPanel() {
         if (category === 'dictionary') {
           const parsed = parseDictionaryCsv(csv, dictionary);
           if (parsed.entries.length === 0 && parsed.skippedNames.length === 0) {
-            setStatus({ ok: false, message: 'No valid rows found. Check that the CSV headers match the spec.' });
+            setStatus({ ok: false, message: t.noRows });
           } else {
             importDictEntries(parsed);
             const msg = [
-              parsed.entries.length > 0 && `${parsed.entries.length} entr${parsed.entries.length === 1 ? 'y' : 'ies'} imported`,
-              parsed.skippedNames.length > 0 && `${parsed.skippedNames.length} skipped (name already exists)`,
+              parsed.entries.length > 0 && t.entriesImported(parsed.entries.length),
+              parsed.skippedNames.length > 0 && t.entriesSkipped(parsed.skippedNames.length),
             ].filter(Boolean).join(', ');
             setStatus({ ok: true, message: msg });
           }
@@ -53,19 +55,19 @@ export function CsvImportPanel() {
           const existingPhysNames = new Set(tables.map((t) => t.physicalName));
           const parsed = parseTableCsv(csv, dictionary, existingPhysNames);
           if (parsed.tables.length === 0 && parsed.skippedTableNames.length === 0) {
-            setStatus({ ok: false, message: 'No valid rows found. Check that the CSV headers match the spec.' });
+            setStatus({ ok: false, message: t.noRows });
           } else {
             importTables(parsed);
             const msg = [
-              parsed.tables.length > 0 && `${parsed.tables.length} table${parsed.tables.length === 1 ? '' : 's'} imported`,
-              parsed.autoCreatedDictEntries.length > 0 && `${parsed.autoCreatedDictEntries.length} dictionary entr${parsed.autoCreatedDictEntries.length === 1 ? 'y' : 'ies'} auto-created`,
-              parsed.skippedTableNames.length > 0 && `${parsed.skippedTableNames.length} skipped (physicalName already exists)`,
+              parsed.tables.length > 0 && t.tablesImported(parsed.tables.length),
+              parsed.autoCreatedDictEntries.length > 0 && t.dictAutoCreated(parsed.autoCreatedDictEntries.length),
+              parsed.skippedTableNames.length > 0 && t.tablesSkipped(parsed.skippedTableNames.length),
             ].filter(Boolean).join(', ');
             setStatus({ ok: true, message: msg });
           }
         }
       } catch (err) {
-        setStatus({ ok: false, message: `Parse error: ${(err as Error).message}` });
+        setStatus({ ok: false, message: t.parseError((err as Error).message) });
       }
       // Reset file input so the same file can be re-selected after fixing
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -74,15 +76,15 @@ export function CsvImportPanel() {
   };
 
   const spec = category === 'table'
-    ? { headers: TABLE_CSV_HEADERS, example: TABLE_CSV_EXAMPLE, fields: TABLE_FIELDS }
-    : { headers: DICTIONARY_CSV_HEADERS, example: DICTIONARY_CSV_EXAMPLE, fields: DICT_FIELDS };
+    ? { headers: TABLE_CSV_HEADERS, example: TABLE_CSV_EXAMPLE, fields: tableFields(t) }
+    : { headers: DICTIONARY_CSV_HEADERS, example: DICTIONARY_CSV_EXAMPLE, fields: dictFields(t) };
 
   return (
     <div style={overlayStyle}>
       <div style={panelStyle}>
         {/* Header */}
         <div style={headerStyle}>
-          <span style={{ fontWeight: 700, fontSize: 14 }}>Import from CSV</span>
+          <span style={{ fontWeight: 700, fontSize: 14 }}>{t.title}</span>
           <button onClick={close} style={closeBtnStyle}>✕</button>
         </div>
 
@@ -96,7 +98,7 @@ export function CsvImportPanel() {
                 onClick={() => { setCategory(cat); setStatus(null); }}
                 style={{ ...tabStyle, ...(category === cat ? tabActiveStyle : {}) }}
               >
-                {cat === 'table' ? 'Table' : 'Dictionary'}
+                {cat === 'table' ? t.tabTable : t.tabDictionary}
               </button>
             ))}
           </div>
@@ -104,7 +106,7 @@ export function CsvImportPanel() {
           {/* Upload zone */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <label style={uploadBtnStyle}>
-              Choose {category} CSV
+              {category === 'table' ? t.chooseTable : t.chooseDictionary}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -113,7 +115,7 @@ export function CsvImportPanel() {
                 onChange={handleFileChange}
               />
             </label>
-            <span style={{ fontSize: 12, color: '#888' }}>.csv — see spec below</span>
+            <span style={{ fontSize: 12, color: '#888' }}>{t.seeSpec}</span>
           </div>
 
           {status && (
@@ -134,16 +136,16 @@ export function CsvImportPanel() {
         {/* Spec pane — fixed height, internal scroll */}
         <div style={specPaneStyle}>
           <div style={{ marginBottom: 8 }}>
-            <span style={labelStyle}>Required headers (in this order):</span>
+            <span style={labelStyle}>{t.requiredHeaders}</span>
             <code style={codeStyle}>{spec.headers}</code>
           </div>
 
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginBottom: 10 }}>
             <thead>
               <tr style={{ background: '#f5f5f5' }}>
-                <th style={th}>Column</th>
-                <th style={th}>Required</th>
-                <th style={th}>Description</th>
+                <th style={th}>{t.column}</th>
+                <th style={th}>{t.required}</th>
+                <th style={th}>{t.description}</th>
               </tr>
             </thead>
             <tbody>
@@ -151,7 +153,7 @@ export function CsvImportPanel() {
                 <tr key={f.name} style={{ borderBottom: '1px solid #eee' }}>
                   <td style={{ ...td, fontFamily: 'monospace', fontWeight: 600 }}>{f.name}</td>
                   <td style={{ ...td, textAlign: 'center', color: f.required ? '#c00' : '#888' }}>
-                    {f.required ? 'Yes' : 'No'}
+                    {f.required ? t.yes : t.no}
                   </td>
                   <td style={td}>{f.desc}</td>
                 </tr>
@@ -160,32 +162,28 @@ export function CsvImportPanel() {
           </table>
 
           <div style={{ marginBottom: 8 }}>
-            <span style={labelStyle}>Example:</span>
+            <span style={labelStyle}>{t.example}</span>
             <pre style={preStyle}>{spec.headers}{'\n'}{spec.example}</pre>
           </div>
 
           {category === 'table' && (
             <>
               <p style={{ fontSize: 11, color: '#666', margin: '0 0 10px' }}>
-                Each row is one column. Rows sharing the same <code>tablePhysicalName</code> are
-                grouped into one table. Tables whose <code>tablePhysicalName</code> already exists
-                in the diagram are skipped.
+                {t.tableNote1}
                 <br />
-                <strong>Type resolution order:</strong> (1) <code>dictionaryName</code> matches an
-                existing dictionary entry by name → (2) matches a built-in preset below →
-                (3) falls back to <code>dbType</code>/<code>length</code>/<code>notNull</code>.
+                {t.tableNote2}
               </p>
               <div style={{ marginBottom: 4, fontSize: 12, fontWeight: 700, color: '#555' }}>
-                Built-in presets (usable as <code>dictionaryName</code>):
+                {t.presets}
               </div>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
                 <thead>
                   <tr style={{ background: '#f0f4ff' }}>
-                    <th style={th}>Name</th>
+                    <th style={th}>dictionaryName</th>
                     <th style={th}>dbType</th>
-                    <th style={th}>length</th>
+                    <th style={th}>length / scale</th>
                     <th style={th}>notNull</th>
-                    <th style={th}>Description</th>
+                    <th style={th}>{t.description}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -193,7 +191,7 @@ export function CsvImportPanel() {
                     <tr key={p.name} style={{ borderBottom: '1px solid #eee' }}>
                       <td style={{ ...td, fontFamily: 'monospace', fontWeight: 600 }}>{p.name}</td>
                       <td style={td}>{p.dbType}</td>
-                      <td style={{ ...td, textAlign: 'center' }}>{p.length ?? '—'}</td>
+                      <td style={{ ...td, textAlign: 'center' }}>{p.length != null ? `${p.length}${p.scale != null ? `, ${p.scale}` : ''}` : '—'}</td>
                       <td style={{ ...td, textAlign: 'center' }}>{p.notNull ? 'true' : 'false'}</td>
                       <td style={td}>{p.comment}</td>
                     </tr>
@@ -204,7 +202,7 @@ export function CsvImportPanel() {
           )}
           {category === 'dictionary' && (
             <p style={{ fontSize: 11, color: '#666', margin: 0 }}>
-              Entries whose <code>name</code> already exists in the dictionary are skipped.
+              {t.dictNote}
             </p>
           )}
         </div>
@@ -213,29 +211,26 @@ export function CsvImportPanel() {
   );
 }
 
-const TABLE_FIELDS: { name: string; required: boolean; desc: string }[] = [
-  { name: 'tableLogicalName',   required: true,  desc: 'Logical (display) name of the table' },
-  { name: 'tablePhysicalName',  required: true,  desc: 'Physical (DB) name of the table — used as the grouping key' },
-  { name: 'tableComment',       required: false, desc: 'Optional comment for the table' },
-  { name: 'columnLogicalName',  required: true,  desc: 'Logical name of the column' },
-  { name: 'columnPhysicalName', required: true,  desc: 'Physical name of the column' },
-  { name: 'dictionaryName',     required: false, desc: 'Name of an existing dictionary entry or a built-in preset (see below). When matched, dbType/length/notNull are ignored.' },
-  { name: 'dbType',             required: false, desc: 'DB type used when dictionaryName is absent: INT, BIGINT, VARCHAR, TEXT, DATETIME, DECIMAL, BOOLEAN, JSON, …' },
-  { name: 'length',             required: false, desc: 'Type length (e.g. 255 for VARCHAR); leave blank for types without length' },
-  { name: 'notNull',            required: false, desc: 'true / false — whether the column is NOT NULL (default false)' },
-  { name: 'isPrimaryKey',       required: false, desc: 'true / false — whether the column is a primary key (default false)' },
-  { name: 'isNullable',         required: false, desc: 'true / false — whether the column allows NULL (default true)' },
-  { name: 'defaultValue',       required: false, desc: 'Default value expression; leave blank for none' },
-  { name: 'comment',            required: false, desc: 'Optional comment for the column' },
-];
+type CsvMessages = Messages['csv'];
+type FieldSpec = { name: string; required: boolean; desc: string };
 
-const DICT_FIELDS: { name: string; required: boolean; desc: string }[] = [
-  { name: 'name',    required: true,  desc: 'Logical name used in the column editor' },
-  { name: 'dbType',  required: true,  desc: 'DB type: INT, BIGINT, VARCHAR, CHAR, TEXT, DATETIME, DATE, DECIMAL, FLOAT, DOUBLE, BOOLEAN, JSON, BLOB, …' },
-  { name: 'length',  required: false, desc: 'Type length; leave blank for types without length' },
-  { name: 'notNull', required: true,  desc: 'true / false — whether this type defaults to NOT NULL' },
-  { name: 'comment', required: false, desc: 'Optional description' },
-];
+const TABLE_FIELD_REQUIRED: Record<keyof CsvMessages['tableFields'], boolean> = {
+  tableLogicalName: true, tablePhysicalName: true, tableComment: false,
+  columnLogicalName: true, columnPhysicalName: true, dictionaryName: false,
+  dbType: false, length: false, scale: false, notNull: false,
+  isPrimaryKey: false, isNullable: false, defaultValue: false, comment: false,
+};
+
+const DICT_FIELD_REQUIRED: Record<keyof CsvMessages['dictFields'], boolean> = {
+  name: true, dbType: true, length: false, scale: false, notNull: true, comment: false,
+};
+
+function fieldSpecs<K extends string>(required: Record<K, boolean>, descs: Record<K, string>): FieldSpec[] {
+  return (Object.keys(required) as K[]).map((name) => ({ name, required: required[name], desc: descs[name] }));
+}
+
+const tableFields = (t: CsvMessages) => fieldSpecs(TABLE_FIELD_REQUIRED, t.tableFields);
+const dictFields  = (t: CsvMessages) => fieldSpecs(DICT_FIELD_REQUIRED, t.dictFields);
 
 const overlayStyle: React.CSSProperties = {
   position: 'fixed', inset: 0, background: '#0005', zIndex: 50,

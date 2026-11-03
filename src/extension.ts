@@ -1,12 +1,13 @@
 import * as vscode from 'vscode';
 import { ErmdPanel } from './ErmdPanel';
+import { t } from './i18n';
 
 export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('markdown-er.openDiagram', (uri?: vscode.Uri) => {
       const fileUri = uri ?? vscode.window.activeTextEditor?.document.uri;
       if (!fileUri) {
-        vscode.window.showErrorMessage('No file is open. Please open an ER diagram Markdown file first.');
+        vscode.window.showErrorMessage(t().noFileOpen);
         return;
       }
       ErmdPanel.createOrShow(context, fileUri);
@@ -14,7 +15,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     vscode.commands.registerCommand('markdown-er.exportDdl', () => {
       if (!ErmdPanel.currentPanel) {
-        vscode.window.showErrorMessage('No ER diagram is open.');
+        vscode.window.showErrorMessage(t().noDiagramOpen);
         return;
       }
       ErmdPanel.currentPanel.requestDdl('full');
@@ -22,11 +23,11 @@ export function activate(context: vscode.ExtensionContext) {
 
     vscode.commands.registerCommand('markdown-er.exportDdlDiff', async () => {
       if (!ErmdPanel.currentPanel) {
-        vscode.window.showErrorMessage('No ER diagram is open.');
+        vscode.window.showErrorMessage(t().noDiagramOpen);
         return;
       }
       const ref = await vscode.window.showInputBox({
-        prompt: 'Enter git ref for baseline (e.g. HEAD~1)',
+        prompt: t().gitRefPrompt,
         value: 'HEAD~1',
       });
       if (ref !== undefined) {

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { DictionaryEntry, DbType, DB_TYPES } from '@shared/DiagramModel';
 import { useDiagramStore } from '../store/diagramStore';
 import { useUiStore } from '../store/uiStore';
+import { useMessages } from '../i18n';
 
 export function DictionaryPanel() {
   const isOpen = useUiStore((s) => s.isDictionaryOpen);
@@ -13,6 +14,8 @@ export function DictionaryPanel() {
   const deleteDictionaryEntry = useDiagramStore((s) => s.deleteDictionaryEntry);
 
   const [filterCategory, setFilterCategory] = useState('');
+  const messages = useMessages();
+  const t = messages.dictionary;
   const [newEntry, setNewEntry] = useState<Omit<DictionaryEntry, 'id'>>({
     name: '', dbType: 'INT', length: null, notNull: true, comment: '', category: '',
   });
@@ -52,7 +55,7 @@ export function DictionaryPanel() {
   return (
     <div style={panelStyle}>
       <div style={headerStyle}>
-        <span style={{ fontWeight: 700 }}>Dictionary (Column Types)</span>
+        <span style={{ fontWeight: 700 }}>{t.title}</span>
         <button onClick={close} style={closeBtnStyle}>✕</button>
       </div>
 
@@ -60,17 +63,17 @@ export function DictionaryPanel() {
         {/* Category filter */}
         {categories.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <span style={{ fontSize: 12, color: '#555', whiteSpace: 'nowrap' }}>Filter by category:</span>
+            <span style={{ fontSize: 12, color: '#555', whiteSpace: 'nowrap' }}>{t.filterByCategory}</span>
             <select
               style={{ ...cellInput, width: 160 }}
               value={filterCategory}
               onChange={(e) => setFilterCategory(e.target.value)}
             >
-              <option value="">— All —</option>
+              <option value="">{t.all}</option>
               {categories.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
             {filterCategory && (
-              <button onClick={() => setFilterCategory('')} style={clearBtnStyle}>✕ Clear</button>
+              <button onClick={() => setFilterCategory('')} style={clearBtnStyle}>{t.clear}</button>
             )}
           </div>
         )}
@@ -84,12 +87,13 @@ export function DictionaryPanel() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
                 <tr style={{ background: '#f5f5f5' }}>
-                  <th style={th}>Name</th>
-                  <th style={th}>DB Type</th>
-                  <th style={th}>Length</th>
-                  <th style={th}>Not Null</th>
-                  <th style={th}>Category</th>
-                  <th style={th}>Comment</th>
+                  <th style={th}>{messages.common.name}</th>
+                  <th style={th}>{t.dbType}</th>
+                  <th style={th}>{t.length}</th>
+                  <th style={th} title={t.scaleTitle}>{t.scale}</th>
+                  <th style={th}>{t.notNull}</th>
+                  <th style={th}>{t.category}</th>
+                  <th style={th}>{messages.common.comment}</th>
                   <th style={th}></th>
                 </tr>
               </thead>
@@ -125,6 +129,22 @@ export function DictionaryPanel() {
                         }
                       />
                     </td>
+                    <td style={td}>
+                      {entry.dbType === 'DECIMAL' && (
+                        <input
+                          style={{ ...cellInput, width: 48 }}
+                          type="number"
+                          value={entry.scale ?? ''}
+                          placeholder="—"
+                          title={t.scaleTitle}
+                          onChange={(e) =>
+                            updateDictionaryEntry(entry.id, {
+                              scale: e.target.value === '' ? null : parseInt(e.target.value, 10),
+                            })
+                          }
+                        />
+                      )}
+                    </td>
                     <td style={{ ...td, textAlign: 'center' }}>
                       <input
                         type="checkbox"
@@ -136,7 +156,7 @@ export function DictionaryPanel() {
                       <input
                         style={{ ...cellInput, width: 100 }}
                         value={entry.category ?? ''}
-                        placeholder="(none)"
+                        placeholder={t.noCategory}
                         onChange={(e) => updateDictionaryEntry(entry.id, { category: e.target.value || undefined })}
                       />
                     </td>
@@ -164,16 +184,16 @@ export function DictionaryPanel() {
 
         {/* Add new entry */}
         <div style={{ marginTop: 12, padding: '8px', background: '#f8f8f8', borderRadius: 4, border: '1px solid #e0e0e0' }}>
-          <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 6, color: '#555' }}>Add new type</div>
+          <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 6, color: '#555' }}>{t.addNew}</div>
           <div style={{
             display: 'grid',
-            gridTemplateColumns: '130px 110px 64px 80px 100px 1fr 64px',
+            gridTemplateColumns: '130px 110px 64px 56px 80px 100px 1fr 64px',
             gap: 6,
             alignItems: 'center',
           }}>
             <input
               style={cellInput}
-              placeholder="Name"
+              placeholder={messages.common.name}
               value={newEntry.name}
               onChange={(e) => setNewEntry({ ...newEntry, name: e.target.value })}
             />
@@ -187,10 +207,21 @@ export function DictionaryPanel() {
             <input
               style={cellInput}
               type="number"
-              placeholder="Length"
+              placeholder={t.length}
               value={newEntry.length ?? ''}
               onChange={(e) =>
                 setNewEntry({ ...newEntry, length: e.target.value === '' ? null : parseInt(e.target.value, 10) })
+              }
+            />
+            <input
+              style={cellInput}
+              type="number"
+              placeholder={t.scale}
+              title={t.scaleTitle}
+              disabled={newEntry.dbType !== 'DECIMAL'}
+              value={newEntry.scale ?? ''}
+              onChange={(e) =>
+                setNewEntry({ ...newEntry, scale: e.target.value === '' ? null : parseInt(e.target.value, 10) })
               }
             />
             <label style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
@@ -203,7 +234,7 @@ export function DictionaryPanel() {
             </label>
             <input
               style={cellInput}
-              placeholder="Category"
+              placeholder={t.category}
               value={newEntry.category ?? ''}
               list="category-suggestions"
               onChange={(e) => setNewEntry({ ...newEntry, category: e.target.value || undefined })}
@@ -213,7 +244,7 @@ export function DictionaryPanel() {
             </datalist>
             <input
               style={cellInput}
-              placeholder="Comment"
+              placeholder={messages.common.comment}
               value={newEntry.comment}
               onChange={(e) => setNewEntry({ ...newEntry, comment: e.target.value })}
             />
@@ -225,7 +256,7 @@ export function DictionaryPanel() {
               }}
               style={{ background: '#4a7c9e', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 10px', cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap' }}
             >
-              + Add
+              {t.add}
             </button>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { DdlDialect } from '@shared/messages';
+import type { DdlDialect, LanguageSetting, Locale } from '@shared/messages';
 
 interface UiState {
   selectedTableId: string | null;
@@ -11,7 +11,11 @@ interface UiState {
   isDdlOpen: boolean;
   lastDdl: string;
   dialect: DdlDialect;
+  locale: Locale;
+  languageSetting: LanguageSetting;
+  isDatabaseOpen: boolean;
   ddlInsertSeedData: boolean;
+  ddlIncludeCreateDatabase: boolean;
   ddlSkipAutoIncrementPk: boolean;
   ddlMode: 'full' | 'version-diff';
   ddlFromVersionId: string | null;
@@ -31,6 +35,10 @@ interface UiState {
   openDdl: (ddl: string) => void;
   closeDdl: () => void;
   setDialect: (dialect: DdlDialect) => void;
+  setLocale: (locale: Locale, setting: LanguageSetting) => void;
+  openDatabase: () => void;
+  closeDatabase: () => void;
+  setIncludeCreateDatabase: (include: boolean) => void;
   setDdlOptions: (insertSeedData: boolean, skipAutoIncrementPk: boolean) => void;
   setDdlMode: (mode: 'full' | 'version-diff') => void;
   setDdlVersions: (fromVersionId: string | null, toVersionId: string | null) => void;
@@ -48,7 +56,11 @@ export const useUiStore = create<UiState>()((set) => ({
   isDdlOpen: false,
   lastDdl: '',
   dialect: 'mysql',
+  locale: 'en',
+  languageSetting: 'auto',
+  isDatabaseOpen: false,
   ddlInsertSeedData: false,
+  ddlIncludeCreateDatabase: false,
   ddlSkipAutoIncrementPk: false,
   ddlMode: 'full',
   ddlFromVersionId: null,
@@ -68,6 +80,10 @@ export const useUiStore = create<UiState>()((set) => ({
   openDdl: (ddl) => set({ isDdlOpen: true, lastDdl: ddl }),
   closeDdl: () => set({ isDdlOpen: false }),
   setDialect: (dialect) => set({ dialect }),
+  setLocale: (locale, languageSetting) => set({ locale, languageSetting }),
+  openDatabase: () => set({ isDatabaseOpen: true }),
+  closeDatabase: () => set({ isDatabaseOpen: false }),
+  setIncludeCreateDatabase: (include) => set({ ddlIncludeCreateDatabase: include }),
   setDdlOptions: (insertSeedData, skipAutoIncrementPk) => set({ ddlInsertSeedData: insertSeedData, ddlSkipAutoIncrementPk: skipAutoIncrementPk }),
   setDdlMode: (mode) => set({ ddlMode: mode }),
   setDdlVersions: (fromVersionId, toVersionId) => set({ ddlFromVersionId: fromVersionId, ddlToVersionId: toVersionId }),
