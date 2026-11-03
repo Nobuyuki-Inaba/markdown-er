@@ -18,6 +18,9 @@ export function TableEditPanel() {
 
   const table      = useDiagramStore((s) => s.model.tables.find((t) => t.id === selectedTableId));
   const dictionary = useDiagramStore((s) => s.model.dictionary);
+  const columnSets = useDiagramStore((s) => s.model.columnSets);
+  const setTableColumnSet = useDiagramStore((s) => s.setTableColumnSet);
+  const openColumnSets    = useUiStore((s) => s.openColumnSets);
   const updateTable      = useDiagramStore((s) => s.updateTable);
   const deleteTable      = useDiagramStore((s) => s.deleteTable);
   const addColumn        = useDiagramStore((s) => s.addColumn);
@@ -154,6 +157,25 @@ export function TableEditPanel() {
         <div style={{ marginTop: 12, marginBottom: 4, fontWeight: 600, fontSize: 12, color: '#555' }}>
           {t.columns}
         </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 4, marginBottom: 6 }}>
+          <span style={{ fontSize: 11, color: '#888', marginRight: 2 }}>{t.columnSets}</span>
+          {(columnSets ?? []).map((cs) => {
+            const on = table.columnSetIds?.includes(cs.id) ?? false;
+            return (
+              <button
+                key={cs.id}
+                onClick={() => setTableColumnSet(selectedTableId, cs.id, !on)}
+                style={setChipStyle(on)}
+                title={cs.columns.map((c) => c.physicalName).join(', ')}
+              >
+                {on ? '✓ ' : '+ '}{cs.name}
+              </button>
+            );
+          })}
+          <button onClick={openColumnSets} style={setManageBtnStyle}>
+            {columnSets?.length ? t.manageColumnSets : t.defineColumnSets}
+          </button>
+        </div>
         <div
           style={{
             display: 'grid',
@@ -176,10 +198,11 @@ export function TableEditPanel() {
         {table.columns.map((col) => (
           <ColumnRow
             key={col.id}
-            tableId={selectedTableId}
+            ownerId={selectedTableId}
             column={col}
             dictionary={dictionary}
             onDelete={() => deleteColumn(selectedTableId, col.id)}
+            lockedBy={col.columnSet ? columnSets?.find((cs) => cs.id === col.columnSet!.setId)?.name ?? '' : undefined}
           />
         ))}
 
@@ -280,6 +303,14 @@ const noteAreaStyle: React.CSSProperties = {
   resize: 'vertical',
   boxSizing: 'border-box',
   fontFamily: 'inherit',
+};
+
+const setChipStyle = (on: boolean): React.CSSProperties => ({
+  fontSize: 11, padding: '2px 8px', borderRadius: 10, cursor: 'pointer',
+  border: `1px solid ${on ? '#4a7c9e' : '#ccc'}`, background: on ? '#e8f0fe' : '#fff', color: on ? '#2f5d7c' : '#666',
+});
+const setManageBtnStyle: React.CSSProperties = {
+  fontSize: 11, padding: '2px 6px', border: 'none', background: 'none', color: '#4a7c9e', cursor: 'pointer', textDecoration: 'underline',
 };
 
 const tabBarStyle: React.CSSProperties = {

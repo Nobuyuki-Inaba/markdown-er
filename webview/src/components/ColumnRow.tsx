@@ -1,17 +1,20 @@
 import { useState } from 'react';
-import { Column, DictionaryEntry } from '@shared/DiagramModel';
+import { Column, DictionaryEntry, columnTypeSpec, formatTypeSpec } from '@shared/DiagramModel';
 import { useDiagramStore } from '../store/diagramStore';
 import { useMessages } from '../i18n';
 import { TypePicker } from './TypePicker';
 
 interface Props {
-  tableId: string;
+  /** Table or column set the column belongs to */
+  ownerId: string;
   column: Column;
   dictionary: DictionaryEntry[];
   onDelete: () => void;
+  /** Name of the column set this column comes from; the row is then read-only */
+  lockedBy?: string;
 }
 
-export function ColumnRow({ tableId, column, dictionary, onDelete }: Props) {
+export function ColumnRow({ ownerId, column, dictionary, onDelete, lockedBy }: Props) {
   const updateColumn  = useDiagramStore((s) => s.updateColumn);
   const setColumnType = useDiagramStore((s) => s.setColumnType);
   const addColumnType = useDiagramStore((s) => s.addColumnType);
@@ -19,23 +22,31 @@ export function ColumnRow({ tableId, column, dictionary, onDelete }: Props) {
   const messages = useMessages();
   const t = messages.column;
 
+  if (lockedBy !== undefined) {
+    const spec = columnTypeSpec(column, dictionary);
+    return (
+      <div style={{ ...gridStyle, background: '#f7f9fb', color: '#666', borderBottom: '1px solid #eee' }} title={t.fromSetTitle(lockedBy)}>
+        <input type="checkbox" checked={column.isPrimaryKey} disabled style={{ justifySelf: 'center' }} />
+        <span style={lockedCell}>{column.logicalName}</span>
+        <span style={lockedCell}>{column.physicalName}</span>
+        <span style={lockedCell}>{spec ? formatTypeSpec(spec) : ''}</span>
+        <label style={{ textAlign: 'center', fontSize: 11 }}>
+          <input type="checkbox" checked={column.isNullable} disabled /> NULL
+        </label>
+        <span style={setBadge}>{lockedBy}</span>
+      </div>
+    );
+  }
+
   return (
     <div style={{ borderBottom: '1px solid #eee' }}>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '28px 1fr 1fr 1.2fr 50px 28px 36px',
-          gap: 4,
-          alignItems: 'center',
-          padding: '4px 0',
-        }}
-      >
+      <div style={gridStyle}>
         {/* PK toggle */}
         <label style={{ textAlign: 'center', cursor: 'pointer' }} title={messages.table.colPrimaryKey}>
           <input
             type="checkbox"
             checked={column.isPrimaryKey}
-            onChange={(e) => updateColumn(tableId, column.id, { isPrimaryKey: e.target.checked })}
+            onChange={(e) => updateColumn(ownerId, column.id, { isPrimaryKey: e.target.checked })}
           />
         </label>
 
@@ -43,22 +54,22 @@ export function ColumnRow({ tableId, column, dictionary, onDelete }: Props) {
           style={inputStyle}
           value={column.logicalName}
           placeholder={messages.common.logicalName}
-          onChange={(e) => updateColumn(tableId, column.id, { logicalName: e.target.value })}
+          onChange={(e) => updateColumn(ownerId, column.id, { logicalName: e.target.value })}
         />
 
         <input
           style={inputStyle}
           value={column.physicalName}
           placeholder={messages.common.physicalName}
-          onChange={(e) => updateColumn(tableId, column.id, { physicalName: e.target.value })}
+          onChange={(e) => updateColumn(ownerId, column.id, { physicalName: e.target.value })}
         />
 
         <TypePicker
           column={column}
           dictionary={dictionary}
-          onSelectEntry={(entry) => setColumnType(tableId, column.id, { entry })}
-          onSelectType={(type) => setColumnType(tableId, column.id, { type })}
-          onRegister={(entry) => addColumnType(tableId, column.id, entry)}
+          onSelectEntry={(entry) => setColumnType(ownerId, column.id, { entry })}
+          onSelectType={(type) => setColumnType(ownerId, column.id, { type })}
+          onRegister={(entry) => addColumnType(ownerId, column.id, entry)}
         />
 
         {/* Nullable toggle */}
@@ -66,7 +77,7 @@ export function ColumnRow({ tableId, column, dictionary, onDelete }: Props) {
           <input
             type="checkbox"
             checked={column.isNullable}
-            onChange={(e) => updateColumn(tableId, column.id, { isNullable: e.target.checked })}
+            onChange={(e) => updateColumn(ownerId, column.id, { isNullable: e.target.checked })}
           />
           {' '}NULL
         </label>
@@ -90,12 +101,30 @@ export function ColumnRow({ tableId, column, dictionary, onDelete }: Props) {
           style={noteAreaStyle}
           placeholder={messages.common.designNotePlaceholder}
           value={column.designNote ?? ''}
-          onChange={(e) => updateColumn(tableId, column.id, { designNote: e.target.value || undefined })}
+          onChange={(e) => updateColumn(ownerId, column.id, { designNote: e.target.value || undefined })}
         />
       )}
     </div>
   );
 }
+
+const gridStyle: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '28px 1fr 1fr 1.2fr 50px 28px 36px',
+  gap: 4,
+  alignItems: 'center',
+  padding: '4px 0',
+};
+
+const lockedCell: React.CSSProperties = {
+  fontSize: 12, padding: '2px 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+};
+
+/** Spans the note and delete columns */
+const setBadge: React.CSSProperties = {
+  gridColumn: 'span 2', fontSize: 10, color: '#4a7c9e', background: '#e8f0fe', borderRadius: 3,
+  padding: '2px 4px', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+};
 
 const inputStyle: React.CSSProperties = {
   fontSize: 12,

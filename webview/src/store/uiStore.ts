@@ -7,6 +7,7 @@ interface UiState {
   selectedRelationId: string | null;
   selectedRegionId: string | null;
   isDictionaryOpen: boolean;
+  isColumnSetsOpen: boolean;
   isCsvImportOpen: boolean;
   isVersionsOpen: boolean;
   isDdlOpen: boolean;
@@ -33,6 +34,8 @@ interface UiState {
   selectRegion: (id: string | null) => void;
   openDictionary: () => void;
   closeDictionary: () => void;
+  openColumnSets: () => void;
+  closeColumnSets: () => void;
   openCsvImport: () => void;
   closeCsvImport: () => void;
   openVersions: () => void;
@@ -57,6 +60,7 @@ export const useUiStore = create<UiState>()((set) => ({
   selectedRelationId: null,
   selectedRegionId: null,
   isDictionaryOpen: false,
+  isColumnSetsOpen: false,
   isCsvImportOpen: false,
   isVersionsOpen: false,
   isDdlOpen: false,
@@ -81,6 +85,8 @@ export const useUiStore = create<UiState>()((set) => ({
   selectRegion: (id) => set({ selectedRegionId: id, selectedTableId: null, selectedRelationId: null }),
   openDictionary: () => set({ isDictionaryOpen: true }),
   closeDictionary: () => set({ isDictionaryOpen: false }),
+  openColumnSets: () => set({ isColumnSetsOpen: true }),
+  closeColumnSets: () => set({ isColumnSetsOpen: false }),
   openCsvImport: () => set({ isCsvImportOpen: true }),
   closeCsvImport: () => set({ isCsvImportOpen: false }),
   openVersions: () => set({ isVersionsOpen: true }),

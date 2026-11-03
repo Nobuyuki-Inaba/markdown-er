@@ -8,6 +8,7 @@ import { DiagramCanvas } from './components/DiagramCanvas';
 import { TableEditPanel } from './components/TableEditPanel';
 import { RelationEditPanel } from './components/RelationEditPanel';
 import { DictionaryPanel } from './components/DictionaryPanel';
+import { ColumnSetPanel } from './components/ColumnSetPanel';
 import { CsvImportPanel } from './components/CsvImportPanel';
 import { VersionsPanel } from './components/VersionsPanel';
 import { DatabasePanel } from './components/DatabasePanel';
@@ -154,6 +155,7 @@ export function App() {
           <TableEditPanel />
           <RelationEditPanel />
           <DictionaryPanel />
+          <ColumnSetPanel />
           <CsvImportPanel />
           <VersionsPanel />
           <DatabasePanel />

@@ -1,6 +1,6 @@
 import * as yaml from 'js-yaml';
 import {
-  DiagramModel, DictionaryEntry, Table, Column, Relation,
+  DiagramModel, DictionaryEntry, Table, Column, ColumnSet, Relation,
   TableLayout, RegionLayout, SchemaVersion, DatabaseSettings, createEmptyModel,
 } from '../shared/DiagramModel';
 
@@ -32,6 +32,11 @@ export class ErmdParser {
               model.dictionary = data.map(normalizeDictionaryEntry);
             }
             break;
+          case 'ermd-column-sets':
+            if (Array.isArray(data)) {
+              model.columnSets = data.map(normalizeColumnSet);
+            }
+            break;
           case 'ermd-table':
             if (data && typeof data === 'object') {
               const t = data as Record<string, unknown>;
@@ -47,6 +52,9 @@ export class ErmdParser {
                 columns: Array.isArray(t['columns'])
                   ? t['columns'].map(normalizeColumn)
                   : [],
+                columnSetIds: Array.isArray(t['columnSetIds']) && t['columnSetIds'].length > 0
+                  ? t['columnSetIds'].map(String)
+                  : undefined,
                 seedData: Array.isArray(t['seedData'])
                   ? (t['seedData'] as Record<string, unknown>[]).map((row) =>
                       Object.fromEntries(
@@ -67,6 +75,8 @@ export class ErmdParser {
               const d = data as Record<string, unknown>;
               model.database = {
                 name: String(d['name'] ?? ''),
+                schema: d['schema'] ? String(d['schema']) : undefined,
+                user: d['user'] ? String(d['user']) : undefined,
                 options: (d['options'] && typeof d['options'] === 'object' ? d['options'] : {}) as DatabaseSettings['options'],
               };
             }
@@ -121,6 +131,17 @@ function normalizeDictionaryEntry(raw: unknown): DictionaryEntry {
     scale: typeof e['scale'] === 'number' ? e['scale'] : undefined,
     notNull: e['notNull'] === true,
     comment: String(e['comment'] ?? ''),
+  };
+}
+
+function normalizeColumnSet(raw: unknown): ColumnSet {
+  const s = (raw ?? {}) as Record<string, unknown>;
+  return {
+    id: String(s['id'] ?? ''),
+    name: String(s['name'] ?? ''),
+    position: s['position'] === 'start' ? 'start' : 'end',
+    applyToNewTables: s['applyToNewTables'] === true ? true : undefined,
+    columns: Array.isArray(s['columns']) ? s['columns'].map(normalizeColumn) : [],
   };
 }
 

@@ -9,7 +9,9 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": { "@shared/*": ["shared/*"] }
   },
   "include": ["src/**/*.ts", "shared/**/*.ts", "test/**/*.ts"],
   "exclude": ["node_modules", "webview", "out", "media"]

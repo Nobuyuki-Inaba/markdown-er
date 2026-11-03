@@ -16,6 +16,18 @@ describe('ErmdParser / ErmdSerializer', () => {
     expect(parsed.dictionary).toEqual(model.dictionary);
   });
 
+  it('round-trips column sets and database settings', () => {
+    const model = shopModel();
+    model.database = { name: 'shop', schema: 'app', user: 'app_user', options: { mysql: { charset: 'utf8mb4' } } };
+    model.columnSets = [{ id: 'cset_a', name: 'Audit', position: 'end', applyToNewTables: true, columns: [model.tables[0].columns[0]] }];
+    model.tables[0].columnSetIds = ['cset_a'];
+    model.tables[0].columns[0] = { ...model.tables[0].columns[0], columnSet: { setId: 'cset_a', columnId: 'x' } };
+    const parsed = ErmdParser.parse(ErmdSerializer.serialize(model, uri));
+    expect(parsed.database).toEqual(model.database);
+    expect(parsed.columnSets).toEqual(model.columnSets);
+    expect(parsed.tables).toEqual(model.tables);
+  });
+
   it('parses the bundled sample', () => {
     const model = ErmdParser.parse(readFileSync(join(__dirname, '../examples/sample.ermd'), 'utf-8'));
     expect(model.tables.length).toBeGreaterThan(0);

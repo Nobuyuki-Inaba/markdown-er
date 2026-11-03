@@ -90,6 +90,13 @@ Double-click any table to open the **Table Edit Panel** on the right.
 - Add columns with the **+ Add Column** button
 - For each column: choose a dictionary type, toggle PK, set nullable
 
+### Common columns (Column Sets)
+
+Column sets are groups of columns added to tables in one step — e.g. version, created at / by, updated at / by.
+Click **Column Sets** in the toolbar to define them (**+ Audit columns** creates that set), then pick sets in the table
+editor or use **Add to all tables**. Changing a set updates every table that uses it; sets marked
+**Add to new tables** are added to tables you create.
+
 ### Define column types (Dictionary)
 
 Click **Dictionary** in the toolbar.  

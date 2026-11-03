@@ -34,6 +34,15 @@ export class ErmdSerializer {
       lines.push('```');
     }
 
+    if (model.columnSets && model.columnSets.length > 0) {
+      lines.push('');
+      lines.push('## Column Sets');
+      lines.push('');
+      lines.push('```ermd-column-sets');
+      lines.push(yaml.dump(model.columnSets, { indent: 2, lineWidth: -1 }).trimEnd());
+      lines.push('```');
+    }
+
     if (model.tables.length > 0) {
       lines.push('');
       lines.push('## Tables');

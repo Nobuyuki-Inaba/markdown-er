@@ -79,6 +79,19 @@ export interface Column {
   defaultValue: string | null;
   comment: string;
   designNote?: string;
+  /** Set when the column comes from a column set; kept in sync with that set's column */
+  columnSet?: { setId: string; columnId: string };
+}
+
+/** Reusable group of columns (e.g. audit columns), applied to tables by reference */
+export interface ColumnSet {
+  id: string;
+  name: string;
+  /** Where the set's columns go in a table */
+  position: 'start' | 'end';
+  /** Applied automatically to tables added afterwards */
+  applyToNewTables?: boolean;
+  columns: Column[];
 }
 
 export interface TableIndex {
@@ -107,6 +120,8 @@ export interface Table {
   designNote?: string;
   headerColor?: string;
   columns: Column[];
+  /** Column sets applied to this table, in order */
+  columnSetIds?: string[];
   indexes?: TableIndex[];
   constraints?: TableConstraint[];
   seedData?: Record<string, string>[];
@@ -182,6 +197,7 @@ export interface DiagramModel {
   version: number;
   database?: DatabaseSettings;
   dictionary: DictionaryEntry[];
+  columnSets?: ColumnSet[];
   tables: Table[];
   relations: Relation[];
   layout: {

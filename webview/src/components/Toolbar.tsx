@@ -12,6 +12,7 @@ export function Toolbar() {
   const model       = useDiagramStore((s) => s.model);
 
   const openDictionary  = useUiStore((s) => s.openDictionary);
+  const openColumnSets  = useUiStore((s) => s.openColumnSets);
   const openCsvImport   = useUiStore((s) => s.openCsvImport);
   const openVersions    = useUiStore((s) => s.openVersions);
   const openDatabase    = useUiStore((s) => s.openDatabase);
@@ -55,6 +56,9 @@ export function Toolbar() {
       {/* Schema definition */}
       <button onClick={openDictionary} style={btnStyle} title={t.dictionaryTitle}>
         {t.dictionary}
+      </button>
+      <button onClick={openColumnSets} style={btnStyle} title={t.columnSetsTitle}>
+        {t.columnSets}
       </button>
       <button onClick={openCsvImport} style={btnStyle} title={t.importCsvTitle}>
         {t.importCsv}

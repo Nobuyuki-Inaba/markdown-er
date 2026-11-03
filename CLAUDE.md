@@ -58,6 +58,7 @@ markdown-er/
 │   │   │   ├── TableEditPanel.tsx      # Double-click → edit table name + columns
 │   │   │   ├── RelationEditPanel.tsx   # Click edge → cardinality + FK settings
 │   │   │   ├── DictionaryPanel.tsx     # CRUD for column-type dictionary entries
+│   │   │   ├── ColumnSetPanel.tsx      # Column sets (e.g. audit columns): define, apply to all tables
 │   │   │   ├── CsvImportPanel.tsx      # CSV import dialog (Table / Dictionary tabs)
 │   │   │   ├── DatabasePanel.tsx       # Database name / schema / user + active dialect's charset & collation
 │   │   │   ├── ColumnRow.tsx           # Single column row inside TableEditPanel
@@ -326,6 +327,17 @@ viewport:
 - WebView: `webview/src/i18n/en.ts` is the reference; `Messages = typeof en`, so `ja.ts` must define every key (compile error otherwise).
   Components call `useMessages()`; non-render code (FileReader callbacks) uses `getMessages()`. Parameterized strings are functions.
 - Do not translate SQL keywords or CSV column names. Manifest strings live in `package.nls.json` / `package.nls.ja.json`.
+
+### Column set notes
+
+- `DiagramModel.columnSets: ColumnSet[]` (`ermd-column-sets` block); a table lists the sets it uses in `columnSetIds`.
+- Set columns are **materialized** in `table.columns` with a `columnSet: { setId, columnId }` marker, so DDL, diff,
+  relations, indexes and seed data need no knowledge of sets. `syncColumnSets()` (`webview/src/util/columnSets.ts`, pure,
+  unit-tested) keeps them matching the set: update in place (instance ids stay), add, remove, unapplied sets dropped,
+  deleted sets' columns kept as ordinary columns.
+- Column store actions take an `ownerId` — a table id or a column set id; editing a set column re-syncs every table.
+- In the table editor, set columns are read-only (`ColumnRow lockedBy`); set chips above the columns toggle sets.
+- `applyToNewTables` sets are added by `addTable`.
 
 ### Seed data notes
 
