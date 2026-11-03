@@ -9,7 +9,6 @@ import type { ResolvedForeignKey } from '../Schema';
 export class SqliteDialect extends SqlDialect {
   readonly id = 'sqlite';
   readonly label = 'SQLite';
-  readonly autoIncrementTypes: readonly DbType[] = INTEGER_TYPES;
   readonly inlineForeignKeys = true;
 
   protected quoteIdentifier(name: string): string {

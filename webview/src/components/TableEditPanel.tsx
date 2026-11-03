@@ -4,6 +4,7 @@ import { useUiStore } from '../store/uiStore';
 import { ColumnRow } from './ColumnRow';
 import { SeedDataEditor } from './SeedDataEditor';
 import type { ConstraintType } from '@shared/DiagramModel';
+import { AUTO_INCREMENT_TYPES, autoIncrementColumn } from '@shared/autoIncrement';
 import { useMessages } from '../i18n';
 
 type TabId = 'definition' | 'indexes' | 'seed';
@@ -18,6 +19,8 @@ export function TableEditPanel() {
 
   const table      = useDiagramStore((s) => s.model.tables.find((t) => t.id === selectedTableId));
   const dictionary = useDiagramStore((s) => s.model.dictionary);
+  const relations  = useDiagramStore((s) => s.model.relations);
+  const dialect    = useUiStore((s) => s.dialect);
   const columnSets = useDiagramStore((s) => s.model.columnSets);
   const setTableColumnSet = useDiagramStore((s) => s.setTableColumnSet);
   const openColumnSets    = useUiStore((s) => s.openColumnSets);
@@ -61,6 +64,7 @@ export function TableEditPanel() {
         {activeTab === 'seed' ? (
           <SeedDataEditor
             table={table}
+            autoIncrementColumnId={autoIncrementColumn(table, { relations, dictionary }, AUTO_INCREMENT_TYPES[dialect])?.id}
             onUpdate={(data) => updateSeedData(selectedTableId, data)}
           />
         ) : activeTab === 'indexes' ? (

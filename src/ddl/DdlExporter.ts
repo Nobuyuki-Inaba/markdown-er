@@ -1,4 +1,5 @@
-import { DiagramModel, Table, TableIndex } from '../../shared/DiagramModel';
+import { Column, DiagramModel, Table, TableIndex } from '../../shared/DiagramModel';
+import { isEmptySeedValue } from '../../shared/autoIncrement';
 import type { DdlDialect } from '../../shared/messages';
 import { SqlDialect } from './SqlDialect';
 import { Schema } from './Schema';
@@ -67,19 +68,35 @@ export class DdlExporter {
       .join('\n\n');
   }
 
+  /**
+   * Rows with an auto-increment key go first, wrapped by the dialect (IDENTITY_INSERT, setval, …);
+   * rows that leave it empty follow without the column, so the database generates it after the explicit ids.
+   */
   private insertFor(table: Table, skipAutoIncrementPk: boolean): string | null {
     const { dialect, schema } = this;
     if (!table.seedData?.length) { return null; }
 
-    const cols = skipAutoIncrementPk
-      ? table.columns.filter((c) => !schema.isAutoIncrement(c))
-      : table.columns;
-    if (cols.length === 0) { return null; }
+    const identity = table.columns.find((c) => schema.isAutoIncrement(c));
+    const generatedCols = table.columns.filter((c) => c !== identity);
+    if (!identity) { return this.insert(table, table.columns, table.seedData); }
+    if (skipAutoIncrementPk) { return this.insert(table, generatedCols, table.seedData); }
 
-    const rows = table.seedData.map((row) => {
+    const explicit  = table.seedData.filter((row) => !isEmptySeedValue(row[identity.physicalName]));
+    const generated = table.seedData.filter((row) => isEmptySeedValue(row[identity.physicalName]));
+    const explicitInsert = this.insert(table, table.columns, explicit);
+    return [
+      explicitInsert && dialect.wrapExplicitIdentityInsert(table, identity, explicitInsert),
+      this.insert(table, generatedCols, generated),
+    ].filter(Boolean).join('\n') || null;
+  }
+
+  private insert(table: Table, cols: Column[], seedRows: Record<string, string>[]): string | null {
+    const { dialect, schema } = this;
+    if (cols.length === 0 || seedRows.length === 0) { return null; }
+    const rows = seedRows.map((row) => {
       const values = cols.map((c) => {
         const raw = row[c.physicalName];
-        if (raw === undefined || raw === null || raw === '') { return 'NULL'; }
+        if (isEmptySeedValue(raw)) { return 'NULL'; }
         const dbType = schema.typeOf(c)?.dbType;
         if (dbType && NUMERIC_TYPES.includes(dbType)) { return raw; }
         if (dbType === 'BOOLEAN') { return dialect.booleanLiteral(raw === '1' || raw.toLowerCase() === 'true'); }
@@ -87,9 +104,6 @@ export class DdlExporter {
       });
       return `(${values.join(', ')})`;
     });
-
-    const insert = dialect.insertStatement(table, cols, rows);
-    const identity = cols.find((c) => schema.isAutoIncrement(c));
-    return identity ? dialect.wrapExplicitIdentityInsert(table, identity, insert) : insert;
+    return dialect.insertStatement(table, cols, rows);
   }
 }

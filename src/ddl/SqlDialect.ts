@@ -2,6 +2,7 @@ import {
   Column, DatabaseOptions, DatabaseSettings, DbType, DdlDialect, TypeSpec, Table, TableConstraint, TableIndex,
   typeSizeSuffix,
 } from '../../shared/DiagramModel';
+import { AUTO_INCREMENT_TYPES } from '../../shared/autoIncrement';
 import { resolveDatabaseOptions } from '../../shared/databaseOptions';
 import { DdlStyle, DEFAULT_DDL_STYLE } from '../../shared/ddlStyle';
 import type { ResolvedForeignKey, Schema } from './Schema';
@@ -61,7 +62,9 @@ export abstract class SqlDialect {
   /** Used in comments for statements the database cannot run */
   abstract readonly label: string;
   /** Integer types eligible for AUTO_INCREMENT / IDENTITY */
-  readonly autoIncrementTypes: readonly DbType[] = ['INT', 'BIGINT'];
+  get autoIncrementTypes(): readonly DbType[] {
+    return AUTO_INCREMENT_TYPES[this.id];
+  }
   /** FKs are declared inside CREATE TABLE (cannot be added later) */
   readonly inlineForeignKeys: boolean = false;
 

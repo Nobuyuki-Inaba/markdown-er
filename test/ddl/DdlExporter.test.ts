@@ -213,6 +213,47 @@ describe('DdlExporter', () => {
       expect(skipped).not.toContain('IDENTITY_INSERT');
       expect(skipped).toContain('INSERT INTO [users] ([name], [active])');
     });
+
+    describe('rows that leave the auto-increment key empty', () => {
+      function mixed() {
+        const model = shopModel();
+        tableOf(model, 't_users').seedData = [
+          { id: '', name: 'Generated', active: '1' },
+          { id: '5', name: 'Explicit', active: '1' },
+        ];
+        return model;
+      }
+
+      it('are inserted without the key, after the explicit ids and their identity handling', () => {
+        const pg = DdlExporter.export(mixed(), 'postgresql', { insertSeedData: true });
+        const explicit = pg.indexOf(`INSERT INTO "users" ("id", "name", "active")\nVALUES\n  (5, 'Explicit', TRUE);`);
+        const setval = pg.indexOf('SELECT setval(');
+        const generated = pg.indexOf(`INSERT INTO "users" ("name", "active")\nVALUES\n  ('Generated', TRUE);`);
+        expect(explicit).toBeGreaterThan(-1);
+        expect(setval).toBeGreaterThan(explicit);
+        expect(generated).toBeGreaterThan(setval);
+        expect(pg).not.toContain('NULL, \'Generated\'');
+      });
+
+      it('SQL Server keeps them outside IDENTITY_INSERT', () => {
+        const ss = DdlExporter.export(mixed(), 'sqlserver', { insertSeedData: true });
+        expect(ss.indexOf('INSERT INTO [users] ([name], [active])')).toBeGreaterThan(ss.indexOf('SET IDENTITY_INSERT [users] OFF;'));
+      });
+
+      it('with every key empty, only the generated INSERT is written', () => {
+        const model = shopModel();
+        tableOf(model, 't_users').seedData = [{ id: '', name: 'A', active: '1' }];
+        const ss = DdlExporter.export(model, 'sqlserver', { insertSeedData: true });
+        expect(ss).not.toContain('IDENTITY_INSERT');
+        expect(ss).toContain('INSERT INTO [users] ([name], [active])');
+      });
+
+      it('an empty key that is not auto-increment stays NULL', () => {
+        const model = shopModel();
+        tableOf(model, 't_orders').seedData = [{ id: '1', user_id: '', total: '1' }];
+        expect(DdlExporter.export(model, 'mysql', { insertSeedData: true })).toContain('(1, NULL, 1)');
+      });
+    });
   });
 });
 

@@ -4,6 +4,8 @@ import { Table } from '@shared/DiagramModel';
 
 interface Props {
   table: Table;
+  /** Primary key the database generates; an empty cell lets it do so */
+  autoIncrementColumnId?: string;
   onUpdate: (seedData: Record<string, string>[]) => void;
 }
 
@@ -28,7 +30,7 @@ function parseCsv(text: string): string[][] {
   });
 }
 
-export function SeedDataEditor({ table, onUpdate }: Props) {
+export function SeedDataEditor({ table, autoIncrementColumnId, onUpdate }: Props) {
   const t = useMessages().seed;
   const { columns } = table;
   const seedData = table.seedData ?? [];
@@ -121,8 +123,9 @@ export function SeedDataEditor({ table, onUpdate }: Props) {
             <tr>
               <th style={{ ...thStyle, ...rowNumberStyle, zIndex: 3 }} />
               {columns.map((col) => (
-                <th key={col.id} style={thStyle} title={`physicalName: ${col.physicalName}`}>
+                <th key={col.id} style={thStyle} title={col.id === autoIncrementColumnId ? t.autoIncrementTitle : `physicalName: ${col.physicalName}`}>
                   {col.logicalName}
+                  {col.id === autoIncrementColumnId && <span style={autoBadgeStyle}>{t.autoIncrement}</span>}
                   <div style={{ fontWeight: 400, color: '#999', fontSize: 10 }}>
                     {col.physicalName}
                   </div>
@@ -141,6 +144,8 @@ export function SeedDataEditor({ table, onUpdate }: Props) {
                   <td key={col.id} style={tdStyle}>
                     <input
                       style={cellInputStyle}
+                      placeholder={col.id === autoIncrementColumnId ? t.autoPlaceholder : undefined}
+                      title={col.id === autoIncrementColumnId ? t.autoIncrementTitle : undefined}
                       value={row[col.physicalName] ?? ''}
                       onChange={(e) => updateCell(rowIdx, col.physicalName, e.target.value)}
                     />
@@ -228,6 +233,10 @@ const cellInputStyle: React.CSSProperties = {
   border: '1px solid #ccc',
   borderRadius: 2,
   boxSizing: 'border-box',
+};
+
+const autoBadgeStyle: React.CSSProperties = {
+  marginLeft: 6, fontSize: 9, fontWeight: 600, color: '#4a7c9e', background: '#e8f0fe', borderRadius: 3, padding: '1px 4px',
 };
 
 const delBtnStyle: React.CSSProperties = {

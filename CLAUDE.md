@@ -404,7 +404,11 @@ viewport:
 
 - `DdlExporter.export()` accepts optional `DdlOptions { insertSeedData?, skipAutoIncrementPk? }`
 - INSERT statements are appended after schema DDL under a `-- Seed Data` comment
-- Auto-increment detection: `isPrimaryKey && dbType ∈ {INT, BIGINT}` (SQLite also includes `TINYINT`)
+- Auto-increment detection: `shared/autoIncrement.ts` — `autoIncrementColumn()` (single integer PK, not the child of a relation)
+  with `AUTO_INCREMENT_TYPES[dialect]` (SQLite: every integer type); used by `Schema` (via `SqlDialect.autoIncrementTypes`)
+  and by the seed editor, which marks the column and shows empty cells as `auto`
+- Rows that leave the auto-increment key empty: `insertFor()` writes the explicit-id rows first (wrapped by the dialect),
+  then the empty-key rows without the column, so the database generates them after the explicit ids
 - SQL Server: explicit PK inserts are wrapped with `SET IDENTITY_INSERT table ON/OFF`
 - Options flow: WebView `uiStore.ddlInsertSeedData / ddlSkipAutoIncrementPk` → `requestDdl` message → `ErmdPanel._generateDdl()` → `DdlExporter.export()`
 - DDL modal checkboxes trigger immediate re-generation via `er:requestDdl` custom DOM event
