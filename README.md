@@ -267,7 +267,9 @@ Notes per dialect:
 - **SQL Server** — `IDENTITY(1,1)`, `NVARCHAR`, `IDENTITY_INSERT` around explicit ids; tables are qualified with the schema.
 - **SQLite** — `PRIMARY KEY` and `FOREIGN KEY` inside `CREATE TABLE`; changes SQLite cannot `ALTER` are reported as comments.
 
-Only a single integer primary key that is not itself a foreign key becomes auto-increment, so junction tables with composite keys never do.
+By default, only a single integer primary key that is not itself a foreign key becomes auto-increment, so junction tables with composite keys never do.
+The **AI** column (right of PK) in the table editor shows the result; check or uncheck it to decide yourself (integer primary keys only).
+Only a choice that differs from the rule is saved (`autoIncrement: true` / `false`).
 
 ### Database, schema and user
 

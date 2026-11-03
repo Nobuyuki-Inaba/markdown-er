@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Column, DictionaryEntry, TypeSpec, columnTypeSpec, formatTypeSize, parseTypeSize, typeTakesSize,
 } from '@shared/DiagramModel';
+import { AUTO_INCREMENT_TYPES, canAutoIncrement } from '@shared/autoIncrement';
 import { useDiagramStore } from '../store/diagramStore';
+import { useUiStore } from '../store/uiStore';
 import { useMessages } from '../i18n';
 import { TypePicker } from './TypePicker';
 
@@ -14,9 +16,11 @@ interface Props {
   onDelete: () => void;
   /** Name of the column set this column comes from; the row is then read-only */
   lockedBy?: string;
+  /** In a table: whether the column auto-increments, and would with its setting left to the default rule */
+  autoIncrement?: { on: boolean; byDefault: boolean };
 }
 
-export function ColumnRow({ ownerId, column, dictionary, onDelete, lockedBy }: Props) {
+export function ColumnRow({ ownerId, column, dictionary, onDelete, lockedBy, autoIncrement }: Props) {
   const updateColumn  = useDiagramStore((s) => s.updateColumn);
   const setColumnType = useDiagramStore((s) => s.setColumnType);
   const addColumnType = useDiagramStore((s) => s.addColumnType);
@@ -27,12 +31,20 @@ export function ColumnRow({ ownerId, column, dictionary, onDelete, lockedBy }: P
 
   const entry = dictionary.find((e) => e.id === column.dictionaryId);
   const hasDetails = !!(column.comment || column.defaultValue || column.designNote);
+  const dialect = useUiStore((s) => s.dialect);
+  const autoIncrementAllowed = canAutoIncrement(column, { dictionary }, AUTO_INCREMENT_TYPES[dialect]);
+  // Outside a table (column sets) only the column's own setting counts
+  const autoIncrementOn = autoIncrementAllowed && (autoIncrement?.on ?? column.autoIncrement === true);
+  // Store only a choice that differs from the default rule, so the file stays as it was otherwise
+  const setAutoIncrement = (on: boolean) =>
+    updateColumn(ownerId, column.id, { autoIncrement: on === (autoIncrement?.byDefault ?? false) ? undefined : on });
   const spec = columnTypeSpec(column, dictionary);
 
   if (lockedBy !== undefined) {
     return (
       <div style={{ ...gridStyle, background: '#f7f9fb', color: '#666', borderBottom: '1px solid #eee' }} title={t.fromSetTitle(lockedBy)}>
         <input type="checkbox" checked={column.isPrimaryKey} disabled style={{ justifySelf: 'center' }} />
+        <input type="checkbox" checked={autoIncrementOn} disabled style={{ justifySelf: 'center' }} />
         <span style={lockedCell}>{column.logicalName}</span>
         <span style={lockedCell}>{column.physicalName}</span>
         <span style={lockedCell}>{entry?.name ?? spec?.dbType ?? ''}</span>
@@ -56,6 +68,17 @@ export function ColumnRow({ ownerId, column, dictionary, onDelete, lockedBy }: P
             onChange={(e) => updateColumn(ownerId, column.id, { isPrimaryKey: e.target.checked })}
           />
         </label>
+
+        {/* Auto-increment toggle */}
+        <input
+          type="checkbox"
+          style={{ justifySelf: 'center', cursor: autoIncrementAllowed ? 'pointer' : 'default' }}
+          checked={autoIncrementOn}
+          disabled={!autoIncrementAllowed}
+          title={!autoIncrementAllowed ? t.autoIncrementNotApplicable
+            : column.autoIncrement === undefined ? t.autoIncrementByRule : t.autoIncrementSet}
+          onChange={(e) => setAutoIncrement(e.target.checked)}
+        />
 
         <input
           style={inputStyle}
@@ -202,7 +225,7 @@ function SizeInput({ inputRef, spec, disabledTitle, title, onChange }: SizeInput
 
 const gridStyle: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: '28px 1fr 1fr 1.2fr 48px 50px 28px 36px',
+  gridTemplateColumns: '28px 32px 1fr 1fr 1.2fr 48px 50px 28px 36px',
   gap: 4,
   alignItems: 'center',
   padding: '4px 0',

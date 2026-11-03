@@ -168,5 +168,6 @@ function normalizeColumn(raw: unknown): Column {
     isNullable: c['isNullable'] !== false,
     defaultValue: c['defaultValue'] == null ? null : String(c['defaultValue']),
     comment: String(c['comment'] ?? ''),
+    autoIncrement: typeof c['autoIncrement'] === 'boolean' ? c['autoIncrement'] : undefined,
   };
 }

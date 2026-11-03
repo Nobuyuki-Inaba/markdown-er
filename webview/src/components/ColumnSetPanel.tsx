@@ -110,6 +110,7 @@ export function ColumnSetPanel() {
 
               <div style={columnHeaderStyle}>
                 <span title={messages.table.colPrimaryKey} style={{ textAlign: 'center' }}>PK</span>
+                <span title={messages.table.colAutoIncrementTitle} style={{ textAlign: 'center' }}>{messages.table.colAutoIncrement}</span>
                 <span>{messages.table.colLogical}</span>
                 <span>{messages.table.colPhysical}</span>
                 <span>{messages.table.colType}</span>
@@ -187,6 +188,6 @@ const smallBtnStyle: React.CSSProperties = {
   borderRadius: 3, cursor: 'pointer',
 };
 const columnHeaderStyle: React.CSSProperties = {
-  display: 'grid', gridTemplateColumns: '28px 1fr 1fr 1.2fr 48px 50px 28px 36px', gap: 4,
+  display: 'grid', gridTemplateColumns: '28px 32px 1fr 1fr 1.2fr 48px 50px 28px 36px', gap: 4,
   fontSize: 11, color: '#888', padding: '2px 0', marginTop: 6,
 };

@@ -102,6 +102,11 @@ export interface Column {
   defaultValue: string | null;
   comment: string;
   designNote?: string;
+  /**
+   * Auto-increment, set by the user. Unset: decided by `autoIncrementColumn()` — a single integer
+   * primary key that is not the child of a relation.
+   */
+  autoIncrement?: boolean;
   /** Set when the column comes from a column set; kept in sync with that set's column */
   columnSet?: { setId: string; columnId: string };
 }

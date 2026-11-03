@@ -334,7 +334,9 @@ viewport:
 - `Schema` answers model questions (dictionary entry, auto-increment, resolved FKs with default names, dependency order).
 - `SchemaDiffer` decides *what* changed and the statement order; it builds a `ColumnChange` and lets the dialect render it.
   Statements a database can't run become `-- <Label>: …` comments via `note()`.
-- Auto-increment: only a single integer PK that is not the child column of a relation.
+- Auto-increment: `Column.autoIncrement` when the user set it (integer PK only, first one per table); unset → only a single
+  integer PK that is not the child column of a relation. The table editor's AI checkbox shows the result; toggling stores
+  `autoIncrement` only when it differs from the rule (else `undefined`), so untouched files keep their bytes.
 - Column definition order is `TYPE [DEFAULT] NULL|NOT NULL` (Oracle requires DEFAULT first). Boolean defaults are mapped
   to dialect literals by `defaultValue()`.
 - Comments: `commentText()` = logical name (when ≠ physical) + comment. MySQL inline `COMMENT`, PostgreSQL/Oracle `COMMENT ON`.
@@ -404,7 +406,7 @@ viewport:
 
 - `DdlExporter.export()` accepts optional `DdlOptions { insertSeedData?, skipAutoIncrementPk? }`
 - INSERT statements are appended after schema DDL under a `-- Seed Data` comment
-- Auto-increment detection: `shared/autoIncrement.ts` — `autoIncrementColumn()` (single integer PK, not the child of a relation)
+- Auto-increment detection: `shared/autoIncrement.ts` — `autoIncrementColumn()` (the user's `Column.autoIncrement`, else a single integer PK, not the child of a relation)
   with `AUTO_INCREMENT_TYPES[dialect]` (SQLite: every integer type); used by `Schema` (via `SqlDialect.autoIncrementTypes`)
   and by the seed editor, which marks the column and shows empty cells as `auto`
 - Rows that leave the auto-increment key empty: `insertFor()` writes the explicit-id rows first (wrapped by the dialect),
