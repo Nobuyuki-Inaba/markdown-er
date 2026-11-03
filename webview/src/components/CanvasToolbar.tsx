@@ -18,14 +18,22 @@ export function CanvasToolbar() {
   const [layoutMenuOpen, setLayoutMenuOpen] = useState(false);
   const layoutRef = useRef<HTMLDivElement>(null);
 
-  // Close the layout menu on any click outside it
+  // Close the layout menu on any click outside it (canvas included) or on Escape.
+  // Capture phase: the canvas stops propagation of pointer events for panning.
   useEffect(() => {
     if (!layoutMenuOpen) return;
-    const onDown = (e: MouseEvent) => {
+    const onDown = (e: PointerEvent) => {
       if (!layoutRef.current?.contains(e.target as Node)) setLayoutMenuOpen(false);
     };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setLayoutMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', onDown, true);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown, true);
+      document.removeEventListener('keydown', onKey);
+    };
   }, [layoutMenuOpen]);
 
   /** Canvas center in diagram coordinates */
