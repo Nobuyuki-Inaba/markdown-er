@@ -77,3 +77,24 @@ export function clone<T>(v: T): T {
 export function tableOf(model: DiagramModel, id: string): Table {
   return model.tables.find((t) => t.id === id)!;
 }
+
+/** shopModel with every optional section filled: database, column sets, seed data, regions, schema versions */
+export function fullModel(): DiagramModel {
+  const model = shopModel();
+  model.database = { name: 'shop', schema: 'app', user: 'app_user', options: { mysql: { charset: 'utf8mb4' } } };
+  model.columnSets = [{ id: 'cset_audit', name: 'Audit', position: 'end', columns: [col('cs_created', 'created_at', 'd_name')] }];
+  model.tables[0].columnSetIds = ['cset_audit'];
+  model.tables[0].columns.push(col('u_created', 'created_at', 'd_name', { columnSet: { setId: 'cset_audit', columnId: 'cs_created' } }));
+  model.tables[0].seedData = [{ id: '1', name: 'Alice', active: 'TRUE', created_at: '2026-01-01' }];
+  model.layout = {
+    nameMode: 'physical',
+    tables: model.tables.map((t, i) => ({ tableId: t.id, x: 60 + i * 300, y: 60, width: 260 })),
+    regions: [{ id: 'r1', label: 'Sales', x: 0, y: 0, width: 800, height: 400 }],
+    viewport: { x: 10, y: 20, zoom: 0.8 },
+  };
+  model.schemaVersions = [
+    { id: 'ver_1', name: 'v1', date: '2026-01-01T00:00:00.000Z', tables: clone(model.tables.slice(0, 2)), relations: [], dictionary: clone(model.dictionary), layout: clone(model.layout) },
+    { id: 'ver_2', name: 'v2', date: '2026-02-01T00:00:00.000Z', tables: clone(model.tables), relations: clone(model.relations), dictionary: clone(model.dictionary), layout: clone(model.layout) },
+  ];
+  return model;
+}

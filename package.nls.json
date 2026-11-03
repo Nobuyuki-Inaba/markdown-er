@@ -12,5 +12,12 @@
   "config.ddl.explicitNull": "Write NULL on nullable columns (otherwise only NOT NULL is written).",
   "config.ddl.quoteIdentifiers": "Quote every identifier. When off, only names that need it are quoted.",
   "config.ddl.outputFile": "Default file for **Save DDL…**, relative to the diagram's folder. Variables: `${fileBasenameNoExtension}`, `${fileBasename}`, `${workspaceFolder}`.",
-  "config.ddl.dataOutputFile": "Default file for **Save data…** (seed-data INSERTs only), relative to the diagram's folder. Same variables as `#markdown-er.ddl.outputFile#`."
+  "config.ddl.dataOutputFile": "Default file for **Save data…** (seed-data INSERTs only), relative to the diagram's folder. Same variables as `#markdown-er.ddl.outputFile#`.",
+  "command.migrateFile": "ER Diagram: Update File Format (Migrate)",
+  "command.migrateWorkspace": "ER Diagram: Update File Format of All Files in Workspace",
+  "config.markdown.generateMermaid": "Write a Mermaid `erDiagram` of the tables into the `.ermd` file on save, so it can be read without the extension. Off by default (it adds to every diff).",
+  "config.markdown.generateTableDocs": "Write a Markdown table of each table's columns into the `.ermd` file on save. Off by default (it adds to every diff).",
+  "config.migration.prompt": "Ask whether to update a diagram that uses an older file format when it is opened. Files are never updated without asking; you can also run **ER Diagram: Update File Format (Migrate)**.",
+  "config.migration.prompt.ask": "Ask when an older file is opened",
+  "config.migration.prompt.never": "Never ask (use the Migrate command)"
 }

@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
-import { ErmdParser } from './ErmdParser';
-import { ErmdSerializer } from './ErmdSerializer';
+import { fileName, readDiagram, writeDiagram } from './ErmdFiles';
+import { ErmdTexts, versionsFileName } from './format/ErmdCodec';
+import { CURRENT_FORMAT_VERSION, formatStatus } from './format/formatVersion';
+import { MigrationService } from './MigrationService';
 import { DdlExporter, DdlOptions, SchemaDiffer } from './ddl';
 import { loadGitBaseline } from './GitBaseline';
 import { languageSetting, resolveLocale, t } from './i18n';
@@ -15,18 +17,23 @@ export class ErmdPanel {
   private readonly _extensionUri: vscode.Uri;
   private _fileUri: vscode.Uri;
   private _model: DiagramModel | undefined;
+  /** The file's format is newer than this extension: nothing is written */
+  private _readOnly = false;
   private _saveVersion = 0;
   private _saveTimer: ReturnType<typeof setTimeout> | undefined;
   private _pendingSave: { model: DiagramModel; version: number } | undefined;
-  // Text of our own last write, so the file watcher can ignore it
+  // Texts of our own last write (.ermd and versions file), so the file watcher can ignore it
   private _lastWrittenText: string | undefined;
+  private _lastWrittenVersions: string | undefined;
+  // Our write of the two files is in progress: one may be written and the other not yet
+  private _writing = false;
   private _watcher: vscode.Disposable | undefined;
   private readonly _disposables: vscode.Disposable[] = [];
   private readonly _outputChannel: vscode.OutputChannel;
   // Last file chosen per diagram + kind, offered again in the save dialog
   private readonly _lastSqlFile = new Map<string, vscode.Uri>();
 
-  public static createOrShow(context: vscode.ExtensionContext, fileUri: vscode.Uri) {
+  public static createOrShow(context: vscode.ExtensionContext, fileUri: vscode.Uri, migrations: MigrationService) {
     const column = vscode.window.activeTextEditor?.viewColumn;
 
     if (ErmdPanel.currentPanel) {
@@ -50,15 +57,28 @@ export class ErmdPanel {
       panel,
       context.extensionUri,
       fileUri,
-      vscode.window.createOutputChannel('ER Diagram DDL')
+      vscode.window.createOutputChannel('ER Diagram DDL'),
+      migrations
     );
+  }
+
+  public get fileUri(): vscode.Uri {
+    return this._fileUri;
+  }
+
+  /** Write edits still waiting for the debounce, if they are for `uri` */
+  public async flushPendingSaveFor(uri: vscode.Uri) {
+    if (uri.toString() === this._fileUri.toString()) {
+      await this._flushPendingSave();
+    }
   }
 
   private constructor(
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
     fileUri: vscode.Uri,
-    outputChannel: vscode.OutputChannel
+    outputChannel: vscode.OutputChannel,
+    private readonly _migrations: MigrationService
   ) {
     this._panel = panel;
     this._extensionUri = extensionUri;
@@ -127,49 +147,69 @@ export class ErmdPanel {
     this._fileUri = fileUri;
     this._model = undefined;
     this._lastWrittenText = undefined;
-    this._panel.title = fileUri.path.split('/').pop() ?? 'ER Diagram';
+    this._lastWrittenVersions = undefined;
+    this._panel.title = fileName(fileUri);
     this._watchFile();
     await this._loadAndSend();
   }
 
+  /** Watches the .ermd file and its schema versions file */
   private _watchFile() {
     this._watcher?.dispose();
+    const name = fileName(this._fileUri);
     const watcher = vscode.workspace.createFileSystemWatcher(
       new vscode.RelativePattern(
         vscode.Uri.joinPath(this._fileUri, '..'),
-        this._fileUri.path.split('/').pop()!
+        `{${name},${versionsFileName(name)}}`
       )
     );
-    const sub = watcher.onDidChange(() => this._onExternalFileChange());
-    this._watcher = vscode.Disposable.from(sub, watcher);
+    const onChange = () => this._onExternalFileChange();
+    this._watcher = vscode.Disposable.from(
+      watcher.onDidChange(onChange), watcher.onDidCreate(onChange), watcher.onDidDelete(onChange), watcher
+    );
   }
 
   private async _loadAndSend() {
     try {
-      const bytes = await vscode.workspace.fs.readFile(this._fileUri);
-      const text = Buffer.from(bytes).toString('utf-8');
-      this._model = ErmdParser.parse(text);
+      const { model } = await readDiagram(this._fileUri);
+      this._model = model;
       this._send({ type: 'load', payload: this._model, fileUri: this._fileUri.toString() });
+      this._updateFormatStatus(model);
       // Also send current dialect so WebView is in sync from the start
       this._send({ type: 'dialectChanged', payload: { dialect: this._getDialect() } });
       this._sendLocale();
       this._send({ type: 'ddlStyleChanged', payload: this._getDdlStyle() });
+      const status = formatStatus(model.version);
+      if (status === 'newer') {
+        vscode.window.showWarningMessage(t().newerFormat(fileName(this._fileUri), model.version, CURRENT_FORMAT_VERSION));
+      } else if (status === 'old') {
+        void this._migrations.promptOnOpen(this._fileUri);
+      }
     } catch (err) {
       vscode.window.showErrorMessage(t().loadFailed(err));
     }
   }
 
+  private _updateFormatStatus(model: DiagramModel) {
+    this._readOnly = formatStatus(model.version) === 'newer';
+    this._send({
+      type: 'fileStatus',
+      payload: { readOnly: this._readOnly, formatVersion: model.version, supportedVersion: CURRENT_FORMAT_VERSION },
+    });
+  }
+
   private async _onExternalFileChange() {
+    if (this._writing) { return; }
     try {
-      const bytes = await vscode.workspace.fs.readFile(this._fileUri);
-      const text = Buffer.from(bytes).toString('utf-8');
+      const { model, texts } = await readDiagram(this._fileUri);
+      if (texts.main === undefined || this._writing) { return; }
       // Our own write (the watcher may fire more than once per write)
-      if (text === this._lastWrittenText) { return; }
+      if (texts.main === this._lastWrittenText && texts.versions === this._lastWrittenVersions) { return; }
       // The external edit wins over edits not yet written
       this._cancelPendingSave();
-      const model = ErmdParser.parse(text);
       this._model = model;
       this._send({ type: 'fileChanged', payload: model });
+      this._updateFormatStatus(model);
     } catch {
       // ignore read errors on external changes
     }
@@ -220,6 +260,10 @@ export class ErmdPanel {
         break;
 
       case 'saveVersion': {
+        if (this._readOnly) {
+          vscode.window.showWarningMessage(t().readOnly);
+          break;
+        }
         const name = await vscode.window.showInputBox({
           prompt: t().versionNamePrompt,
           placeHolder: `v${((msg.payload.model.schemaVersions?.length ?? 0) + 1)}`,
@@ -246,6 +290,10 @@ export class ErmdPanel {
       }
 
       case 'deleteVersion': {
+        if (this._readOnly) {
+          vscode.window.showWarningMessage(t().readOnly);
+          break;
+        }
         await this._flushPendingSave();
         if (!this._model) { break; }
         const updatedModel: DiagramModel = {
@@ -298,21 +346,30 @@ export class ErmdPanel {
     this._cancelPendingSave();
     if (!pending) { return; }
     this._saveVersion = pending.version;
-    // Schema versions are owned by the extension host (saveVersion / deleteVersion),
-    // so a WebView model that is stale or undone must not overwrite them.
+    // Schema versions and the format version are owned by the extension host (saveVersion /
+    // deleteVersion, migration), so a WebView model that is stale or undone must not overwrite them.
     const schemaVersions = this._model ? this._model.schemaVersions : pending.model.schemaVersions;
-    await this._writeToDiskImmediate({ ...pending.model, schemaVersions });
+    const version = this._model ? this._model.version : pending.model.version;
+    await this._writeToDiskImmediate({ ...pending.model, schemaVersions, version });
   }
 
   private async _writeToDiskImmediate(model: DiagramModel) {
+    if (this._readOnly) { return; }
     this._model = model;
-    this._lastWrittenText = ErmdSerializer.serialize(model, this._fileUri);
-    await this._writeFile(this._fileUri, model, this._lastWrittenText);
+    this._writing = true;
+    try {
+      await this._writeFile(this._fileUri, model, (onDisk) => {
+        this._lastWrittenText = onDisk.main;
+        this._lastWrittenVersions = onDisk.versions;
+      });
+    } finally {
+      this._writing = false;
+    }
   }
 
-  private async _writeFile(uri: vscode.Uri, model: DiagramModel, text = ErmdSerializer.serialize(model, uri)) {
+  private async _writeFile(uri: vscode.Uri, model: DiagramModel, beforeWrite?: (onDisk: ErmdTexts) => void) {
     try {
-      await vscode.workspace.fs.writeFile(uri, Buffer.from(text, 'utf-8'));
+      await writeDiagram(uri, model, beforeWrite);
     } catch (err) {
       vscode.window.showErrorMessage(t().saveFailed(err));
     }

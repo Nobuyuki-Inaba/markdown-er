@@ -66,11 +66,13 @@ Press **F5** in VSCode to launch the Extension Development Host.
 ```yaml
 ---
 er-diagram: true
-version: 1
+version: 2
 ---
 
 # My ER Diagram
 ```
+
+An empty `.ermd` file works too: the front matter is added on the first save.
 
 2. Click the **⊹** icon in the editor title bar, or right-click the file in the Explorer → **Open as ER Diagram**.
 
@@ -195,6 +197,7 @@ Double-click a table → select the **Seed Data** tab.
 - Edit cell values directly in the table
 - Click **✕** to delete a row
 - Changes are undo-able with `Ctrl+Z`
+- With many rows, the table scrolls on its own; the column headers and row numbers stay in view
 
 ### Add a region group box
 
@@ -241,6 +244,9 @@ Click the **⚙** gear button in the toolbar to open VSCode Settings filtered to
 | `markdown-er.ddl.quoteIdentifiers` | Quote every identifier (off: only names that need it) | `true` |
 | `markdown-er.ddl.outputFile` | Default file for **Save DDL…** (relative to the diagram) | `${fileBasenameNoExtension}.sql` |
 | `markdown-er.ddl.dataOutputFile` | Default file for **Save data…** | `${fileBasenameNoExtension}_data.sql` |
+| `markdown-er.markdown.generateMermaid` | Write a Mermaid `erDiagram` into the `.ermd` file on save (see [Readable Markdown](#readable-markdown)) | `false` |
+| `markdown-er.markdown.generateTableDocs` | Write a Markdown table of each table's columns into the `.ermd` file on save | `false` |
+| `markdown-er.migration.prompt` | `ask` / `never` — ask whether to update a file in an older format when it is opened | `ask` |
 
 The DDL style options can also be switched with the **Format** checkboxes in the DDL dialog.
 
@@ -268,7 +274,7 @@ Passwords are never stored — the generated DDL contains the placeholder `chang
 #### Save a version
 
 Click **Save Version** in the toolbar. A VSCode input box opens — type a name (e.g. `v1.0`, `before-refactor`) and press **Enter**.  
-The snapshot is saved in the `ermd-versions` block at the bottom of the `.ermd` file. No git commit required.
+The snapshot is saved in `<file>.ermd.versions.yaml` next to the diagram (file format v1: in the `ermd-versions` block of the `.ermd` file). No git commit required.
 
 #### Manage versions
 
@@ -307,12 +313,14 @@ Diff DDL handles renamed tables and columns, type / nullability / default change
 
 ## File format
 
-The diagram is stored in a `.ermd` file using YAML front matter and `ermd-*` fenced blocks:
+The diagram is stored in a `.ermd` file using YAML front matter and `ermd-*` fenced blocks.
+Only the blocks belong to the extension: headings, notes and tables you write around them are kept when the diagram is saved.
+Schema versions are stored in `<file>.ermd.versions.yaml` next to it.
 
 ````
 ---
 er-diagram: true
-version: 1
+version: 2
 ---
 
 # EC Site
@@ -378,6 +386,41 @@ viewport:
   zoom: 1
 ```
 ````
+
+### Readable Markdown
+
+Turn on `markdown-er.markdown.generateMermaid` and / or `generateTableDocs` to have the extension write, right after the title,
+a Mermaid `erDiagram` and a column table per table. They are regenerated on every save between
+`<!-- markdown-er:generated:start -->` and `<!-- markdown-er:generated:end -->` — don't edit inside those markers.
+Both are off by default, as they change with every edit and enlarge diffs.
+Headings follow the UI language; set `markdown-er.language` to `en` or `ja` so a team writes the same text.
+
+GitHub renders Markdown only for `.md` files. To get Markdown highlighting for `.ermd` files on GitHub, and to collapse
+version snapshots in pull request diffs, add this to your repository's `.gitattributes`:
+
+```gitattributes
+*.ermd linguist-language=Markdown
+*.ermd.versions.yaml linguist-generated=true
+```
+
+### File format versions
+
+| Version | Change |
+|---|---|
+| 1 | Everything in the `.ermd` file |
+| 2 | Schema versions in `<file>.ermd.versions.yaml` |
+
+Files are never updated to a newer format on their own:
+
+- When you open a diagram in an older format, a notification asks **Update** / **Show changes** / **Not now** / **Don't ask for this file**.
+  Without updating, the file is read and saved in its own format as before.
+- Run **ER Diagram: Update File Format (Migrate)** (Command Palette, or right-click a `.ermd` file) to update one file,
+  or **ER Diagram: Update File Format of All Files in Workspace** to pick files to update.
+  The update is one edit: `Ctrl+Z` in the text editor undoes it.
+- A file in a format newer than your extension opens read-only; update the extension to edit it.
+
+Before updating a shared file, make sure everyone who edits it has updated the extension. An older extension still
+reads the diagram of an updated file, but does not see the schema versions in the separate file.
 
 ---
 

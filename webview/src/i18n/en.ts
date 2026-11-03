@@ -13,6 +13,13 @@ export const en = {
     designNotePlaceholder: 'Record design decisions, rationale, trade-offs…',
   },
 
+  /** Banner over the diagram */
+  file: {
+    readOnly: (version: number, supported: number) =>
+      `Read-only: this file uses format v${version}, but this extension supports up to v${supported}. ` +
+      'Update the extension to edit it. Changes are not saved.',
+  },
+
   /** Top bar: diagram-wide settings and output */
   toolbar: {
     logicalNames: 'Logical names',

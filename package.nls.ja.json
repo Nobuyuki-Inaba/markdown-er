@@ -12,5 +12,12 @@
   "config.ddl.explicitNull": "NULL 許可カラムに NULL を明記する（オフなら NOT NULL のみ出力）。",
   "config.ddl.quoteIdentifiers": "すべての識別子を引用符で囲む。オフなら必要な名前だけ囲む。",
   "config.ddl.outputFile": "「DDL を保存…」の既定ファイル（ER 図ファイルのフォルダーからの相対パス）。変数: `${fileBasenameNoExtension}`、`${fileBasename}`、`${workspaceFolder}`",
-  "config.ddl.dataOutputFile": "「データを保存…」（初期データの INSERT のみ）の既定ファイル。変数は `#markdown-er.ddl.outputFile#` と同じです。"
+  "config.ddl.dataOutputFile": "「データを保存…」（初期データの INSERT のみ）の既定ファイル。変数は `#markdown-er.ddl.outputFile#` と同じです。",
+  "command.migrateFile": "ER Diagram: ファイル形式を最新にする（Migrate）",
+  "command.migrateWorkspace": "ER Diagram: ワークスペースの全ファイルの形式を最新にする",
+  "config.markdown.generateMermaid": "保存時に、テーブルの Mermaid `erDiagram` を `.ermd` ファイルに書き出します（拡張機能なしでも読めるようにするため）。差分が増えるので初期値は OFF です。",
+  "config.markdown.generateTableDocs": "保存時に、各テーブルの列定義を Markdown の表として `.ermd` ファイルに書き出します。差分が増えるので初期値は OFF です。",
+  "config.migration.prompt": "古いファイル形式の ER 図を開いたとき、更新するかを聞きます。聞かずに更新することはありません。**ER Diagram: ファイル形式を最新にする（Migrate）** コマンドでも更新できます。",
+  "config.migration.prompt.ask": "古いファイルを開いたときに聞く",
+  "config.migration.prompt.never": "聞かない（Migrate コマンドを使う）"
 }
