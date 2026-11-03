@@ -6,5 +6,9 @@
   "config.dialect": "Target database dialect for DDL export.",
   "config.language": "Language of the ER diagram editor.",
   "config.language.auto": "Follow the VS Code display language",
-  "config.mcp": "Enable the MCP server for AI assistant integration"
+  "config.mcp": "Enable the MCP server for AI assistant integration",
+  "config.ddl.comments": "Write column / table comments (logical name + comment) in DDL.",
+  "config.ddl.tableOptions": "Write MySQL table options (ENGINE, DEFAULT CHARSET, COLLATE).",
+  "config.ddl.explicitNull": "Write NULL on nullable columns (otherwise only NOT NULL is written).",
+  "config.ddl.quoteIdentifiers": "Quote every identifier. When off, only names that need it are quoted."
 }

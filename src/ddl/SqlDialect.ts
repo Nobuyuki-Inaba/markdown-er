@@ -3,9 +3,21 @@ import {
   typeSizeSuffix,
 } from '../../shared/DiagramModel';
 import { resolveDatabaseOptions } from '../../shared/databaseOptions';
+import { DdlStyle, DEFAULT_DDL_STYLE } from '../../shared/ddlStyle';
 import type { ResolvedForeignKey, Schema } from './Schema';
 
 export const INTEGER_TYPES: readonly DbType[] = ['INT', 'BIGINT', 'SMALLINT', 'TINYINT'];
+
+const PLAIN_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
+/** Keywords reserved in most databases; such names are always quoted */
+const RESERVED_WORDS = new Set([
+  'ALL', 'ALTER', 'AND', 'ANY', 'AS', 'ASC', 'BETWEEN', 'BY', 'CASE', 'CHECK', 'COLUMN', 'COMMENT', 'CONSTRAINT',
+  'CREATE', 'CROSS', 'CURRENT', 'DATE', 'DEFAULT', 'DELETE', 'DESC', 'DISTINCT', 'DROP', 'ELSE', 'END', 'EXISTS',
+  'FALSE', 'FOR', 'FOREIGN', 'FROM', 'FULL', 'GRANT', 'GROUP', 'HAVING', 'IN', 'INDEX', 'INNER', 'INSERT', 'INTO',
+  'IS', 'JOIN', 'KEY', 'LEFT', 'LEVEL', 'LIKE', 'LIMIT', 'NOT', 'NULL', 'NUMBER', 'OF', 'ON', 'OR', 'ORDER', 'OUTER',
+  'PRIMARY', 'REFERENCES', 'RIGHT', 'ROW', 'ROWS', 'SELECT', 'SESSION', 'SET', 'SIZE', 'TABLE', 'THEN', 'TO',
+  'TRUE', 'UNION', 'UNIQUE', 'UPDATE', 'USER', 'USING', 'VALUES', 'VIEW', 'WHEN', 'WHERE', 'WITH',
+]);
 
 /** Comment for a table or column: logical name (when it differs) + free comment. */
 export function commentText(item: { logicalName: string; physicalName: string; comment: string }): string {
@@ -56,9 +68,23 @@ export abstract class SqlDialect {
   /** Passwords are never stored in the diagram; generated DDL uses this placeholder */
   protected readonly passwordPlaceholder = 'change_me';
 
-  constructor(protected readonly database?: DatabaseSettings) {}
+  constructor(
+    protected readonly database?: DatabaseSettings,
+    /** How the DDL is written (comments, table options, NULL, quoting) */
+    readonly style: DdlStyle = DEFAULT_DDL_STYLE,
+  ) {}
 
-  abstract quote(name: string): string;
+  /** Identifier as written in DDL: always quoted, or only when needed (style.quoteIdentifiers) */
+  quote(name: string): string {
+    return this.style.quoteIdentifiers || this.needsQuoting(name) ? this.quoteIdentifier(name) : name;
+  }
+
+  /** This dialect's quoting, e.g. `name` / "name" / [name] */
+  protected abstract quoteIdentifier(name: string): string;
+
+  protected needsQuoting(name: string): boolean {
+    return !PLAIN_IDENTIFIER.test(name) || RESERVED_WORDS.has(name.toUpperCase());
+  }
 
   /** Database type for a dictionary entry */
   protected abstract mapType(entry: DictionaryEntry, autoIncrement: boolean): string;
@@ -131,8 +157,9 @@ export abstract class SqlDialect {
     const type = this.formatType(schema.entryOf(col), schema.isAutoIncrement(col));
     const defaultSql = this.defaultValue(col, schema);
     const defaultPart = defaultSql ? ` DEFAULT ${defaultSql}` : '';
-    const nullPart = schema.isNotNull(col) ? 'NOT NULL' : 'NULL';
-    return `${this.quote(col.physicalName)} ${type}${defaultPart} ${nullPart}${this.columnCommentClause(commentText(col))}`;
+    const nullPart = schema.isNotNull(col) ? ' NOT NULL' : this.style.explicitNull ? ' NULL' : '';
+    const commentPart = this.style.comments ? this.columnCommentClause(commentText(col)) : '';
+    return `${this.quote(col.physicalName)} ${type}${defaultPart}${nullPart}${commentPart}`;
   }
 
   /** CREATE TABLE plus the statements that belong to it (comments, custom DDL). */
@@ -233,6 +260,7 @@ export abstract class SqlDialect {
 
   /** Standard `COMMENT ON TABLE / COLUMN` (PostgreSQL, Oracle) */
   protected commentOnStatements(table: Table, columns: Column[], includeTable: boolean): string[] {
+    if (!this.style.comments) { return []; }
     const stmts: string[] = [];
     const tableComment = commentText(table);
     if (includeTable && tableComment) {

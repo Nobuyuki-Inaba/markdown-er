@@ -20,12 +20,17 @@ export class OracleDialect extends SqlDialect {
 
   /**
    * Plain identifiers stay unquoted: Oracle folds them to upper case, so they can be
-   * referenced without quotes later. Quoting would make them case-sensitive.
+   * referenced without quotes later. Quoting would make them case-sensitive,
+   * so style.quoteIdentifiers does not apply.
    */
   quote(name: string): string {
     if (SIMPLE_IDENTIFIER.test(name)) {
       return RESERVED.has(name.toUpperCase()) ? `"${name.toUpperCase()}"` : name;
     }
+    return this.quoteIdentifier(name);
+  }
+
+  protected quoteIdentifier(name: string): string {
     return `"${name.replace(/"/g, '""')}"`;
   }
 

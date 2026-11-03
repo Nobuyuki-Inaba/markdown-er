@@ -12,6 +12,7 @@ import { CsvImportPanel } from './components/CsvImportPanel';
 import { VersionsPanel } from './components/VersionsPanel';
 import { DatabasePanel } from './components/DatabasePanel';
 import { useMessages, formatDateTime } from './i18n';
+import { DdlStyle, DDL_STYLE_KEYS } from '@shared/ddlStyle';
 
 export function App() {
   const model      = useDiagramStore((s) => s.model);
@@ -50,6 +51,13 @@ export function App() {
         case 'localeChanged':
           setLocale(msg.payload.locale, msg.payload.setting);
           break;
+        case 'ddlStyleChanged': {
+          useUiStore.getState().setDdlStyle(msg.payload);
+          // Regenerate the open DDL with the new style
+          const { isDdlOpen, ddlMode } = useUiStore.getState();
+          if (isDdlOpen) window.dispatchEvent(new CustomEvent('er:requestDdl', { detail: { mode: ddlMode } }));
+          break;
+        }
         case 'undo':
           applyHistory('undo');
           break;
@@ -171,6 +179,7 @@ function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
   const includeCreateDatabase    = useUiStore((s) => s.ddlIncludeCreateDatabase);
   const setIncludeCreateDatabase = useUiStore((s) => s.setIncludeCreateDatabase);
   const locale              = useUiStore((s) => s.locale);
+  const ddlStyle            = useUiStore((s) => s.ddlStyle);
   const messages = useMessages();
   const t = messages.ddl;
 
@@ -182,6 +191,11 @@ function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
   const handleCreateDatabaseChange = (checked: boolean) => {
     setIncludeCreateDatabase(checked);
     window.dispatchEvent(new CustomEvent('er:requestDdl', { detail: { mode: ddlMode } }));
+  };
+
+  // Written to the settings by the extension host; ddlStyleChanged then regenerates the DDL
+  const handleStyleChange = (key: keyof DdlStyle, checked: boolean) => {
+    sendToExtension({ type: 'setDdlStyle', payload: { [key]: checked } });
   };
 
   const handleSkipPkChange = (checked: boolean) => {
@@ -276,6 +290,22 @@ function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
             </select>
           </div>
         )}
+
+        {/* Format (applies to full and diff DDL) */}
+        <div style={{ padding: '8px 14px', borderBottom: '1px solid #2a2a2a', display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: 12, color: '#aaa' }}>{t.format}</span>
+          {DDL_STYLE_KEYS.map((key) => (
+            <label key={key} style={optionLabelStyle} title={t.styleHints[key]}>
+              <input
+                type="checkbox"
+                checked={ddlStyle[key]}
+                onChange={(e) => handleStyleChange(key, e.target.checked)}
+                style={{ marginRight: 5 }}
+              />
+              {t.styleLabels[key]}
+            </label>
+          ))}
+        </div>
 
         {/* INSERT options */}
         {ddlMode === 'full' && (

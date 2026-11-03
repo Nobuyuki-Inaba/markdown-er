@@ -176,6 +176,19 @@ export const ja: Messages = {
     insertSeedData: '初期データを INSERT 文として含める',
     skipAutoIncrementPk: '自動採番の主キー列を除外する',
     includeCreateDatabase: 'CREATE DATABASE / USER / SCHEMA を含める',
+    format: '書式:',
+    styleLabels: {
+      comments: 'コメント',
+      tableOptions: 'テーブルオプション',
+      explicitNull: 'NULL を明記',
+      quoteIdentifiers: '識別子を引用符で囲む',
+    },
+    styleHints: {
+      comments: '論理名とコメントをカラム／テーブルのコメントとして出力（MySQL COMMENT、PostgreSQL / Oracle COMMENT ON）',
+      tableOptions: 'MySQL の ENGINE / DEFAULT CHARSET / COLLATE',
+      explicitNull: 'NULL 許可カラムに NULL を書く（オフ: NOT NULL のみ）',
+      quoteIdentifiers: 'すべての名前を引用符で囲む（オフ: 予約語や特殊な名前のみ）',
+    },
   },
 
   seed: {

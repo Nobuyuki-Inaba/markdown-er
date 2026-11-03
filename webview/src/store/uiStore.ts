@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { DdlDialect, LanguageSetting, Locale } from '@shared/messages';
+import { DdlStyle, DEFAULT_DDL_STYLE } from '@shared/ddlStyle';
 
 interface UiState {
   selectedTableId: string | null;
@@ -16,6 +17,8 @@ interface UiState {
   isDatabaseOpen: boolean;
   ddlInsertSeedData: boolean;
   ddlIncludeCreateDatabase: boolean;
+  /** Mirror of the markdown-er.ddl.* settings (owned by the extension host) */
+  ddlStyle: DdlStyle;
   ddlSkipAutoIncrementPk: boolean;
   ddlMode: 'full' | 'version-diff';
   ddlFromVersionId: string | null;
@@ -39,6 +42,7 @@ interface UiState {
   openDatabase: () => void;
   closeDatabase: () => void;
   setIncludeCreateDatabase: (include: boolean) => void;
+  setDdlStyle: (style: DdlStyle) => void;
   setDdlOptions: (insertSeedData: boolean, skipAutoIncrementPk: boolean) => void;
   setDdlMode: (mode: 'full' | 'version-diff') => void;
   setDdlVersions: (fromVersionId: string | null, toVersionId: string | null) => void;
@@ -61,6 +65,7 @@ export const useUiStore = create<UiState>()((set) => ({
   isDatabaseOpen: false,
   ddlInsertSeedData: false,
   ddlIncludeCreateDatabase: false,
+  ddlStyle: DEFAULT_DDL_STYLE,
   ddlSkipAutoIncrementPk: false,
   ddlMode: 'full',
   ddlFromVersionId: null,
@@ -84,6 +89,7 @@ export const useUiStore = create<UiState>()((set) => ({
   openDatabase: () => set({ isDatabaseOpen: true }),
   closeDatabase: () => set({ isDatabaseOpen: false }),
   setIncludeCreateDatabase: (include) => set({ ddlIncludeCreateDatabase: include }),
+  setDdlStyle: (style) => set({ ddlStyle: style }),
   setDdlOptions: (insertSeedData, skipAutoIncrementPk) => set({ ddlInsertSeedData: insertSeedData, ddlSkipAutoIncrementPk: skipAutoIncrementPk }),
   setDdlMode: (mode) => set({ ddlMode: mode }),
   setDdlVersions: (fromVersionId, toVersionId) => set({ ddlFromVersionId: fromVersionId, ddlToVersionId: toVersionId }),

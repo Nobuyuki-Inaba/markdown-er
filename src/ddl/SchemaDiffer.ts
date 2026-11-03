@@ -4,6 +4,7 @@ import { SqlDialect, ColumnChange, commentText } from './SqlDialect';
 import { Schema, ResolvedForeignKey } from './Schema';
 import { isCompleteIndex } from './DdlExporter';
 import { createDialect } from './createDialect';
+import type { DdlStyle } from '../../shared/ddlStyle';
 
 /**
  * ALTER script that turns `baseline` into `current`.
@@ -16,8 +17,8 @@ export class SchemaDiffer {
   private readonly kept: [Table, Table][];
   private readonly stmts: string[] = [];
 
-  static diff(baseline: DiagramModel, current: DiagramModel, dialect: DdlDialect = 'mysql'): string {
-    return new SchemaDiffer(baseline, current, createDialect(dialect, current.database)).build();
+  static diff(baseline: DiagramModel, current: DiagramModel, dialect: DdlDialect = 'mysql', style: Partial<DdlStyle> = {}): string {
+    return new SchemaDiffer(baseline, current, createDialect(dialect, current.database, style)).build();
   }
 
   constructor(baseline: DiagramModel, current: DiagramModel, private readonly dialect: SqlDialect) {
@@ -127,7 +128,7 @@ export class SchemaDiffer {
       typeChanged:          oldType !== newType,
       nullChanged:          base.isNotNull(before) !== notNull,
       defaultChanged:       (before.defaultValue || null) !== (after.defaultValue || null),
-      commentChanged:       commentText(before) !== commentText(after),
+      commentChanged:       dialect.style.comments && commentText(before) !== commentText(after),
       autoIncrementChanged: base.isAutoIncrement(before) !== cur.isAutoIncrement(after),
       isAutoIncrement:      cur.isAutoIncrement(after),
       definition:           dialect.columnDefinition(after, cur),
@@ -162,7 +163,7 @@ export class SchemaDiffer {
       this.push(...this.dialect.customStatements(added));
 
       const comment = commentText(ct);
-      if (comment !== commentText(bt)) {
+      if (this.dialect.style.comments && comment !== commentText(bt)) {
         this.push(...this.dialect.changeTableComment(ct, comment));
       }
     }

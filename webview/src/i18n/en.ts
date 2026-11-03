@@ -180,6 +180,19 @@ export const en = {
     insertSeedData: 'Include seed data as INSERT statements',
     skipAutoIncrementPk: 'Skip auto-increment PK columns',
     includeCreateDatabase: 'Include CREATE DATABASE / USER / SCHEMA',
+    format: 'Format:',
+    styleLabels: {
+      comments: 'Comments',
+      tableOptions: 'Table options',
+      explicitNull: 'Explicit NULL',
+      quoteIdentifiers: 'Quote identifiers',
+    },
+    styleHints: {
+      comments: 'Column / table comments from logical names and comments (MySQL COMMENT, PostgreSQL / Oracle COMMENT ON)',
+      tableOptions: 'MySQL ENGINE / DEFAULT CHARSET / COLLATE',
+      explicitNull: 'Write NULL on nullable columns (off: only NOT NULL is written)',
+      quoteIdentifiers: 'Quote every name (off: only reserved words and special names are quoted)',
+    },
   },
 
   seed: {

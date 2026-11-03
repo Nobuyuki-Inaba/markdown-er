@@ -6,6 +6,7 @@ import { loadGitBaseline } from './GitBaseline';
 import { languageSetting, resolveLocale, t } from './i18n';
 import { DiagramModel, SchemaVersion } from '../shared/DiagramModel';
 import { DdlDialect, ExtToWebMsg, WebToExtMsg } from '../shared/messages';
+import { DdlStyle, DEFAULT_DDL_STYLE, DDL_STYLE_KEYS } from '../shared/ddlStyle';
 
 export class ErmdPanel {
   public static currentPanel: ErmdPanel | undefined;
@@ -75,10 +76,13 @@ export class ErmdPanel {
     this._watchFile();
     this._disposables.push(outputChannel);
 
-    // Push updated dialect / language to WebView whenever the settings change
+    // Push updated dialect / DDL style / language to WebView whenever the settings change
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration('markdown-er.ddl.dialect')) {
         this._send({ type: 'dialectChanged', payload: { dialect: this._getDialect() } });
+      }
+      if (DDL_STYLE_KEYS.some((key) => e.affectsConfiguration(`markdown-er.ddl.${key}`))) {
+        this._send({ type: 'ddlStyleChanged', payload: this._getDdlStyle() });
       }
       if (e.affectsConfiguration('markdown-er.language')) {
         this._sendLocale();
@@ -102,6 +106,16 @@ export class ErmdPanel {
     return vscode.workspace
       .getConfiguration('markdown-er')
       .get<DdlDialect>('ddl.dialect', 'mysql');
+  }
+
+  /** `markdown-er.ddl.<key>` settings */
+  private _getDdlStyle(): DdlStyle {
+    const config = vscode.workspace.getConfiguration('markdown-er.ddl');
+    const style = { ...DEFAULT_DDL_STYLE };
+    for (const key of DDL_STYLE_KEYS) {
+      style[key] = config.get<boolean>(key, DEFAULT_DDL_STYLE[key]);
+    }
+    return style;
   }
 
   private async _changeFile(fileUri: vscode.Uri) {
@@ -137,6 +151,7 @@ export class ErmdPanel {
       // Also send current dialect so WebView is in sync from the start
       this._send({ type: 'dialectChanged', payload: { dialect: this._getDialect() } });
       this._sendLocale();
+      this._send({ type: 'ddlStyleChanged', payload: this._getDdlStyle() });
     } catch (err) {
       vscode.window.showErrorMessage(t().loadFailed(err));
     }
@@ -248,6 +263,16 @@ export class ErmdPanel {
           .update('language', msg.payload.setting, vscode.ConfigurationTarget.Global);
         break;
 
+      case 'setDdlStyle': {
+        // Same pattern: write the settings; the change event re-sends ddlStyleChanged
+        const config = vscode.workspace.getConfiguration('markdown-er.ddl');
+        for (const key of DDL_STYLE_KEYS) {
+          const value = msg.payload[key];
+          if (value !== undefined) { await config.update(key, value, vscode.ConfigurationTarget.Global); }
+        }
+        break;
+      }
+
       case 'openSettings':
         vscode.commands.executeCommand('workbench.action.openSettings', 'markdown-er');
         break;
@@ -294,9 +319,10 @@ export class ErmdPanel {
     options: DdlOptions & { fromVersionId?: string; toVersionId?: string | null } = {}
   ) {
     const dialect = this._getDialect();
+    const style = this._getDdlStyle();
     let ddl: string;
     if (mode === 'full') {
-      ddl = DdlExporter.export(model, dialect, options);
+      ddl = DdlExporter.export(model, dialect, { ...options, ...style });
     } else if (mode === 'version-diff') {
       const versions = model.schemaVersions ?? [];
       const fromVer = versions.find((v) => v.id === options.fromVersionId);
@@ -310,16 +336,16 @@ export class ErmdPanel {
         const toModel: DiagramModel = toVer
           ? { ...model, tables: toVer.tables, relations: toVer.relations, dictionary: toVer.dictionary }
           : model;
-        ddl = SchemaDiffer.diff(fromModel, toModel, dialect);
+        ddl = SchemaDiffer.diff(fromModel, toModel, dialect, style);
       }
     } else {
       const ref = baselineRef ?? 'HEAD~1';
       try {
         const baseline = await loadGitBaseline(this._fileUri, ref);
-        ddl = SchemaDiffer.diff(baseline, model, dialect);
+        ddl = SchemaDiffer.diff(baseline, model, dialect, style);
       } catch (err) {
         ddl = `-- Could not load baseline (${ref}): ${err instanceof Error ? err.message : err}\n` +
-          `-- Falling back to full DDL\n\n${DdlExporter.export(model, dialect)}`;
+          `-- Falling back to full DDL\n\n${DdlExporter.export(model, dialect, style)}`;
       }
     }
     this._outputChannel.clear();

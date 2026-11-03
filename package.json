@@ -85,6 +85,26 @@
           "default": "mysql",
           "description": "%config.dialect%"
         },
+        "markdown-er.ddl.comments": {
+          "type": "boolean",
+          "default": false,
+          "description": "%config.ddl.comments%"
+        },
+        "markdown-er.ddl.tableOptions": {
+          "type": "boolean",
+          "default": false,
+          "description": "%config.ddl.tableOptions%"
+        },
+        "markdown-er.ddl.explicitNull": {
+          "type": "boolean",
+          "default": false,
+          "description": "%config.ddl.explicitNull%"
+        },
+        "markdown-er.ddl.quoteIdentifiers": {
+          "type": "boolean",
+          "default": true,
+          "description": "%config.ddl.quoteIdentifiers%"
+        },
         "markdown-er.mcp.enabled": {
           "type": "boolean",
           "default": false,

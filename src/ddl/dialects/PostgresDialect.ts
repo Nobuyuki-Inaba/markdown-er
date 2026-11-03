@@ -7,8 +7,13 @@ export class PostgresDialect extends SqlDialect {
   readonly id = 'postgresql';
   readonly label = 'PostgreSQL';
 
-  quote(name: string): string {
+  protected quoteIdentifier(name: string): string {
     return `"${name.replace(/"/g, '""')}"`;
+  }
+
+  /** Unquoted names fold to lower case, so names with capitals must be quoted */
+  protected needsQuoting(name: string): boolean {
+    return super.needsQuoting(name) || /[A-Z]/.test(name);
   }
 
   booleanLiteral(value: boolean): string {

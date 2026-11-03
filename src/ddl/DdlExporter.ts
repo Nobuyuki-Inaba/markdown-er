@@ -3,8 +3,10 @@ import type { DdlDialect } from '../../shared/messages';
 import { SqlDialect } from './SqlDialect';
 import { Schema } from './Schema';
 import { createDialect } from './createDialect';
+import type { DdlStyle } from '../../shared/ddlStyle';
 
-export interface DdlOptions {
+/** What to include, plus how to write it (DdlStyle; unset fields use DEFAULT_DDL_STYLE) */
+export interface DdlOptions extends Partial<DdlStyle> {
   insertSeedData?: boolean;
   skipAutoIncrementPk?: boolean;
   /** Prepend CREATE DATABASE / USER / SCHEMA */
@@ -22,7 +24,7 @@ export class DdlExporter {
   private readonly schema: Schema;
 
   static export(model: DiagramModel, dialect: DdlDialect = 'mysql', options: DdlOptions = {}): string {
-    return new DdlExporter(model, createDialect(dialect, model.database)).build(options);
+    return new DdlExporter(model, createDialect(dialect, model.database, options)).build(options);
   }
 
   constructor(model: DiagramModel, private readonly dialect: SqlDialect) {

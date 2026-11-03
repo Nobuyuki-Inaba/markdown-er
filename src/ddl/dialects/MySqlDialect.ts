@@ -6,7 +6,7 @@ export class MySqlDialect extends SqlDialect {
   readonly id = 'mysql';
   readonly label = 'MySQL';
 
-  quote(name: string): string {
+  protected quoteIdentifier(name: string): string {
     return `\`${name.replace(/`/g, '``')}\``;
   }
 
@@ -46,12 +46,17 @@ export class MySqlDialect extends SqlDialect {
     return comment ? ` COMMENT ${this.string(comment)}` : '';
   }
 
-  /** Tables follow the database character set / collation */
+  /** Storage options follow the database character set / collation */
   protected tableOptions(table: Table): string {
-    const { charset, collation } = this.databaseOptions();
+    const parts: string[] = [];
+    if (this.style.tableOptions) {
+      const { charset, collation } = this.databaseOptions();
+      parts.push('ENGINE=InnoDB', `DEFAULT CHARSET=${charset}`);
+      if (collation) { parts.push(`COLLATE=${collation}`); }
+    }
     const comment = commentText(table);
-    return ` ENGINE=InnoDB DEFAULT CHARSET=${charset}${collation ? ` COLLATE=${collation}` : ''}` +
-      `${comment ? ` COMMENT=${this.string(comment)}` : ''}`;
+    if (this.style.comments && comment) { parts.push(`COMMENT=${this.string(comment)}`); }
+    return parts.map((p) => ` ${p}`).join('');
   }
 
   renameTable(from: string, to: string): string {

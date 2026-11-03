@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DdlExporter } from '../../src/ddl';
 import { DdlDialect } from '../../shared/messages';
+import { DdlStyle } from '../../shared/ddlStyle';
 import { shopModel, tableOf } from '../fixtures';
 
 const DIALECTS: DdlDialect[] = ['mysql', 'postgresql', 'oracle', 'sqlserver', 'sqlite'];
@@ -11,9 +12,38 @@ function createOf(ddl: string, name: string): string {
   return ddl.slice(start, ddl.indexOf(';', start) + 1);
 }
 
+/** Every detail switched on */
+const DETAILED: DdlStyle = { comments: true, tableOptions: true, explicitNull: true, quoteIdentifiers: true };
+
 describe('DdlExporter', () => {
-  it.each(DIALECTS)('%s: full DDL snapshot', (dialect) => {
+  it.each(DIALECTS)('%s: default (plain) DDL snapshot', (dialect) => {
     expect(DdlExporter.export(shopModel(), dialect, { insertSeedData: true })).toMatchSnapshot();
+  });
+
+  it.each(DIALECTS)('%s: detailed DDL snapshot', (dialect) => {
+    expect(DdlExporter.export(shopModel(), dialect, { ...DETAILED, insertSeedData: true })).toMatchSnapshot();
+  });
+
+  describe('style', () => {
+    it('is a plain CREATE TABLE by default: no comments, no table options, no explicit NULL', () => {
+      const ddl = DdlExporter.export(shopModel(), 'mysql');
+      expect(ddl).not.toMatch(/COMMENT|ENGINE|CHARSET/);
+      expect(createOf(ddl, 'users').endsWith('\n);')).toBe(true);
+      expect(createOf(ddl, 'profiles')).toContain('`bio` VARCHAR(100),');
+    });
+
+    it('quotes only where needed when quoteIdentifiers is off', () => {
+      const model = shopModel();
+      tableOf(model, 't_users').columns[1].physicalName = 'order';   // reserved word
+      tableOf(model, 't_orders').columns[2].physicalName = 'Total';  // capital letter
+      const mysql = DdlExporter.export(model, 'mysql', { quoteIdentifiers: false });
+      expect(createOf(mysql, 'users')).toContain('id INT AUTO_INCREMENT NOT NULL');
+      expect(createOf(mysql, 'users')).toContain('`order` VARCHAR(100) NOT NULL');
+      expect(createOf(mysql, 'orders')).toContain('Total DECIMAL(10,2) NOT NULL');
+      // PostgreSQL folds unquoted names to lower case, so capitals keep their quotes
+      const pg = DdlExporter.export(model, 'postgresql', { quoteIdentifiers: false });
+      expect(createOf(pg, 'orders')).toContain('"Total" DECIMAL(10,2) NOT NULL');
+    });
   });
 
   describe('auto-increment', () => {
@@ -92,8 +122,8 @@ describe('DdlExporter', () => {
     });
 
     it('MySQL tables follow the database charset / collation', () => {
-      expect(createOf(DdlExporter.export(withDatabase(), 'mysql'), 'users'))
-        .toContain('DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_ja_0900_as_cs');
+      expect(createOf(DdlExporter.export(withDatabase(), 'mysql', { tableOptions: true }), 'users'))
+        .toContain('ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_ja_0900_as_cs');
     });
 
     it('SQL Server qualifies tables with the schema', () => {
@@ -132,11 +162,11 @@ describe('DdlExporter', () => {
     expect(createOf(DdlExporter.export(shopModel(), 'postgresql'), 'orders')).toContain('"total" DECIMAL(10,2)');
   });
 
-  it('writes logical names and comments as column comments', () => {
-    const mysql = DdlExporter.export(shopModel(), 'mysql');
+  it('writes logical names and comments as column comments when comments are on', () => {
+    const mysql = DdlExporter.export(shopModel(), 'mysql', { comments: true });
     expect(mysql).toContain("COMMENT 'ユーザー名: display name, can''t be empty'");
     expect(mysql).toContain("COMMENT='ユーザー'");
-    const pg = DdlExporter.export(shopModel(), 'postgresql');
+    const pg = DdlExporter.export(shopModel(), 'postgresql', { comments: true });
     expect(pg).toContain(`COMMENT ON COLUMN "users"."name" IS 'ユーザー名: display name, can''t be empty';`);
     expect(pg).toContain(`COMMENT ON TABLE "users" IS 'ユーザー';`);
   });

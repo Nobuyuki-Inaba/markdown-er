@@ -12,7 +12,7 @@ export class SqliteDialect extends SqlDialect {
   readonly autoIncrementTypes: readonly DbType[] = INTEGER_TYPES;
   readonly inlineForeignKeys = true;
 
-  quote(name: string): string {
+  protected quoteIdentifier(name: string): string {
     return `"${name.replace(/"/g, '""')}"`;
   }
 

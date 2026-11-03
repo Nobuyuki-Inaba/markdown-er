@@ -1,4 +1,5 @@
 import { DiagramModel, DdlDialect } from './DiagramModel';
+import type { DdlStyle } from './ddlStyle';
 
 export type { DdlDialect };
 
@@ -13,6 +14,7 @@ export type ExtToWebMsg =
   | { type: 'ddlResult'; payload: { ddl: string; mode: 'full' | 'diff' | 'version-diff' } }
   | { type: 'dialectChanged'; payload: { dialect: DdlDialect } }
   | { type: 'localeChanged'; payload: { locale: Locale; setting: LanguageSetting } }
+  | { type: 'ddlStyleChanged'; payload: DdlStyle }
   | { type: 'versionSaved'; payload: DiagramModel }
   | { type: 'undo' }
   | { type: 'redo' };
@@ -32,4 +34,5 @@ export type WebToExtMsg =
   | { type: 'saveVersion'; payload: { model: DiagramModel } }
   | { type: 'deleteVersion'; payload: { versionId: string } }
   | { type: 'setLanguage'; payload: { setting: LanguageSetting } }
+  | { type: 'setDdlStyle'; payload: Partial<DdlStyle> }
   | { type: 'openSettings' };

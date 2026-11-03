@@ -2,18 +2,25 @@ import { describe, expect, it } from 'vitest';
 import { SchemaDiffer } from '../../src/ddl';
 import { DiagramModel } from '../../shared/DiagramModel';
 import { DdlDialect } from '../../shared/messages';
+import { DdlStyle } from '../../shared/ddlStyle';
 import { clone, col, shopModel, tableOf } from '../fixtures';
 
-function diff(change: (m: DiagramModel) => void, dialect: DdlDialect): string {
+function diff(change: (m: DiagramModel) => void, dialect: DdlDialect, style: Partial<DdlStyle> = {}): string {
   const base = shopModel();
   const cur = clone(base);
   change(cur);
-  return SchemaDiffer.diff(base, cur, dialect);
+  return SchemaDiffer.diff(base, cur, dialect, style);
 }
 
 describe('SchemaDiffer', () => {
   it('reports no changes for identical models', () => {
     expect(SchemaDiffer.diff(shopModel(), shopModel(), 'mysql')).toBe('-- No changes detected');
+  });
+
+  it('ignores comment changes unless comments are on', () => {
+    const change = (m: DiagramModel) => { tableOf(m, 't_users').columns[1].comment = 'changed'; };
+    expect(diff(change, 'postgresql')).toBe('-- No changes detected');
+    expect(diff(change, 'postgresql', { comments: true })).toBe(`COMMENT ON COLUMN "users"."name" IS 'ユーザー名: changed';`);
   });
 
   describe('oracle', () => {
@@ -32,7 +39,7 @@ describe('SchemaDiffer', () => {
         m.tables = m.tables.filter((t) => t.id !== 't_products');
         m.relations = m.relations.filter((r) => r.fromTableId !== 't_products');
       }, 'oracle');
-      expect(ddl).toContain(`ALTER TABLE orders ADD (note VARCHAR2(100 CHAR) DEFAULT '-' NULL);`);
+      expect(ddl).toContain(`ALTER TABLE orders ADD (note VARCHAR2(100 CHAR) DEFAULT '-');`);
       expect(ddl).toContain('DROP TABLE products CASCADE CONSTRAINTS;');
     });
   });
@@ -59,7 +66,12 @@ describe('SchemaDiffer', () => {
     };
 
     it('mysql restates the column with MODIFY', () => {
-      expect(diff(change, 'mysql')).toContain("ALTER TABLE `users` MODIFY COLUMN `name` VARCHAR(200) NOT NULL COMMENT 'ユーザー名: display name, can''t be empty';");
+      expect(diff(change, 'mysql')).toContain('ALTER TABLE `users` MODIFY COLUMN `name` VARCHAR(200) NOT NULL;');
+    });
+
+    it('mysql MODIFY keeps the comment when comments are on', () => {
+      expect(diff(change, 'mysql', { comments: true }))
+        .toContain("ALTER TABLE `users` MODIFY COLUMN `name` VARCHAR(200) NOT NULL COMMENT 'ユーザー名: display name, can''t be empty';");
     });
 
     it('postgresql alters each aspect separately', () => {
@@ -86,8 +98,8 @@ describe('SchemaDiffer', () => {
   });
 
   it.each([
-    ['mysql', 'ALTER TABLE `orders` ADD COLUMN `note` VARCHAR(100) NULL;'],
-    ['sqlserver', 'ALTER TABLE [orders] ADD [note] NVARCHAR(100) NULL;'],
+    ['mysql', 'ALTER TABLE `orders` ADD COLUMN `note` VARCHAR(100);'],
+    ['sqlserver', 'ALTER TABLE [orders] ADD [note] NVARCHAR(100);'],
   ] as const)('%s: add column', (dialect, expected) => {
     expect(diff((m) => { tableOf(m, 't_orders').columns.push(col('o_note', 'note', 'd_name', { isNullable: true })); }, dialect))
       .toContain(expected);

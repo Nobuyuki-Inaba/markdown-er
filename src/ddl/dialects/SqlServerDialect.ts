@@ -6,7 +6,7 @@ export class SqlServerDialect extends SqlDialect {
   readonly id = 'sqlserver';
   readonly label = 'SQL Server';
 
-  quote(name: string): string {
+  protected quoteIdentifier(name: string): string {
     return `[${name.replace(/]/g, ']]')}]`;
   }
 
