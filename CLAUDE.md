@@ -89,8 +89,8 @@ Run from the **repo root** unless noted.
 
 | Command | What it does |
 |---|---|
-| `npm install` | Install extension host deps (js-yaml, TypeScript) |
-| `cd webview && npm install` | Install WebView deps (React, ReactFlow, Zustand, …) |
+| `npm ci` | Install extension host deps exactly as locked (js-yaml, TypeScript) |
+| `npm ci --prefix webview` | Install WebView deps exactly as locked (React, ReactFlow, Zustand, …) |
 | `npm run compile` | Type-check the extension host (`tsc --noEmit`) |
 | `npm run build:ext` | Bundle the extension host with esbuild → `out/extension.js` |
 | `npm run build:webview` | Build React WebView with Vite → `media/` |
@@ -104,6 +104,18 @@ Run from the **repo root** unless noted.
 DDL output changes show up in `test/ddl/__snapshots__`; review them and update with `npx vitest run -u`.
 
 ---
+
+## Dependencies (supply-chain hardening)
+
+- `.npmrc` (root and `webview/`): `ignore-scripts=true` (no install scripts — esbuild, vite and resvg work without them),
+  `min-release-age=7` (versions younger than 7 days are not installed), `allow-git=none`, `save-exact=true`.
+- `package.json` versions are exact; lockfiles resolve only from registry.npmjs.org with integrity hashes. Use `npm ci`
+  to install; add or update with `npm install -D <pkg>@<version>` and review the lockfile diff.
+- Keep runtime dependencies few (they ship in the bundle): js-yaml, React, @xyflow/react, zustand, zundo, dagre.
+  Prefer a few lines of own code over a new package.
+- CI (`.github/workflows/ci.yml`) runs `npm audit signatures` and `npm audit` (high for shipped deps, critical for
+  tooling). Actions are pinned to commit SHAs; tokens are read-only except the release job.
+- Dependabot (`.github/dependabot.yml`) proposes grouped weekly updates after a 7-day cooldown.
 
 ## Development workflow
 

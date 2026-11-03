@@ -65,7 +65,8 @@ gh run list --limit 3
 ### 5. 手元でもパッケージを作成（Marketplace アップロード用）
 
 ```
-npm install
+npm ci
+npm ci --prefix webview
 npm run package
 ```
 生成物: `markdown-er-<VERSION>.vsix`

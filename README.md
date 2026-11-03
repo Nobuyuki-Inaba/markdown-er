@@ -51,8 +51,8 @@ Search for **"Markdown ER Diagram"** in the VSCode Extensions panel and click **
 ```bash
 git clone https://github.com/Nobuyuki-Inaba/markdown-er.git
 cd markdown-er
-npm install
-cd webview && npm install && cd ..
+npm ci
+npm ci --prefix webview
 npm run build
 ```
 
