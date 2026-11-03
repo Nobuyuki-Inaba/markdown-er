@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [0.1.1] - 2026-11-03
+
 ### Added
 
 - **Text outside the `ermd-*` blocks is kept** — headings, notes and tables written in a `.ermd` file are no longer
@@ -116,7 +120,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Indexes and constraints — define indexes (UNIQUE / INDEX) and check/unique constraints per table; exported in DDL
 - CSV import for seed data — import rows from a CSV file; download a column-header template CSV
 
-[Unreleased]: https://github.com/Nobuyuki-Inaba/markdown-er/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/Nobuyuki-Inaba/markdown-er/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/Nobuyuki-Inaba/markdown-er/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/Nobuyuki-Inaba/markdown-er/compare/v0.0.4...v0.1.0
 [0.0.4]: https://github.com/Nobuyuki-Inaba/markdown-er/compare/v0.0.3...v0.0.4
 [0.0.3]: https://github.com/Nobuyuki-Inaba/markdown-er/compare/v0.0.2...v0.0.3
