@@ -1,3 +1,5 @@
+export type DdlDialect = 'mysql' | 'postgresql' | 'oracle' | 'sqlserver' | 'sqlite';
+
 export type DbType =
   | 'INT' | 'BIGINT' | 'SMALLINT' | 'TINYINT'
   | 'VARCHAR' | 'CHAR' | 'TEXT' | 'LONGTEXT'
@@ -13,26 +15,83 @@ export const DB_TYPES: DbType[] = [
   'BOOLEAN', 'JSON', 'BLOB',
 ];
 
-export interface DictionaryEntry {
-  id: string;
-  name: string;
+export type DbTypeKind = 'string' | 'number' | 'datetime' | 'other';
+
+/** Basic types by kind, in display order */
+export const DB_TYPE_KINDS: { kind: DbTypeKind; types: DbType[] }[] = [
+  { kind: 'string',   types: ['VARCHAR', 'CHAR', 'TEXT', 'LONGTEXT'] },
+  { kind: 'number',   types: ['INT', 'BIGINT', 'SMALLINT', 'TINYINT', 'DECIMAL', 'FLOAT', 'DOUBLE'] },
+  { kind: 'datetime', types: ['DATETIME', 'DATE', 'TIMESTAMP', 'TIME'] },
+  { kind: 'other',    types: ['BOOLEAN', 'JSON', 'BLOB'] },
+];
+
+export function dbTypeKind(dbType: DbType): DbTypeKind {
+  return DB_TYPE_KINDS.find((k) => k.types.includes(dbType))?.kind ?? 'other';
+}
+
+/** A concrete column type, e.g. VARCHAR(100) or DECIMAL(10,2) */
+export interface TypeSpec {
   dbType: DbType;
   length: number | null;
+  /** Digits after the decimal point (DECIMAL only), e.g. DECIMAL(10,2) */
+  scale?: number | null;
+}
+
+/** A named, reusable type */
+export interface DictionaryEntry extends TypeSpec {
+  id: string;
+  name: string;
+  /** Default NOT NULL applied to a column when the type is chosen */
   notNull: boolean;
   comment: string;
   category?: string;
+}
+
+/** The column's type: its dictionary entry if it resolves, else its direct type */
+export function columnTypeSpec(col: Column, dictionary: ReadonlyMap<string, DictionaryEntry> | DictionaryEntry[]): TypeSpec | undefined {
+  const entry = Array.isArray(dictionary)
+    ? dictionary.find((e) => e.id === col.dictionaryId)
+    : dictionary.get(col.dictionaryId);
+  return entry ?? col.type;
+}
+
+/** "VARCHAR(100)" */
+export function formatTypeSpec(spec: TypeSpec): string {
+  return `${spec.dbType}${typeSizeSuffix(spec)}`;
+}
+
+/** "(10,2)", "(255)" or "" */
+export function typeSizeSuffix(entry: Pick<DictionaryEntry, 'length' | 'scale'>): string {
+  if (entry.length == null) return '';
+  return entry.scale != null ? `(${entry.length},${entry.scale})` : `(${entry.length})`;
 }
 
 export interface Column {
   id: string;
   logicalName: string;
   physicalName: string;
+  /** Dictionary type; takes precedence over `type` when it resolves */
   dictionaryId: string;
+  /** Type given directly, without the dictionary */
+  type?: TypeSpec;
   isPrimaryKey: boolean;
   isNullable: boolean;
   defaultValue: string | null;
   comment: string;
   designNote?: string;
+  /** Set when the column comes from a column set; kept in sync with that set's column */
+  columnSet?: { setId: string; columnId: string };
+}
+
+/** Reusable group of columns (e.g. audit columns), applied to tables by reference */
+export interface ColumnSet {
+  id: string;
+  name: string;
+  /** Where the set's columns go in a table */
+  position: 'start' | 'end';
+  /** Applied automatically to tables added afterwards */
+  applyToNewTables?: boolean;
+  columns: Column[];
 }
 
 export interface TableIndex {
@@ -61,6 +120,8 @@ export interface Table {
   designNote?: string;
   headerColor?: string;
   columns: Column[];
+  /** Column sets applied to this table, in order */
+  columnSetIds?: string[];
   indexes?: TableIndex[];
   constraints?: TableConstraint[];
   seedData?: Record<string, string>[];
@@ -111,9 +172,32 @@ export interface SchemaVersion {
   };
 }
 
+/** CREATE DATABASE options; each dialect reads the fields it supports (see shared/databaseOptions.ts) */
+export interface DatabaseOptions {
+  /** MySQL CHARACTER SET / PostgreSQL ENCODING / SQLite PRAGMA encoding */
+  charset?: string;
+  /** MySQL COLLATE / PostgreSQL LC_COLLATE / SQL Server COLLATE */
+  collation?: string;
+  /** PostgreSQL LC_CTYPE */
+  ctype?: string;
+}
+
+export interface DatabaseSettings {
+  /** Database name (Oracle: unused, the schema is a user) */
+  name: string;
+  /** PostgreSQL / SQL Server schema; Oracle schema user. MySQL treats schema = database. */
+  schema?: string;
+  /** Application user (login role) to create and grant. Passwords are never stored. */
+  user?: string;
+  /** Kept per dialect, so switching the target DB never yields e.g. utf8mb4 on PostgreSQL */
+  options: Partial<Record<DdlDialect, DatabaseOptions>>;
+}
+
 export interface DiagramModel {
   version: number;
+  database?: DatabaseSettings;
   dictionary: DictionaryEntry[];
+  columnSets?: ColumnSet[];
   tables: Table[];
   relations: Relation[];
   layout: {

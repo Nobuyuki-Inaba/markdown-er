@@ -1,5 +1,5 @@
 import * as yaml from 'js-yaml';
-import * as vscode from 'vscode';
+import type * as vscode from 'vscode';
 import { DiagramModel } from '../shared/DiagramModel';
 
 export class ErmdSerializer {
@@ -16,12 +16,30 @@ export class ErmdSerializer {
     lines.push('');
     lines.push(`# ${title}`);
 
+    if (model.database) {
+      lines.push('');
+      lines.push('## Database');
+      lines.push('');
+      lines.push('```ermd-database');
+      lines.push(yaml.dump(model.database, { indent: 2, lineWidth: -1 }).trimEnd());
+      lines.push('```');
+    }
+
     if (model.dictionary.length > 0) {
       lines.push('');
       lines.push('## Dictionary');
       lines.push('');
       lines.push('```ermd-dictionary');
       lines.push(yaml.dump(model.dictionary, { indent: 2, lineWidth: -1 }).trimEnd());
+      lines.push('```');
+    }
+
+    if (model.columnSets && model.columnSets.length > 0) {
+      lines.push('');
+      lines.push('## Column Sets');
+      lines.push('');
+      lines.push('```ermd-column-sets');
+      lines.push(yaml.dump(model.columnSets, { indent: 2, lineWidth: -1 }).trimEnd());
       lines.push('```');
     }
 

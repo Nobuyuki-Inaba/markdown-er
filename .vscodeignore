@@ -11,3 +11,9 @@ node_modules/**
 .gitignore
 tsconfig.json
 CLAUDE.md
+test/**
+scripts/**
+images/icon.svg
+.claude/**
+.github/**
+.npmrc

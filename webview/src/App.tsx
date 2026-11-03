@@ -1,17 +1,21 @@
-import { useEffect, useCallback } from 'react';
-import { useDiagramStore } from './store/diagramStore';
+import { useEffect, useCallback, useRef } from 'react';
+import { useDiagramStore, loadModel, setSchemaVersions, applyHistory } from './store/diagramStore';
 import { useUiStore } from './store/uiStore';
 import { sendToExtension, onMessageFromExtension } from './vscodeApi';
 import { Toolbar } from './components/Toolbar';
+import { CanvasToolbar } from './components/CanvasToolbar';
 import { DiagramCanvas } from './components/DiagramCanvas';
 import { TableEditPanel } from './components/TableEditPanel';
 import { RelationEditPanel } from './components/RelationEditPanel';
 import { DictionaryPanel } from './components/DictionaryPanel';
+import { ColumnSetPanel } from './components/ColumnSetPanel';
 import { CsvImportPanel } from './components/CsvImportPanel';
 import { VersionsPanel } from './components/VersionsPanel';
+import { DatabasePanel } from './components/DatabasePanel';
+import { useMessages, formatDateTime } from './i18n';
+import { DdlStyle, DDL_STYLE_KEYS } from '@shared/ddlStyle';
 
 export function App() {
-  const setModel   = useDiagramStore((s) => s.setModel);
   const model      = useDiagramStore((s) => s.model);
   const saveVersion = useDiagramStore((s) => s.saveVersion);
   const openDdl    = useUiStore((s) => s.openDdl);
@@ -19,32 +23,47 @@ export function App() {
   const closeDdl   = useUiStore((s) => s.closeDdl);
   const lastDdl    = useUiStore((s) => s.lastDdl);
   const setDialect = useUiStore((s) => s.setDialect);
+  const setLocale  = useUiStore((s) => s.setLocale);
+  const fileUriRef   = useRef('');
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   // Listen for messages from the extension host
   useEffect(() => {
     const unlisten = onMessageFromExtension((msg) => {
       switch (msg.type) {
         case 'load':
-          setModel(msg.payload);
-          break;
         case 'fileChanged':
-          // External edit: merge or replace
-          setModel(msg.payload);
+          // An edit still waiting to be sent belongs to the previous file contents
+          clearTimeout(saveTimerRef.current);
+          if (msg.type === 'load') fileUriRef.current = msg.fileUri;
+          // Replace the model and drop undo history so Ctrl+Z can't go back to a different file state
+          loadModel(msg.payload);
           break;
         case 'ddlResult':
-          openDdl(msg.payload.ddl);
+          openDdl(msg.payload.ddl, msg.payload.data);
           break;
         case 'versionSaved':
-          setModel(msg.payload);
+          // Only versions changed; keep any in-flight diagram edits
+          setSchemaVersions(msg.payload.schemaVersions);
           break;
         case 'dialectChanged':
           setDialect(msg.payload.dialect);
           break;
+        case 'localeChanged':
+          setLocale(msg.payload.locale, msg.payload.setting);
+          break;
+        case 'ddlStyleChanged': {
+          useUiStore.getState().setDdlStyle(msg.payload);
+          // Regenerate the open DDL with the new style
+          const { isDdlOpen, ddlMode } = useUiStore.getState();
+          if (isDdlOpen) window.dispatchEvent(new CustomEvent('er:requestDdl', { detail: { mode: ddlMode } }));
+          break;
+        }
         case 'undo':
-          useDiagramStore.temporal.getState().undo();
+          applyHistory('undo');
           break;
         case 'redo':
-          useDiagramStore.temporal.getState().redo();
+          applyHistory('redo');
           break;
       }
     });
@@ -58,10 +77,12 @@ export function App() {
   // Debounced auto-save: send model to extension on any change
   useEffect(() => {
     if (saveVersion === 0) return; // skip initial load
-    const timer = setTimeout(() => {
-      sendToExtension({ type: 'save', payload: model, version: saveVersion });
+    // Capture the file now: a file switch may happen before the timer fires
+    const fileUri = fileUriRef.current;
+    saveTimerRef.current = setTimeout(() => {
+      sendToExtension({ type: 'save', payload: model, version: saveVersion, fileUri });
     }, 300);
-    return () => clearTimeout(timer);
+    return () => clearTimeout(saveTimerRef.current);
   }, [saveVersion]);
 
   // Keyboard shortcuts: undo/redo + Delete selected
@@ -71,16 +92,19 @@ export function App() {
       const tag = (e.target as HTMLElement)?.tagName;
       const isEditing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
 
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+      // Leave Ctrl+Z / Ctrl+Y to the browser's text undo while typing
+      const key = e.key.toLowerCase();
+      if (!isEditing && (e.ctrlKey || e.metaKey) && key === 'z' && !e.shiftKey) {
         e.preventDefault();
-        useDiagramStore.temporal.getState().undo();
+        applyHistory('undo');
       }
       if (
+        !isEditing &&
         (e.ctrlKey || e.metaKey) &&
-        (e.key === 'y' || (e.key === 'z' && e.shiftKey))
+        (key === 'y' || (key === 'z' && e.shiftKey))
       ) {
         e.preventDefault();
-        useDiagramStore.temporal.getState().redo();
+        applyHistory('redo');
       }
 
       if (!isEditing && e.key === 'Delete') {
@@ -105,7 +129,7 @@ export function App() {
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail as { mode: 'full' | 'diff' | 'version-diff' };
-      const { ddlInsertSeedData, ddlSkipAutoIncrementPk, ddlFromVersionId, ddlToVersionId } = useUiStore.getState();
+      const { ddlInsertSeedData, ddlSkipAutoIncrementPk, ddlIncludeCreateDatabase, ddlFromVersionId, ddlToVersionId } = useUiStore.getState();
       sendToExtension({
         type: 'requestDdl',
         payload: {
@@ -113,6 +137,7 @@ export function App() {
           ...(detail.mode === 'version-diff' ? { fromVersionId: ddlFromVersionId ?? undefined, toVersionId: ddlToVersionId } : {}),
           insertSeedData: ddlInsertSeedData,
           skipAutoIncrementPk: ddlSkipAutoIncrementPk,
+          includeCreateDatabase: ddlIncludeCreateDatabase,
         },
       });
     };
@@ -123,16 +148,21 @@ export function App() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       <Toolbar />
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', minHeight: 0 }}>
-        <DiagramCanvas />
-        <TableEditPanel />
-        <RelationEditPanel />
-        <DictionaryPanel />
-        <CsvImportPanel />
-        <VersionsPanel />
-        {isDdlOpen && (
-          <DdlModal ddl={lastDdl} onClose={closeDdl} />
-        )}
+      <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
+        <CanvasToolbar />
+        <div style={{ flex: 1, position: 'relative', overflow: 'hidden', minWidth: 0 }}>
+          <DiagramCanvas />
+          <TableEditPanel />
+          <RelationEditPanel />
+          <DictionaryPanel />
+          <ColumnSetPanel />
+          <CsvImportPanel />
+          <VersionsPanel />
+          <DatabasePanel />
+          {isDdlOpen && (
+            <DdlModal ddl={lastDdl} onClose={closeDdl} />
+          )}
+        </div>
       </div>
     </div>
   );
@@ -148,10 +178,26 @@ function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
   const setDdlMode          = useUiStore((s) => s.setDdlMode);
   const setDdlVersions      = useUiStore((s) => s.setDdlVersions);
   const schemaVersions      = useDiagramStore((s) => s.model.schemaVersions ?? []);
+  const includeCreateDatabase    = useUiStore((s) => s.ddlIncludeCreateDatabase);
+  const setIncludeCreateDatabase = useUiStore((s) => s.setIncludeCreateDatabase);
+  const locale              = useUiStore((s) => s.locale);
+  const ddlStyle            = useUiStore((s) => s.ddlStyle);
+  const messages = useMessages();
+  const t = messages.ddl;
 
   const handleInsertChange = (checked: boolean) => {
     setDdlOptions(checked, checked ? skipAutoIncrementPk : false);
     window.dispatchEvent(new CustomEvent('er:requestDdl', { detail: { mode: ddlMode } }));
+  };
+
+  const handleCreateDatabaseChange = (checked: boolean) => {
+    setIncludeCreateDatabase(checked);
+    window.dispatchEvent(new CustomEvent('er:requestDdl', { detail: { mode: ddlMode } }));
+  };
+
+  // Written to the settings by the extension host; ddlStyleChanged then regenerates the DDL
+  const handleStyleChange = (key: keyof DdlStyle, checked: boolean) => {
+    sendToExtension({ type: 'setDdlStyle', payload: { [key]: checked } });
   };
 
   const handleSkipPkChange = (checked: boolean) => {
@@ -180,6 +226,10 @@ function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
     window.dispatchEvent(new CustomEvent('er:requestDdl', { detail: { mode: 'version-diff' } }));
   };
 
+  const data = useUiStore((s) => s.lastDdlData);
+  const saveFile = (kind: 'ddl' | 'data') =>
+    sendToExtension({ type: 'saveSqlFile', payload: { kind, text: kind === 'ddl' ? ddl : data } });
+
   const copyToClipboard = useCallback(() => {
     navigator.clipboard.writeText(ddl).catch(() => {});
   }, [ddl]);
@@ -199,10 +249,19 @@ function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
       }}>
         {/* header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderBottom: '1px solid #333' }}>
-          <span style={{ fontWeight: 700, fontSize: 14 }}>Generated DDL</span>
+          <span style={{ fontWeight: 700, fontSize: 14 }}>{t.title}</span>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={copyToClipboard} style={{ ...modalBtnStyle, background: '#4a7c9e' }}>Copy</button>
-            <button onClick={onClose} style={{ ...modalBtnStyle, background: '#555' }}>Close</button>
+            <button onClick={() => saveFile('ddl')} style={{ ...modalBtnStyle, background: '#4a7c9e' }} title={t.saveDdlTitle}>{t.saveDdl}</button>
+            <button
+              onClick={() => saveFile('data')}
+              disabled={!data}
+              style={{ ...modalBtnStyle, background: '#4a7c9e', opacity: data ? 1 : 0.4, cursor: data ? 'pointer' : 'default' }}
+              title={data ? t.saveDataTitle : t.saveDataNone}
+            >
+              {t.saveData}
+            </button>
+            <button onClick={copyToClipboard} style={{ ...modalBtnStyle, background: '#4a7c9e' }}>{t.copy}</button>
+            <button onClick={onClose} style={{ ...modalBtnStyle, background: '#555' }}>{messages.common.close}</button>
           </div>
         </div>
 
@@ -210,42 +269,58 @@ function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
         <div style={{ padding: '8px 14px', borderBottom: '1px solid #2a2a2a', display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
           <label style={optionLabelStyle}>
             <input type="radio" name="ddlMode" checked={ddlMode === 'full'} onChange={() => handleModeChange('full')} style={{ marginRight: 5 }} />
-            Full DDL
+            {t.full}
           </label>
           <label style={{ ...optionLabelStyle, opacity: hasVersions ? 1 : 0.4 }}>
             <input type="radio" name="ddlMode" checked={ddlMode === 'version-diff'} disabled={!hasVersions} onChange={() => handleModeChange('version-diff')} style={{ marginRight: 5 }} />
-            Version Diff
+            {t.versionDiff}
           </label>
-          {!hasVersions && <span style={{ fontSize: 11, color: '#777' }}>（バージョンを保存すると比較できます）</span>}
+          {!hasVersions && <span style={{ fontSize: 11, color: '#777' }}>{t.versionDiffHint}</span>}
         </div>
 
         {/* version diff controls */}
         {ddlMode === 'version-diff' && hasVersions && (
           <div style={{ padding: '8px 14px', borderBottom: '1px solid #2a2a2a', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 12, color: '#aaa' }}>From:</span>
+            <span style={{ fontSize: 12, color: '#aaa' }}>{t.from}</span>
             <select
               value={ddlFromVersionId ?? ''}
               onChange={(e) => handleFromChange(e.target.value)}
               style={selectStyle}
             >
-              <option value="" disabled>選択…</option>
+              <option value="" disabled>{t.select}</option>
               {schemaVersions.map((v) => (
-                <option key={v.id} value={v.id}>{v.name} ({formatDate(v.date)})</option>
+                <option key={v.id} value={v.id}>{v.name} ({formatDateTime(v.date, locale)})</option>
               ))}
             </select>
-            <span style={{ fontSize: 12, color: '#aaa' }}>To:</span>
+            <span style={{ fontSize: 12, color: '#aaa' }}>{t.to}</span>
             <select
               value={ddlToVersionId ?? '__current__'}
               onChange={(e) => handleToChange(e.target.value === '__current__' ? null : e.target.value)}
               style={selectStyle}
             >
-              <option value="__current__">現在の状態</option>
+              <option value="__current__">{t.current}</option>
               {schemaVersions.map((v) => (
-                <option key={v.id} value={v.id}>{v.name} ({formatDate(v.date)})</option>
+                <option key={v.id} value={v.id}>{v.name} ({formatDateTime(v.date, locale)})</option>
               ))}
             </select>
           </div>
         )}
+
+        {/* Format (applies to full and diff DDL) */}
+        <div style={{ padding: '8px 14px', borderBottom: '1px solid #2a2a2a', display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: 12, color: '#aaa' }}>{t.format}</span>
+          {DDL_STYLE_KEYS.map((key) => (
+            <label key={key} style={optionLabelStyle} title={t.styleHints[key]}>
+              <input
+                type="checkbox"
+                checked={ddlStyle[key]}
+                onChange={(e) => handleStyleChange(key, e.target.checked)}
+                style={{ marginRight: 5 }}
+              />
+              {t.styleLabels[key]}
+            </label>
+          ))}
+        </div>
 
         {/* INSERT options */}
         {ddlMode === 'full' && (
@@ -257,7 +332,7 @@ function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
                 onChange={(e) => handleInsertChange(e.target.checked)}
                 style={{ marginRight: 6 }}
               />
-              Include seed data as INSERT statements
+              {t.insertSeedData}
             </label>
             <label style={{ ...optionLabelStyle, opacity: insertSeedData ? 1 : 0.4, pointerEvents: insertSeedData ? 'auto' : 'none' }}>
               <input
@@ -267,7 +342,16 @@ function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
                 onChange={(e) => handleSkipPkChange(e.target.checked)}
                 style={{ marginRight: 6 }}
               />
-              Skip auto-increment PK columns
+              {t.skipAutoIncrementPk}
+            </label>
+            <label style={optionLabelStyle}>
+              <input
+                type="checkbox"
+                checked={includeCreateDatabase}
+                onChange={(e) => handleCreateDatabaseChange(e.target.checked)}
+                style={{ marginRight: 6 }}
+              />
+              {t.includeCreateDatabase}
             </label>
           </div>
         )}
@@ -278,14 +362,6 @@ function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
       </div>
     </div>
   );
-}
-
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-  } catch {
-    return iso;
-  }
 }
 
 const selectStyle: React.CSSProperties = {

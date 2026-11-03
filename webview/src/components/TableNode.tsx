@@ -3,6 +3,8 @@ import { Handle, Position, NodeResizer, type NodeProps } from '@xyflow/react';
 import { useDiagramStore } from '../store/diagramStore';
 import { useUiStore } from '../store/uiStore';
 import type { TableNodeType } from '../util/xyflowAdapters';
+import { typeSizeSuffix, formatTypeSpec } from '@shared/DiagramModel';
+import { useMessages } from '../i18n';
 
 const HEADER_BG   = '#4a7c9e';
 const HEADER_FG   = '#fff';
@@ -18,6 +20,7 @@ export const TableNode = memo(({ data, selected }: NodeProps<TableNodeType>) => 
   const nameMode    = useDiagramStore((s) => s.model.layout.nameMode);
   const selectTable = useUiStore((s) => s.selectTable);
   const searchQuery = useUiStore((s) => s.searchQuery);
+  const t = useMessages().table;
 
   if (!table) return null;
 
@@ -73,14 +76,14 @@ export const TableNode = memo(({ data, selected }: NodeProps<TableNodeType>) => 
       {/* Columns */}
       {table.columns.length === 0 && (
         <div style={{ padding: '6px 10px', color: '#aaa', fontSize: 12 }}>
-          (no columns)
+          {t.noColumns}
         </div>
       )}
       {table.columns.map((col) => {
         const entry = dict.find((e) => e.id === col.dictionaryId);
         const typeName = entry
-          ? entry.length ? `${entry.name}(${entry.length})` : entry.name
-          : '—';
+          ? `${entry.name}${typeSizeSuffix(entry)}`
+          : col.type ? formatTypeSpec(col.type) : '—';
         const colName = nameMode === 'logical' ? col.logicalName : col.physicalName;
 
         return (

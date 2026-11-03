@@ -1,7 +1,7 @@
 import * as yaml from 'js-yaml';
 import {
-  DiagramModel, DictionaryEntry, Table, Column, Relation,
-  TableLayout, RegionLayout, SchemaVersion, createEmptyModel,
+  DiagramModel, DictionaryEntry, Table, Column, ColumnSet, Relation,
+  TableLayout, RegionLayout, SchemaVersion, DatabaseSettings, createEmptyModel,
 } from '../shared/DiagramModel';
 
 export class ErmdParser {
@@ -29,7 +29,12 @@ export class ErmdParser {
         switch (lang) {
           case 'ermd-dictionary':
             if (Array.isArray(data)) {
-              model.dictionary = data as DictionaryEntry[];
+              model.dictionary = data.map(normalizeDictionaryEntry);
+            }
+            break;
+          case 'ermd-column-sets':
+            if (Array.isArray(data)) {
+              model.columnSets = data.map(normalizeColumnSet);
             }
             break;
           case 'ermd-table':
@@ -45,8 +50,11 @@ export class ErmdParser {
                 indexes: Array.isArray(t['indexes']) ? t['indexes'] as import('../shared/DiagramModel').TableIndex[] : undefined,
                 constraints: Array.isArray(t['constraints']) ? t['constraints'] as import('../shared/DiagramModel').TableConstraint[] : undefined,
                 columns: Array.isArray(t['columns'])
-                  ? (t['columns'] as Column[])
+                  ? t['columns'].map(normalizeColumn)
                   : [],
+                columnSetIds: Array.isArray(t['columnSetIds']) && t['columnSetIds'].length > 0
+                  ? t['columnSetIds'].map(String)
+                  : undefined,
                 seedData: Array.isArray(t['seedData'])
                   ? (t['seedData'] as Record<string, unknown>[]).map((row) =>
                       Object.fromEntries(
@@ -60,6 +68,17 @@ export class ErmdParser {
           case 'ermd-relations':
             if (Array.isArray(data)) {
               model.relations = data as Relation[];
+            }
+            break;
+          case 'ermd-database':
+            if (data && typeof data === 'object') {
+              const d = data as Record<string, unknown>;
+              model.database = {
+                name: String(d['name'] ?? ''),
+                schema: d['schema'] ? String(d['schema']) : undefined,
+                user: d['user'] ? String(d['user']) : undefined,
+                options: (d['options'] && typeof d['options'] === 'object' ? d['options'] : {}) as DatabaseSettings['options'],
+              };
             }
             break;
           case 'ermd-versions':
@@ -97,4 +116,46 @@ export class ErmdParser {
 
     return model;
   }
+}
+
+// Fill in fields a hand-edited file may omit, so the rest of the code can rely on the types
+
+function normalizeDictionaryEntry(raw: unknown): DictionaryEntry {
+  const e = (raw ?? {}) as Record<string, unknown>;
+  return {
+    ...(e as object),
+    id: String(e['id'] ?? ''),
+    name: String(e['name'] ?? ''),
+    dbType: (e['dbType'] ?? 'VARCHAR') as DictionaryEntry['dbType'],
+    length: typeof e['length'] === 'number' ? e['length'] : null,
+    scale: typeof e['scale'] === 'number' ? e['scale'] : undefined,
+    notNull: e['notNull'] === true,
+    comment: String(e['comment'] ?? ''),
+  };
+}
+
+function normalizeColumnSet(raw: unknown): ColumnSet {
+  const s = (raw ?? {}) as Record<string, unknown>;
+  return {
+    id: String(s['id'] ?? ''),
+    name: String(s['name'] ?? ''),
+    position: s['position'] === 'start' ? 'start' : 'end',
+    applyToNewTables: s['applyToNewTables'] === true ? true : undefined,
+    columns: Array.isArray(s['columns']) ? s['columns'].map(normalizeColumn) : [],
+  };
+}
+
+function normalizeColumn(raw: unknown): Column {
+  const c = (raw ?? {}) as Record<string, unknown>;
+  return {
+    ...(c as object),
+    id: String(c['id'] ?? ''),
+    logicalName: String(c['logicalName'] ?? ''),
+    physicalName: String(c['physicalName'] ?? ''),
+    dictionaryId: String(c['dictionaryId'] ?? ''),
+    isPrimaryKey: c['isPrimaryKey'] === true,
+    isNullable: c['isNullable'] !== false,
+    defaultValue: c['defaultValue'] == null ? null : String(c['defaultValue']),
+    comment: String(c['comment'] ?? ''),
+  };
 }

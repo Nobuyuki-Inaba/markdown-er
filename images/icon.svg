@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#60a5fa"/>
+      <stop offset="55%" stop-color="#818cf8"/>
+      <stop offset="100%" stop-color="#a78bfa"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="128" height="128" rx="20" fill="url(#bg)"/>
+
+  <!-- ── Relation line (behind the cards) ── -->
+  <path d="M56 47 H64 V65 H72" fill="none" stroke="#ffffff" stroke-width="3" stroke-linejoin="round"/>
+  <!-- "1" end: bar -->
+  <line x1="60" y1="42" x2="60" y2="52" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+  <!-- "N" end: crow's foot -->
+  <path d="M66 65 L72 60 M66 65 L72 70" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- ── Parent table card ── -->
+  <rect x="12" y="14" width="44" height="58" rx="7" fill="#ffffff"/>
+  <path d="M12 21 A7 7 0 0 1 19 14 H49 A7 7 0 0 1 56 21 V29 H12 Z" fill="#3730a3"/>
+  <rect x="18" y="19" width="22" height="5" rx="2.5" fill="#ffffff" opacity="0.95"/>
+  <line x1="12" y1="41" x2="56" y2="41" stroke="#cbd5e1" stroke-width="1.5"/>
+  <line x1="12" y1="53" x2="56" y2="53" stroke="#cbd5e1" stroke-width="1.5"/>
+  <!-- PK row -->
+  <rect x="18" y="33" width="7" height="5" rx="2.5" fill="#f59e0b"/>
+  <rect x="28" y="33" width="20" height="5" rx="2.5" fill="#64748b"/>
+  <rect x="18" y="45" width="26" height="5" rx="2.5" fill="#64748b"/>
+  <rect x="18" y="57" width="18" height="5" rx="2.5" fill="#64748b"/>
+
+  <!-- ── Child table card ── -->
+  <rect x="72" y="30" width="44" height="58" rx="7" fill="#ffffff"/>
+  <path d="M72 37 A7 7 0 0 1 79 30 H109 A7 7 0 0 1 116 37 V45 H72 Z" fill="#3730a3"/>
+  <rect x="78" y="35" width="18" height="5" rx="2.5" fill="#ffffff" opacity="0.95"/>
+  <line x1="72" y1="57" x2="116" y2="57" stroke="#cbd5e1" stroke-width="1.5"/>
+  <line x1="72" y1="69" x2="116" y2="69" stroke="#cbd5e1" stroke-width="1.5"/>
+  <!-- PK row -->
+  <rect x="78" y="49" width="7" height="5" rx="2.5" fill="#f59e0b"/>
+  <rect x="88" y="49" width="18" height="5" rx="2.5" fill="#64748b"/>
+  <!-- FK row -->
+  <rect x="78" y="61" width="7" height="5" rx="2.5" fill="#6366f1"/>
+  <rect x="88" y="61" width="22" height="5" rx="2.5" fill="#64748b"/>
+  <rect x="78" y="73" width="24" height="5" rx="2.5" fill="#64748b"/>
+
+  <!-- ── Format badge ── -->
+  <rect x="14" y="98" width="100" height="18" rx="6" fill="#3730a3"/>
+  <text x="64" y="111" text-anchor="middle"
+        font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
+        font-size="11" font-weight="bold" fill="#ffffff" letter-spacing="0.5">ER DIAGRAM</text>
+</svg>

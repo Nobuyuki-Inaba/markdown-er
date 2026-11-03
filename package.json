@@ -1,9 +1,10 @@
 {
   "name": "markdown-er",
   "displayName": "Markdown ER Diagram",
-  "description": "Interactive ER diagram editor stored as Markdown",
+  "description": "%description%",
   "version": "0.0.4",
   "publisher": "nobuyuki-inaba",
+  "icon": "images/icon.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/Nobuyuki-Inaba/markdown-er.git"
@@ -11,30 +12,39 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Other"],
-  "activationEvents": ["onLanguage:ermd"],
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:ermd"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "languages": [
       {
         "id": "ermd",
-        "extensions": [".ermd"],
-        "aliases": ["ER Diagram", "ermd"]
+        "extensions": [
+          ".ermd"
+        ],
+        "aliases": [
+          "ER Diagram",
+          "ermd"
+        ]
       }
     ],
     "commands": [
       {
         "command": "markdown-er.openDiagram",
-        "title": "Open as ER Diagram",
+        "title": "%command.openDiagram%",
         "icon": "$(type-hierarchy)"
       },
       {
         "command": "markdown-er.exportDdl",
-        "title": "ER Diagram: Export DDL (Full)"
+        "title": "%command.exportDdl%"
       },
       {
         "command": "markdown-er.exportDdlDiff",
-        "title": "ER Diagram: Export DDL (Diff)"
+        "title": "%command.exportDdlDiff%"
       }
     ],
     "menus": {
@@ -58,20 +68,72 @@
       "properties": {
         "markdown-er.ddl.dialect": {
           "type": "string",
-          "enum": ["mysql", "postgresql", "sqlite", "sqlserver"],
+          "enum": [
+            "mysql",
+            "postgresql",
+            "oracle",
+            "sqlserver",
+            "sqlite"
+          ],
           "enumDescriptions": [
             "MySQL / MariaDB",
             "PostgreSQL",
-            "SQLite",
-            "Microsoft SQL Server / Azure SQL"
+            "Oracle Database (12c+)",
+            "Microsoft SQL Server / Azure SQL",
+            "SQLite"
           ],
           "default": "mysql",
-          "description": "Target database dialect for DDL export."
+          "description": "%config.dialect%"
+        },
+        "markdown-er.ddl.comments": {
+          "type": "boolean",
+          "default": false,
+          "description": "%config.ddl.comments%"
+        },
+        "markdown-er.ddl.tableOptions": {
+          "type": "boolean",
+          "default": false,
+          "description": "%config.ddl.tableOptions%"
+        },
+        "markdown-er.ddl.explicitNull": {
+          "type": "boolean",
+          "default": false,
+          "description": "%config.ddl.explicitNull%"
+        },
+        "markdown-er.ddl.quoteIdentifiers": {
+          "type": "boolean",
+          "default": true,
+          "description": "%config.ddl.quoteIdentifiers%"
+        },
+        "markdown-er.ddl.outputFile": {
+          "type": "string",
+          "default": "${fileBasenameNoExtension}.sql",
+          "markdownDescription": "%config.ddl.outputFile%"
+        },
+        "markdown-er.ddl.dataOutputFile": {
+          "type": "string",
+          "default": "${fileBasenameNoExtension}_data.sql",
+          "markdownDescription": "%config.ddl.dataOutputFile%"
         },
         "markdown-er.mcp.enabled": {
           "type": "boolean",
           "default": false,
-          "description": "Enable the MCP server for AI assistant integration"
+          "description": "%config.mcp%"
+        },
+        "markdown-er.language": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "en",
+            "ja"
+          ],
+          "enumDescriptions": [
+            "%config.language.auto%",
+            "English",
+            "日本語"
+          ],
+          "default": "auto",
+          "description": "%config.language%"
         }
       }
     }
@@ -82,17 +144,21 @@
     "build:webview": "cd webview && npm run build",
     "build": "npm run build:ext && npm run build:webview",
     "vscode:prepublish": "npm run build",
-    "package": "vsce package"
+    "package": "vsce package",
+    "test": "vitest run",
+    "icon": "node scripts/make-icon.mjs"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "@types/vscode": "^1.85.0",
-    "@types/js-yaml": "^4.0.9",
-    "@vscode/vsce": "^3.0.0",
-    "esbuild": "^0.25.0",
-    "typescript": "^5.4.0"
+    "@resvg/resvg-js": "2.6.2",
+    "@types/js-yaml": "4.0.9",
+    "@types/node": "20.19.41",
+    "@types/vscode": "1.85.0",
+    "@vscode/vsce": "4.0.0",
+    "esbuild": "0.25.12",
+    "typescript": "5.9.3",
+    "vitest": "4.1.12"
   },
   "dependencies": {
-    "js-yaml": "^4.1.0"
+    "js-yaml": "4.3.2"
   }
 }

@@ -1,160 +1,83 @@
 import { useState } from 'react';
-import { Column, DictionaryEntry, DbType, DB_TYPES } from '@shared/DiagramModel';
+import { Column, DictionaryEntry, columnTypeSpec, formatTypeSpec } from '@shared/DiagramModel';
 import { useDiagramStore } from '../store/diagramStore';
+import { useMessages } from '../i18n';
+import { TypePicker } from './TypePicker';
 
 interface Props {
-  tableId: string;
+  /** Table or column set the column belongs to */
+  ownerId: string;
   column: Column;
   dictionary: DictionaryEntry[];
   onDelete: () => void;
+  /** Name of the column set this column comes from; the row is then read-only */
+  lockedBy?: string;
 }
 
-interface CustomTypeForm {
-  name: string;
-  dbType: DbType;
-  length: string;
-  notNull: boolean;
-  comment: string;
-}
-
-const EMPTY_FORM: CustomTypeForm = { name: '', dbType: 'VARCHAR', length: '', notNull: true, comment: '' };
-
-export function ColumnRow({ tableId, column, dictionary, onDelete }: Props) {
+export function ColumnRow({ ownerId, column, dictionary, onDelete, lockedBy }: Props) {
   const updateColumn  = useDiagramStore((s) => s.updateColumn);
+  const setColumnType = useDiagramStore((s) => s.setColumnType);
   const addColumnType = useDiagramStore((s) => s.addColumnType);
-  const [noteOpen, setNoteOpen]     = useState(false);
-  const [customOpen, setCustomOpen] = useState(false);
-  const [form, setForm]             = useState<CustomTypeForm>(EMPTY_FORM);
-  // Free-form text the user is currently typing in the type field
-  const [typeText, setTypeText]     = useState('');
+  const [noteOpen, setNoteOpen] = useState(false);
+  const messages = useMessages();
+  const t = messages.column;
 
-  const currentEntry = dictionary.find((e) => e.id === column.dictionaryId);
-  // Show typeText while the user is typing; otherwise show the current entry name
-  const typeDisplayValue = typeText !== '' ? typeText : (currentEntry?.name ?? '');
-
-  // True when the user has typed something that doesn't match any dict entry
-  const unregistered = typeText.trim() !== '' &&
-    !dictionary.find((e) => e.name.toLowerCase() === typeText.trim().toLowerCase());
-
-  const handleTypeChange = (value: string) => {
-    setTypeText(value);
-    if (!value.trim()) {
-      updateColumn(tableId, column.id, { dictionaryId: '' });
-      return;
-    }
-    const match = dictionary.find((e) => e.name.toLowerCase() === value.trim().toLowerCase());
-    if (match) {
-      updateColumn(tableId, column.id, { dictionaryId: match.id });
-      setTypeText('');   // commit — input reverts to entry name display
-      setCustomOpen(false);
-    }
-  };
-
-  const handleOpenCustom = () => {
-    const next = !customOpen;
-    setCustomOpen(next);
-    if (next) {
-      // Pre-fill name from whatever the user typed (if unregistered)
-      setForm(typeText.trim() ? { ...EMPTY_FORM, name: typeText.trim() } : EMPTY_FORM);
-    }
-  };
-
-  const handleRegister = () => {
-    if (!form.name.trim()) return;
-    addColumnType(tableId, column.id, {
-      name: form.name.trim(),
-      dbType: form.dbType,
-      length: form.length ? parseInt(form.length, 10) : null,
-      notNull: form.notNull,
-      comment: form.comment,
-    });
-    setCustomOpen(false);
-    setForm(EMPTY_FORM);
-    setTypeText('');
-  };
-
-  const datalistId = `dict-list-${column.id}`;
+  if (lockedBy !== undefined) {
+    const spec = columnTypeSpec(column, dictionary);
+    return (
+      <div style={{ ...gridStyle, background: '#f7f9fb', color: '#666', borderBottom: '1px solid #eee' }} title={t.fromSetTitle(lockedBy)}>
+        <input type="checkbox" checked={column.isPrimaryKey} disabled style={{ justifySelf: 'center' }} />
+        <span style={lockedCell}>{column.logicalName}</span>
+        <span style={lockedCell}>{column.physicalName}</span>
+        <span style={lockedCell}>{spec ? formatTypeSpec(spec) : ''}</span>
+        <label style={{ textAlign: 'center', fontSize: 11 }}>
+          <input type="checkbox" checked={column.isNullable} disabled /> NULL
+        </label>
+        <span style={setBadge}>{lockedBy}</span>
+      </div>
+    );
+  }
 
   return (
     <div style={{ borderBottom: '1px solid #eee' }}>
-      {/* Main row */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '28px 1fr 1fr 1fr 50px 28px 36px',
-          gap: 4,
-          alignItems: 'center',
-          padding: '4px 0',
-        }}
-      >
+      <div style={gridStyle}>
         {/* PK toggle */}
-        <label style={{ textAlign: 'center', cursor: 'pointer' }} title="Primary Key">
+        <label style={{ textAlign: 'center', cursor: 'pointer' }} title={messages.table.colPrimaryKey}>
           <input
             type="checkbox"
             checked={column.isPrimaryKey}
-            onChange={(e) => updateColumn(tableId, column.id, { isPrimaryKey: e.target.checked })}
+            onChange={(e) => updateColumn(ownerId, column.id, { isPrimaryKey: e.target.checked })}
           />
         </label>
 
-        {/* Logical name */}
         <input
           style={inputStyle}
           value={column.logicalName}
-          placeholder="Logical name"
-          onChange={(e) => updateColumn(tableId, column.id, { logicalName: e.target.value })}
+          placeholder={messages.common.logicalName}
+          onChange={(e) => updateColumn(ownerId, column.id, { logicalName: e.target.value })}
         />
 
-        {/* Physical name */}
         <input
           style={inputStyle}
           value={column.physicalName}
-          placeholder="Physical name"
-          onChange={(e) => updateColumn(tableId, column.id, { physicalName: e.target.value })}
+          placeholder={messages.common.physicalName}
+          onChange={(e) => updateColumn(ownerId, column.id, { physicalName: e.target.value })}
         />
 
-        {/* Type combo: free-text input + datalist + register toggle */}
-        <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          <input
-            list={datalistId}
-            style={{
-              ...inputStyle,
-              flex: 1,
-              borderColor: unregistered ? '#e8a000' : undefined,
-              background: unregistered ? '#fffbe6' : undefined,
-            }}
-            value={typeDisplayValue}
-            placeholder="Type…"
-            onChange={(e) => handleTypeChange(e.target.value)}
-            title={unregistered ? `"${typeText.trim()}" is not in the dictionary — click + to register` : 'Select or type a column type'}
-          />
-          <datalist id={datalistId}>
-            {dictionary.map((e) => (
-              <option key={e.id} value={e.name}>
-                {e.dbType}{e.length ? `(${e.length})` : ''}
-              </option>
-            ))}
-          </datalist>
-          <button
-            onClick={handleOpenCustom}
-            style={customToggleBtnStyle(customOpen, unregistered)}
-            title={
-              unregistered
-                ? `Register "${typeText.trim()}" to dictionary`
-                : customOpen
-                  ? 'Close custom type form'
-                  : 'Define a new type and register it to the dictionary'
-            }
-          >
-            {customOpen ? '▲' : '+'}
-          </button>
-        </div>
+        <TypePicker
+          column={column}
+          dictionary={dictionary}
+          onSelectEntry={(entry) => setColumnType(ownerId, column.id, { entry })}
+          onSelectType={(type) => setColumnType(ownerId, column.id, { type })}
+          onRegister={(entry) => addColumnType(ownerId, column.id, entry)}
+        />
 
         {/* Nullable toggle */}
-        <label style={{ textAlign: 'center', cursor: 'pointer', fontSize: 11 }} title="Nullable">
+        <label style={{ textAlign: 'center', cursor: 'pointer', fontSize: 11 }} title={t.nullableTitle}>
           <input
             type="checkbox"
             checked={column.isNullable}
-            onChange={(e) => updateColumn(tableId, column.id, { isNullable: e.target.checked })}
+            onChange={(e) => updateColumn(ownerId, column.id, { isNullable: e.target.checked })}
           />
           {' '}NULL
         </label>
@@ -163,78 +86,45 @@ export function ColumnRow({ tableId, column, dictionary, onDelete }: Props) {
         <button
           onClick={() => setNoteOpen((o) => !o)}
           style={{ ...noteBtnStyle, color: column.designNote ? '#4a7c9e' : '#aaa' }}
-          title="Design note"
+          title={messages.table.colNoteTitle}
         >
           {noteOpen ? '▲' : '▼'}
         </button>
 
-        {/* Delete */}
-        <button onClick={onDelete} style={deleteBtnStyle} title="Delete column">
+        <button onClick={onDelete} style={deleteBtnStyle} title={t.deleteTitle}>
           −
         </button>
       </div>
 
-      {/* Custom type form */}
-      {customOpen && (
-        <div style={customFormStyle}>
-          <span style={{ fontSize: 11, color: '#555', whiteSpace: 'nowrap' }}>New type:</span>
-          <input
-            style={{ ...formInput, flex: 1, minWidth: 80 }}
-            placeholder="Name *"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-          />
-          <select
-            style={{ ...formInput, width: 90 }}
-            value={form.dbType}
-            onChange={(e) => setForm({ ...form, dbType: e.target.value as DbType })}
-          >
-            {DB_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-          <input
-            style={{ ...formInput, width: 44 }}
-            type="number"
-            placeholder="len"
-            value={form.length}
-            onChange={(e) => setForm({ ...form, length: e.target.value })}
-          />
-          <label style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, whiteSpace: 'nowrap', cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={form.notNull}
-              onChange={(e) => setForm({ ...form, notNull: e.target.checked })}
-            />
-            NOT NULL
-          </label>
-          <input
-            style={{ ...formInput, flex: 1, minWidth: 60 }}
-            placeholder="comment"
-            value={form.comment}
-            onChange={(e) => setForm({ ...form, comment: e.target.value })}
-          />
-          <button
-            onClick={handleRegister}
-            disabled={!form.name.trim()}
-            style={registerBtnStyle(!form.name.trim())}
-            title="Create dictionary entry and assign to this column"
-          >
-            Register &amp; use
-          </button>
-        </div>
-      )}
-
-      {/* Design note */}
       {noteOpen && (
         <textarea
           style={noteAreaStyle}
-          placeholder="Record design decisions, rationale, trade-offs…"
+          placeholder={messages.common.designNotePlaceholder}
           value={column.designNote ?? ''}
-          onChange={(e) => updateColumn(tableId, column.id, { designNote: e.target.value || undefined })}
+          onChange={(e) => updateColumn(ownerId, column.id, { designNote: e.target.value || undefined })}
         />
       )}
     </div>
   );
 }
+
+const gridStyle: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '28px 1fr 1fr 1.2fr 50px 28px 36px',
+  gap: 4,
+  alignItems: 'center',
+  padding: '4px 0',
+};
+
+const lockedCell: React.CSSProperties = {
+  fontSize: 12, padding: '2px 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+};
+
+/** Spans the note and delete columns */
+const setBadge: React.CSSProperties = {
+  gridColumn: 'span 2', fontSize: 10, color: '#4a7c9e', background: '#e8f0fe', borderRadius: 3,
+  padding: '2px 4px', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+};
 
 const inputStyle: React.CSSProperties = {
   fontSize: 12,
@@ -244,53 +134,6 @@ const inputStyle: React.CSSProperties = {
   width: '100%',
   boxSizing: 'border-box',
 };
-
-const customToggleBtnStyle = (active: boolean, warn: boolean): React.CSSProperties => ({
-  background: warn ? '#e8a000' : active ? '#4a7c9e' : '#e8f0fe',
-  color: warn || active ? '#fff' : '#4a7c9e',
-  border: `1px solid ${warn ? '#e8a000' : '#4a7c9e'}`,
-  borderRadius: 3,
-  cursor: 'pointer',
-  fontSize: 12,
-  fontWeight: 700,
-  width: 22,
-  height: 22,
-  flexShrink: 0,
-  padding: 0,
-  lineHeight: '20px',
-  textAlign: 'center',
-});
-
-const customFormStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 5,
-  padding: '6px 4px 6px 8px',
-  background: '#f0f4ff',
-  borderRadius: 4,
-  marginBottom: 4,
-  flexWrap: 'wrap',
-};
-
-const formInput: React.CSSProperties = {
-  fontSize: 11,
-  padding: '2px 4px',
-  border: '1px solid #b0c4de',
-  borderRadius: 3,
-  boxSizing: 'border-box',
-};
-
-const registerBtnStyle = (disabled: boolean): React.CSSProperties => ({
-  background: disabled ? '#ccc' : '#4a7c9e',
-  color: '#fff',
-  border: 'none',
-  borderRadius: 3,
-  padding: '3px 9px',
-  cursor: disabled ? 'not-allowed' : 'pointer',
-  fontSize: 11,
-  fontWeight: 600,
-  whiteSpace: 'nowrap',
-});
 
 const deleteBtnStyle: React.CSSProperties = {
   background: '#e55',

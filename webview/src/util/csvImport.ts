@@ -1,4 +1,4 @@
-import { Table, Column, DictionaryEntry, DbType, DB_TYPES } from '@shared/DiagramModel';
+import { Table, Column, DictionaryEntry, DbType, DB_TYPES, typeSizeSuffix } from '@shared/DiagramModel';
 import { genId } from './idgen';
 
 export type CsvImportCategory = 'table' | 'dictionary';
@@ -7,6 +7,7 @@ export interface BuiltinPreset {
   name: string;
   dbType: DbType;
   length: number | null;
+  scale?: number;
   notNull: boolean;
   comment: string;
 }
@@ -21,7 +22,7 @@ export const BUILTIN_PRESETS: BuiltinPreset[] = [
   { name: 'Text',       dbType: 'TEXT',     length: null, notNull: false, comment: 'Long text' },
   { name: 'Flag',       dbType: 'TINYINT',  length: 1,    notNull: true,  comment: 'Boolean flag (0/1)' },
   { name: 'Quantity',   dbType: 'INT',      length: null, notNull: true,  comment: 'Integer quantity' },
-  { name: 'Amount',     dbType: 'DECIMAL',  length: 10,   notNull: true,  comment: 'Monetary amount' },
+  { name: 'Amount',     dbType: 'DECIMAL',  length: 10, scale: 2, notNull: true, comment: 'Monetary amount' },
   { name: 'Timestamp',  dbType: 'DATETIME', length: null, notNull: true,  comment: 'Created/updated timestamp' },
   { name: 'Date',       dbType: 'DATE',     length: null, notNull: true,  comment: 'Calendar date' },
   { name: 'JSON',       dbType: 'JSON',     length: null, notNull: false, comment: 'Arbitrary JSON payload' },
@@ -29,18 +30,18 @@ export const BUILTIN_PRESETS: BuiltinPreset[] = [
 ];
 
 export const TABLE_CSV_HEADERS =
-  'tableLogicalName,tablePhysicalName,tableComment,columnLogicalName,columnPhysicalName,dictionaryName,dbType,length,notNull,isPrimaryKey,isNullable,defaultValue,comment';
+  'tableLogicalName,tablePhysicalName,tableComment,columnLogicalName,columnPhysicalName,dictionaryName,dbType,length,scale,notNull,isPrimaryKey,isNullable,defaultValue,comment';
 
-export const TABLE_CSV_EXAMPLE = `User,users,User table,User ID,user_id,ID,,,,,false,,
-User,users,User table,Name,name,Name,,,,,true,,
-Order,orders,,Order ID,order_id,ID,,,,,false,,
-Order,orders,,User ID,user_id,NullableID,,,,,false,,`;
+export const TABLE_CSV_EXAMPLE = `User,users,User table,User ID,user_id,ID,,,,,,false,,
+User,users,User table,Name,name,Name,,,,,,true,,
+Order,orders,,Order ID,order_id,ID,,,,,,false,,
+Order,orders,,Total,total,,DECIMAL,12,2,true,,false,0,`;
 
-export const DICTIONARY_CSV_HEADERS = 'name,dbType,length,notNull,comment';
+export const DICTIONARY_CSV_HEADERS = 'name,dbType,length,scale,notNull,comment';
 
-export const DICTIONARY_CSV_EXAMPLE = `User ID,INT,,true,Primary key type
-Name,VARCHAR,255,true,Display name
-Amount,DECIMAL,10,true,Monetary amount`;
+export const DICTIONARY_CSV_EXAMPLE = `User ID,INT,,,true,Primary key type
+Name,VARCHAR,255,,true,Display name
+Amount,DECIMAL,10,2,true,Monetary amount`;
 
 export interface ParsedTableImport {
   tables: Table[];
@@ -116,6 +117,7 @@ export function parseDictionaryCsv(
       name,
       dbType: toValidDbType(row.dbType ?? ''),
       length: row.length ? parseInt(row.length, 10) : null,
+      scale: row.scale ? parseInt(row.scale, 10) : undefined,
       notNull: row.notNull?.toLowerCase() === 'true',
       comment: row.comment ?? '',
     });
@@ -148,6 +150,7 @@ export function parseTableCsv(
       name: preset.name,
       dbType: preset.dbType,
       length: preset.length,
+      scale: preset.scale,
       notNull: preset.notNull,
       comment: preset.comment,
     };
@@ -156,19 +159,21 @@ export function parseTableCsv(
     return entry.id;
   }
 
-  function findOrCreateByType(dbTypeRaw: string, lengthRaw: string, notNullRaw: string): string {
+  function findOrCreateByType(dbTypeRaw: string, lengthRaw: string, scaleRaw: string, notNullRaw: string): string {
     const dt = toValidDbType(dbTypeRaw);
     const len = lengthRaw ? parseInt(lengthRaw, 10) : null;
+    const scale = scaleRaw ? parseInt(scaleRaw, 10) : null;
     const nn = notNullRaw?.toLowerCase() === 'true';
-    const found = allDict.find((e) => e.dbType === dt && e.length === len && e.notNull === nn);
+    const found = allDict.find((e) => e.dbType === dt && e.length === len && (e.scale ?? null) === scale && e.notNull === nn);
     if (found) return found.id;
-    const key = `${dt}:${len}:${nn}`;
+    const key = `${dt}:${len}:${scale}:${nn}`;
     if (newDictMap.has(key)) return newDictMap.get(key)!.id;
     const entry: DictionaryEntry = {
       id: genId('dict'),
-      name: dt + (len != null ? `(${len})` : '') + (nn ? '' : ' NULL'),
+      name: dt + typeSizeSuffix({ length: len, scale }) + (nn ? '' : ' NULL'),
       dbType: dt,
       length: len,
+      scale: scale ?? undefined,
       notNull: nn,
       comment: '',
     };
@@ -204,11 +209,10 @@ export function parseTableCsv(
 
     const table = tableMap.get(tablePhysical)!;
 
-    // Resolution order: dictionaryName → builtin preset → raw dbType/length/notNull
+    // Resolution order: dictionaryName → builtin preset → raw dbType/length/scale/notNull
     const dictName = row.dictionaryName?.trim() ?? '';
-    const dictionaryId = dictName
-      ? (findOrCreateByName(dictName) ?? findOrCreateByType(row.dbType ?? '', row.length ?? '', row.notNull ?? 'false'))
-      : findOrCreateByType(row.dbType ?? '', row.length ?? '', row.notNull ?? 'false');
+    const byType = () => findOrCreateByType(row.dbType ?? '', row.length ?? '', row.scale ?? '', row.notNull ?? 'false');
+    const dictionaryId = dictName ? (findOrCreateByName(dictName) ?? byType()) : byType();
 
     const col: Column = {
       id: genId('col'),

@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useMessages, getMessages } from '../i18n';
 import { Table } from '@shared/DiagramModel';
 
 interface Props {
@@ -28,6 +29,7 @@ function parseCsv(text: string): string[][] {
 }
 
 export function SeedDataEditor({ table, onUpdate }: Props) {
+  const t = useMessages().seed;
   const { columns } = table;
   const seedData = table.seedData ?? [];
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -36,7 +38,7 @@ export function SeedDataEditor({ table, onUpdate }: Props) {
   if (columns.length === 0) {
     return (
       <div style={{ color: '#aaa', fontSize: 12, padding: '8px 0' }}>
-        No columns defined. Add columns first.
+        {t.noColumns}
       </div>
     );
   }
@@ -78,9 +80,9 @@ export function SeedDataEditor({ table, onUpdate }: Props) {
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
       const rows = parseCsv(text);
-      if (rows.length < 1) { setImportError('CSV is empty.'); return; }
+      if (rows.length < 1) { setImportError(getMessages().seed.csvEmpty); return; }
       const headers = rows[0];
-      if (headers.length === 0) { setImportError('Header row is required.'); return; }
+      if (headers.length === 0) { setImportError(getMessages().seed.headerRequired); return; }
       const physicalNames = columns.map((c) => c.physicalName);
       const colIndexes = headers.map((h) => physicalNames.indexOf(h.trim()));
       const newRows: Record<string, string>[] = rows.slice(1).map((cells) => {
@@ -94,7 +96,7 @@ export function SeedDataEditor({ table, onUpdate }: Props) {
       });
       onUpdate([...seedData, ...newRows]);
     };
-    reader.onerror = () => setImportError('Failed to read file.');
+    reader.onerror = () => setImportError(getMessages().seed.readFailed);
     reader.readAsText(file);
   };
 
@@ -132,7 +134,7 @@ export function SeedDataEditor({ table, onUpdate }: Props) {
                   </td>
                 ))}
                 <td style={tdStyle}>
-                  <button onClick={() => deleteRow(rowIdx)} style={delBtnStyle} title="Delete row">
+                  <button onClick={() => deleteRow(rowIdx)} style={delBtnStyle} title={t.deleteRow}>
                     ✕
                   </button>
                 </td>
@@ -142,17 +144,17 @@ export function SeedDataEditor({ table, onUpdate }: Props) {
         </table>
         {seedData.length === 0 && (
           <div style={{ color: '#bbb', fontSize: 11, padding: '6px 4px' }}>
-            No rows yet. Click "+ Add Row" to start.
+            {t.noRows}
           </div>
         )}
       </div>
       <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <button onClick={addRow} style={addBtnStyle}>+ Add Row</button>
-        <button onClick={downloadTemplate} style={subBtnStyle} title="Download CSV template with column headers">
-          ↓ CSV Template
+        <button onClick={addRow} style={addBtnStyle}>{t.addRow}</button>
+        <button onClick={downloadTemplate} style={subBtnStyle} title={t.templateTitle}>
+          {t.template}
         </button>
-        <label style={{ ...subBtnStyle, cursor: 'pointer' }} title="Import rows from CSV (header row required)">
-          ↑ Import CSV
+        <label style={{ ...subBtnStyle, cursor: 'pointer' }} title={t.importCsvTitle}>
+          {t.importCsv}
           <input
             ref={fileInputRef}
             type="file"

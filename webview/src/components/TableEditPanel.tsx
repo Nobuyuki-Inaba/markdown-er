@@ -4,6 +4,7 @@ import { useUiStore } from '../store/uiStore';
 import { ColumnRow } from './ColumnRow';
 import { SeedDataEditor } from './SeedDataEditor';
 import type { ConstraintType } from '@shared/DiagramModel';
+import { useMessages } from '../i18n';
 
 type TabId = 'definition' | 'indexes' | 'seed';
 
@@ -17,6 +18,9 @@ export function TableEditPanel() {
 
   const table      = useDiagramStore((s) => s.model.tables.find((t) => t.id === selectedTableId));
   const dictionary = useDiagramStore((s) => s.model.dictionary);
+  const columnSets = useDiagramStore((s) => s.model.columnSets);
+  const setTableColumnSet = useDiagramStore((s) => s.setTableColumnSet);
+  const openColumnSets    = useUiStore((s) => s.openColumnSets);
   const updateTable      = useDiagramStore((s) => s.updateTable);
   const deleteTable      = useDiagramStore((s) => s.deleteTable);
   const addColumn        = useDiagramStore((s) => s.addColumn);
@@ -28,13 +32,15 @@ export function TableEditPanel() {
   const addConstraint    = useDiagramStore((s) => s.addConstraint);
   const updateConstraint = useDiagramStore((s) => s.updateConstraint);
   const deleteConstraint = useDiagramStore((s) => s.deleteConstraint);
+  const messages = useMessages();
+  const t = messages.table;
 
   if (!selectedTableId || !table) return null;
 
   return (
     <div style={panelStyle}>
       <div style={headerStyle}>
-        <span style={{ fontWeight: 700 }}>Edit Table</span>
+        <span style={{ fontWeight: 700 }}>{t.editTitle}</span>
         <button onClick={() => selectTable(null)} style={closeBtnStyle}>✕</button>
       </div>
 
@@ -46,7 +52,7 @@ export function TableEditPanel() {
             onClick={() => setActiveTab(tab)}
             style={tabBtnStyle(tab === activeTab)}
           >
-            {tab === 'definition' ? 'Definition' : tab === 'indexes' ? 'Indexes' : 'Seed Data'}
+            {tab === 'definition' ? t.tabDefinition : tab === 'indexes' ? t.tabIndexes : t.tabSeed}
           </button>
         ))}
       </div>
@@ -72,7 +78,7 @@ export function TableEditPanel() {
           <>
         {/* Table names */}
         <div style={rowStyle}>
-          <label style={labelStyle}>Logical name</label>
+          <label style={labelStyle}>{messages.common.logicalName}</label>
           <input
             style={inputStyle}
             value={table.logicalName}
@@ -80,7 +86,7 @@ export function TableEditPanel() {
           />
         </div>
         <div style={rowStyle}>
-          <label style={labelStyle}>Physical name</label>
+          <label style={labelStyle}>{messages.common.physicalName}</label>
           <input
             style={inputStyle}
             value={table.physicalName}
@@ -88,7 +94,7 @@ export function TableEditPanel() {
           />
         </div>
         <div style={rowStyle}>
-          <label style={labelStyle}>Comment</label>
+          <label style={labelStyle}>{messages.common.comment}</label>
           <input
             style={inputStyle}
             value={table.comment}
@@ -98,7 +104,7 @@ export function TableEditPanel() {
 
         {/* Header color */}
         <div style={rowStyle}>
-          <label style={labelStyle}>Header color</label>
+          <label style={labelStyle}>{t.headerColor}</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
             {PRESET_COLORS.map((color) => (
               <button
@@ -117,14 +123,14 @@ export function TableEditPanel() {
               value={table.headerColor ?? '#4a7c9e'}
               onChange={(e) => updateTable(selectedTableId, { headerColor: e.target.value })}
               style={{ width: 28, height: 24, padding: 1, border: '1px solid #ccc', borderRadius: 3, cursor: 'pointer' }}
-              title="Custom color"
+              title={t.customColor}
             />
             {table.headerColor && (
               <button
                 onClick={() => updateTable(selectedTableId, { headerColor: undefined })}
                 style={{ fontSize: 10, color: '#888', background: 'none', border: '1px solid #ccc', borderRadius: 3, cursor: 'pointer', padding: '1px 5px' }}
-                title="Reset to default"
-              >reset</button>
+                title={t.resetColorTitle}
+              >{t.resetColor}</button>
             )}
           </div>
         </div>
@@ -135,12 +141,12 @@ export function TableEditPanel() {
             onClick={() => setNoteOpen((o) => !o)}
             style={noteToggleStyle}
           >
-            Design Note {noteOpen ? '▲' : '▼'}
+            {t.designNote} {noteOpen ? '▲' : '▼'}
           </button>
           {noteOpen && (
             <textarea
               style={noteAreaStyle}
-              placeholder="Record design decisions, rationale, trade-offs…"
+              placeholder={messages.common.designNotePlaceholder}
               value={table.designNote ?? ''}
               onChange={(e) => updateTable(selectedTableId, { designNote: e.target.value || undefined })}
             />
@@ -149,34 +155,54 @@ export function TableEditPanel() {
 
         {/* Columns */}
         <div style={{ marginTop: 12, marginBottom: 4, fontWeight: 600, fontSize: 12, color: '#555' }}>
-          Columns
+          {t.columns}
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 4, marginBottom: 6 }}>
+          <span style={{ fontSize: 11, color: '#888', marginRight: 2 }}>{t.columnSets}</span>
+          {(columnSets ?? []).map((cs) => {
+            const on = table.columnSetIds?.includes(cs.id) ?? false;
+            return (
+              <button
+                key={cs.id}
+                onClick={() => setTableColumnSet(selectedTableId, cs.id, !on)}
+                style={setChipStyle(on)}
+                title={cs.columns.map((c) => c.physicalName).join(', ')}
+              >
+                {on ? '✓ ' : '+ '}{cs.name}
+              </button>
+            );
+          })}
+          <button onClick={openColumnSets} style={setManageBtnStyle}>
+            {columnSets?.length ? t.manageColumnSets : t.defineColumnSets}
+          </button>
         </div>
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '28px 1fr 1fr 1fr 50px 28px 36px',
+            gridTemplateColumns: '28px 1fr 1fr 1.2fr 50px 28px 36px',
             gap: 4,
             fontSize: 11,
             color: '#888',
             padding: '2px 0',
           }}
         >
-          <span title="Primary Key" style={{ textAlign: 'center' }}>PK</span>
-          <span>Logical</span>
-          <span>Physical</span>
-          <span>Type</span>
-          <span>Null</span>
-          <span title="Design note" style={{ textAlign: 'center' }}>Note</span>
+          <span title={t.colPrimaryKey} style={{ textAlign: 'center' }}>PK</span>
+          <span>{t.colLogical}</span>
+          <span>{t.colPhysical}</span>
+          <span>{t.colType}</span>
+          <span>{t.colNull}</span>
+          <span title={t.colNoteTitle} style={{ textAlign: 'center' }}>{t.colNote}</span>
           <span />
         </div>
 
         {table.columns.map((col) => (
           <ColumnRow
             key={col.id}
-            tableId={selectedTableId}
+            ownerId={selectedTableId}
             column={col}
             dictionary={dictionary}
             onDelete={() => deleteColumn(selectedTableId, col.id)}
+            lockedBy={col.columnSet ? columnSets?.find((cs) => cs.id === col.columnSet!.setId)?.name ?? '' : undefined}
           />
         ))}
 
@@ -184,7 +210,7 @@ export function TableEditPanel() {
           onClick={() => addColumn(selectedTableId)}
           style={{ ...actionBtnStyle, marginTop: 8 }}
         >
-          + Add Column
+          {t.addColumn}
         </button>
 
         {/* Danger zone */}
@@ -196,7 +222,7 @@ export function TableEditPanel() {
             }}
             style={{ ...actionBtnStyle, background: '#c33', color: '#fff' }}
           >
-            Delete Table
+            {t.deleteTable}
           </button>
         </div>
           </>
@@ -279,6 +305,14 @@ const noteAreaStyle: React.CSSProperties = {
   fontFamily: 'inherit',
 };
 
+const setChipStyle = (on: boolean): React.CSSProperties => ({
+  fontSize: 11, padding: '2px 8px', borderRadius: 10, cursor: 'pointer',
+  border: `1px solid ${on ? '#4a7c9e' : '#ccc'}`, background: on ? '#e8f0fe' : '#fff', color: on ? '#2f5d7c' : '#666',
+});
+const setManageBtnStyle: React.CSSProperties = {
+  fontSize: 11, padding: '2px 6px', border: 'none', background: 'none', color: '#4a7c9e', cursor: 'pointer', textDecoration: 'underline',
+};
+
 const tabBarStyle: React.CSSProperties = {
   display: 'flex',
   borderBottom: '1px solid #ccc',
@@ -314,16 +348,17 @@ interface IndexesTabProps {
 
 function IndexesTab({ table, addIndex, updateIndex, deleteIndex, addConstraint, updateConstraint, deleteConstraint }: IndexesTabProps) {
   const colOptions = table.columns.map((c) => c.physicalName);
+  const t = useMessages().table;
 
   return (
     <div>
       {/* Indexes section */}
-      <div style={sectionHeaderStyle}>Indexes</div>
+      <div style={sectionHeaderStyle}>{t.indexes}</div>
       {(table.indexes ?? []).map((idx) => (
         <div key={idx.id} style={idxRowStyle}>
           <input
             style={{ ...idxInputStyle, flex: 1 }}
-            placeholder="Index name"
+            placeholder={t.indexName}
             value={idx.name}
             onChange={(e) => updateIndex(idx.id, { name: e.target.value })}
           />
@@ -332,7 +367,7 @@ function IndexesTab({ table, addIndex, updateIndex, deleteIndex, addConstraint, 
             UNIQUE
           </label>
           <div style={{ flex: 2 }}>
-            <div style={{ fontSize: 10, color: '#888', marginBottom: 2 }}>Columns (check to include)</div>
+            <div style={{ fontSize: 10, color: '#888', marginBottom: 2 }}>{t.indexColumns}</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
               {colOptions.map((col) => (
                 <label key={col} style={idxLabelStyle}>
@@ -354,10 +389,10 @@ function IndexesTab({ table, addIndex, updateIndex, deleteIndex, addConstraint, 
           <button onClick={() => deleteIndex(idx.id)} style={delBtnStyle}>−</button>
         </div>
       ))}
-      <button onClick={addIndex} style={addSubBtnStyle}>+ Add Index</button>
+      <button onClick={addIndex} style={addSubBtnStyle}>{t.addIndex}</button>
 
       {/* Constraints section */}
-      <div style={{ ...sectionHeaderStyle, marginTop: 14 }}>Constraints</div>
+      <div style={{ ...sectionHeaderStyle, marginTop: 14 }}>{t.constraints}</div>
       {(table.constraints ?? []).map((c) => (
         <div key={c.id} style={idxRowStyle}>
           <select
@@ -371,13 +406,13 @@ function IndexesTab({ table, addIndex, updateIndex, deleteIndex, addConstraint, 
           </select>
           <input
             style={{ ...idxInputStyle, flex: 1 }}
-            placeholder="Constraint name"
+            placeholder={t.constraintName}
             value={c.name}
             onChange={(e) => updateConstraint(c.id, { name: e.target.value })}
           />
           <input
             style={{ ...idxInputStyle, flex: 2 }}
-            placeholder={c.type === 'UNIQUE' ? 'col1, col2' : c.type === 'CHECK' ? 'age > 0' : 'Raw SQL'}
+            placeholder={c.type === 'UNIQUE' ? 'col1, col2' : c.type === 'CHECK' ? 'age > 0' : t.rawSql}
             value={c.expression}
             onChange={(e) => updateConstraint(c.id, { expression: e.target.value })}
           />

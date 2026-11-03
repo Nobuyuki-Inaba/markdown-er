@@ -1,0 +1,36 @@
+version: 2
+
+# Updates wait 7 days after a release (cooldown), like min-release-age in .npmrc,
+# and arrive grouped once a week so each update PR can be reviewed.
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      root:
+        patterns: ['*']
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: npm
+    directory: /webview
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      webview:
+        patterns: ['*']
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ['*']

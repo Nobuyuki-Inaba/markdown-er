@@ -1,10 +1,12 @@
 import * as vscode from 'vscode';
 import { ErmdParser } from './ErmdParser';
 import { ErmdSerializer } from './ErmdSerializer';
-import { DdlExporter, DdlOptions } from './DdlExporter';
-import { DdlDiffer } from './DdlDiffer';
+import { DdlExporter, DdlOptions, SchemaDiffer } from './ddl';
+import { loadGitBaseline } from './GitBaseline';
+import { languageSetting, resolveLocale, t } from './i18n';
 import { DiagramModel, SchemaVersion } from '../shared/DiagramModel';
-import { DdlDialect, ExtToWebMsg, WebToExtMsg } from '../shared/messages';
+import { DdlDialect, ExtToWebMsg, SqlFileKind, WebToExtMsg } from '../shared/messages';
+import { DdlStyle, DEFAULT_DDL_STYLE, DDL_STYLE_KEYS } from '../shared/ddlStyle';
 
 export class ErmdPanel {
   public static currentPanel: ErmdPanel | undefined;
@@ -15,9 +17,14 @@ export class ErmdPanel {
   private _model: DiagramModel | undefined;
   private _saveVersion = 0;
   private _saveTimer: ReturnType<typeof setTimeout> | undefined;
-  private _suppressNextFileChange = false;
+  private _pendingSave: { model: DiagramModel; version: number } | undefined;
+  // Text of our own last write, so the file watcher can ignore it
+  private _lastWrittenText: string | undefined;
+  private _watcher: vscode.Disposable | undefined;
   private readonly _disposables: vscode.Disposable[] = [];
   private readonly _outputChannel: vscode.OutputChannel;
+  // Last file chosen per diagram + kind, offered again in the save dialog
+  private readonly _lastSqlFile = new Map<string, vscode.Uri>();
 
   public static createOrShow(context: vscode.ExtensionContext, fileUri: vscode.Uri) {
     const column = vscode.window.activeTextEditor?.viewColumn;
@@ -68,27 +75,32 @@ export class ErmdPanel {
 
     this._panel.onDidDispose(() => this._dispose(), null, this._disposables);
 
-    const watcher = vscode.workspace.createFileSystemWatcher(
-      new vscode.RelativePattern(
-        vscode.Uri.joinPath(fileUri, '..'),
-        fileUri.path.split('/').pop()!
-      )
-    );
-    watcher.onDidChange(() => this._onExternalFileChange(), null, this._disposables);
-    this._disposables.push(watcher);
+    this._watchFile();
     this._disposables.push(outputChannel);
 
-    // Push updated dialect to WebView whenever the setting changes
+    // Push updated dialect / DDL style / language to WebView whenever the settings change
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration('markdown-er.ddl.dialect')) {
         this._send({ type: 'dialectChanged', payload: { dialect: this._getDialect() } });
       }
+      if (DDL_STYLE_KEYS.some((key) => e.affectsConfiguration(`markdown-er.ddl.${key}`))) {
+        this._send({ type: 'ddlStyleChanged', payload: this._getDdlStyle() });
+      }
+      if (e.affectsConfiguration('markdown-er.language')) {
+        this._sendLocale();
+      }
     }, null, this._disposables);
   }
 
-  public requestDdl(mode: 'full' | 'diff', baselineRef?: string) {
+  private _sendLocale() {
+    const setting = languageSetting();
+    this._send({ type: 'localeChanged', payload: { locale: resolveLocale(setting), setting } });
+  }
+
+  public async requestDdl(mode: 'full' | 'diff', baselineRef?: string) {
+    await this._flushPendingSave();
     if (this._model) {
-      this._generateDdl(this._model, mode, baselineRef);
+      await this._generateDdl(this._model, mode, baselineRef);
     }
   }
 
@@ -98,10 +110,38 @@ export class ErmdPanel {
       .get<DdlDialect>('ddl.dialect', 'mysql');
   }
 
-  private _changeFile(fileUri: vscode.Uri) {
+  /** `markdown-er.ddl.<key>` settings */
+  private _getDdlStyle(): DdlStyle {
+    const config = vscode.workspace.getConfiguration('markdown-er.ddl');
+    const style = { ...DEFAULT_DDL_STYLE };
+    for (const key of DDL_STYLE_KEYS) {
+      style[key] = config.get<boolean>(key, DEFAULT_DDL_STYLE[key]);
+    }
+    return style;
+  }
+
+  private async _changeFile(fileUri: vscode.Uri) {
+    if (fileUri.toString() === this._fileUri.toString()) { return; }
+    // Write edits of the current file before switching, so they don't land in the new one
+    await this._flushPendingSave();
     this._fileUri = fileUri;
+    this._model = undefined;
+    this._lastWrittenText = undefined;
     this._panel.title = fileUri.path.split('/').pop() ?? 'ER Diagram';
-    this._loadAndSend();
+    this._watchFile();
+    await this._loadAndSend();
+  }
+
+  private _watchFile() {
+    this._watcher?.dispose();
+    const watcher = vscode.workspace.createFileSystemWatcher(
+      new vscode.RelativePattern(
+        vscode.Uri.joinPath(this._fileUri, '..'),
+        this._fileUri.path.split('/').pop()!
+      )
+    );
+    const sub = watcher.onDidChange(() => this._onExternalFileChange());
+    this._watcher = vscode.Disposable.from(sub, watcher);
   }
 
   private async _loadAndSend() {
@@ -109,22 +149,24 @@ export class ErmdPanel {
       const bytes = await vscode.workspace.fs.readFile(this._fileUri);
       const text = Buffer.from(bytes).toString('utf-8');
       this._model = ErmdParser.parse(text);
-      this._send({ type: 'load', payload: this._model });
+      this._send({ type: 'load', payload: this._model, fileUri: this._fileUri.toString() });
       // Also send current dialect so WebView is in sync from the start
       this._send({ type: 'dialectChanged', payload: { dialect: this._getDialect() } });
+      this._sendLocale();
+      this._send({ type: 'ddlStyleChanged', payload: this._getDdlStyle() });
     } catch (err) {
-      vscode.window.showErrorMessage(`Failed to load ER diagram: ${err}`);
+      vscode.window.showErrorMessage(t().loadFailed(err));
     }
   }
 
   private async _onExternalFileChange() {
-    if (this._suppressNextFileChange) {
-      this._suppressNextFileChange = false;
-      return;
-    }
     try {
       const bytes = await vscode.workspace.fs.readFile(this._fileUri);
       const text = Buffer.from(bytes).toString('utf-8');
+      // Our own write (the watcher may fire more than once per write)
+      if (text === this._lastWrittenText) { return; }
+      // The external edit wins over edits not yet written
+      this._cancelPendingSave();
       const model = ErmdParser.parse(text);
       this._model = model;
       this._send({ type: 'fileChanged', payload: model });
@@ -140,22 +182,27 @@ export class ErmdPanel {
   private async _handleWebMessage(msg: WebToExtMsg) {
     switch (msg.type) {
       case 'ready':
+        // A (re)loaded WebView starts counting save versions from 0 again
+        await this._flushPendingSave();
+        this._saveVersion = 0;
         await this._loadAndSend();
         break;
 
       case 'save': {
+        if (msg.fileUri !== this._fileUri.toString()) {
+          // Late save for a file the panel has already switched away from
+          await this._writeFile(vscode.Uri.parse(msg.fileUri), msg.payload);
+          break;
+        }
         if (msg.version <= this._saveVersion) { return; }
-        const pendingVersion = msg.version;
-        const pendingModel = msg.payload;
+        this._pendingSave = { model: msg.payload, version: msg.version };
         if (this._saveTimer) { clearTimeout(this._saveTimer); }
-        this._saveTimer = setTimeout(
-          () => this._writeToDisk(pendingModel, pendingVersion),
-          500
-        );
+        this._saveTimer = setTimeout(() => this._flushPendingSave(), 500);
         break;
       }
 
       case 'requestDdl':
+        await this._flushPendingSave();
         if (this._model) {
           await this._generateDdl(
             this._model,
@@ -164,6 +211,7 @@ export class ErmdPanel {
             {
               insertSeedData: msg.payload.insertSeedData,
               skipAutoIncrementPk: msg.payload.skipAutoIncrementPk,
+              includeCreateDatabase: msg.payload.includeCreateDatabase,
               fromVersionId: msg.payload.fromVersionId,
               toVersionId: msg.payload.toVersionId,
             }
@@ -173,11 +221,12 @@ export class ErmdPanel {
 
       case 'saveVersion': {
         const name = await vscode.window.showInputBox({
-          prompt: 'バージョン名を入力してください',
+          prompt: t().versionNamePrompt,
           placeHolder: `v${((msg.payload.model.schemaVersions?.length ?? 0) + 1)}`,
           value: `v${((msg.payload.model.schemaVersions?.length ?? 0) + 1)}`,
         });
         if (name === undefined) { break; }
+        await this._flushPendingSave();
         const newVersion: SchemaVersion = {
           id: `ver_${Date.now()}`,
           name,
@@ -197,6 +246,7 @@ export class ErmdPanel {
       }
 
       case 'deleteVersion': {
+        await this._flushPendingSave();
         if (!this._model) { break; }
         const updatedModel: DiagramModel = {
           ...this._model,
@@ -209,23 +259,63 @@ export class ErmdPanel {
         break;
       }
 
+      case 'setLanguage':
+        // The setting is the single source of truth; the change event re-sends localeChanged
+        await vscode.workspace.getConfiguration('markdown-er')
+          .update('language', msg.payload.setting, vscode.ConfigurationTarget.Global);
+        break;
+
+      case 'setDdlStyle': {
+        // Same pattern: write the settings; the change event re-sends ddlStyleChanged
+        const config = vscode.workspace.getConfiguration('markdown-er.ddl');
+        for (const key of DDL_STYLE_KEYS) {
+          const value = msg.payload[key];
+          if (value !== undefined) { await config.update(key, value, vscode.ConfigurationTarget.Global); }
+        }
+        break;
+      }
+
+      case 'saveSqlFile':
+        await this._saveSqlFile(msg.payload.kind, msg.payload.text);
+        break;
+
       case 'openSettings':
         vscode.commands.executeCommand('workbench.action.openSettings', 'markdown-er');
         break;
     }
   }
 
-  private async _writeToDisk(model: DiagramModel, version: number) {
-    this._saveTimer = undefined;
-    this._saveVersion = version;
-    await this._writeToDiskImmediate(model);
+  private _cancelPendingSave() {
+    if (this._saveTimer) {
+      clearTimeout(this._saveTimer);
+      this._saveTimer = undefined;
+    }
+    this._pendingSave = undefined;
+  }
+
+  private async _flushPendingSave() {
+    const pending = this._pendingSave;
+    this._cancelPendingSave();
+    if (!pending) { return; }
+    this._saveVersion = pending.version;
+    // Schema versions are owned by the extension host (saveVersion / deleteVersion),
+    // so a WebView model that is stale or undone must not overwrite them.
+    const schemaVersions = this._model ? this._model.schemaVersions : pending.model.schemaVersions;
+    await this._writeToDiskImmediate({ ...pending.model, schemaVersions });
   }
 
   private async _writeToDiskImmediate(model: DiagramModel) {
     this._model = model;
-    const text = ErmdSerializer.serialize(model, this._fileUri);
-    this._suppressNextFileChange = true;
-    await vscode.workspace.fs.writeFile(this._fileUri, Buffer.from(text, 'utf-8'));
+    this._lastWrittenText = ErmdSerializer.serialize(model, this._fileUri);
+    await this._writeFile(this._fileUri, model, this._lastWrittenText);
+  }
+
+  private async _writeFile(uri: vscode.Uri, model: DiagramModel, text = ErmdSerializer.serialize(model, uri)) {
+    try {
+      await vscode.workspace.fs.writeFile(uri, Buffer.from(text, 'utf-8'));
+    } catch (err) {
+      vscode.window.showErrorMessage(t().saveFailed(err));
+    }
   }
 
   private async _generateDdl(
@@ -235,14 +325,17 @@ export class ErmdPanel {
     options: DdlOptions & { fromVersionId?: string; toVersionId?: string | null } = {}
   ) {
     const dialect = this._getDialect();
+    const style = this._getDdlStyle();
     let ddl: string;
+    let data: string | undefined;
     if (mode === 'full') {
-      ddl = DdlExporter.export(model, dialect, options);
+      ddl = DdlExporter.export(model, dialect, { ...options, ...style });
+      data = DdlExporter.exportData(model, dialect, { ...options, ...style });
     } else if (mode === 'version-diff') {
       const versions = model.schemaVersions ?? [];
       const fromVer = versions.find((v) => v.id === options.fromVersionId);
       if (!fromVer) {
-        ddl = '-- バージョンが見つかりません';
+        ddl = t().versionNotFound;
       } else {
         const toVer = options.toVersionId
           ? versions.find((v) => v.id === options.toVersionId)
@@ -251,15 +344,64 @@ export class ErmdPanel {
         const toModel: DiagramModel = toVer
           ? { ...model, tables: toVer.tables, relations: toVer.relations, dictionary: toVer.dictionary }
           : model;
-        ddl = DdlDiffer.diffModels(fromModel, toModel, dialect);
+        ddl = SchemaDiffer.diff(fromModel, toModel, dialect, style);
       }
     } else {
-      ddl = await DdlDiffer.diff(model, this._fileUri, baselineRef ?? 'HEAD~1', dialect);
+      const ref = baselineRef ?? 'HEAD~1';
+      try {
+        const baseline = await loadGitBaseline(this._fileUri, ref);
+        ddl = SchemaDiffer.diff(baseline, model, dialect, style);
+      } catch (err) {
+        ddl = `-- Could not load baseline (${ref}): ${err instanceof Error ? err.message : err}\n` +
+          `-- Falling back to full DDL\n\n${DdlExporter.export(model, dialect, style)}`;
+      }
     }
     this._outputChannel.clear();
     this._outputChannel.appendLine(ddl);
     this._outputChannel.show();
-    this._send({ type: 'ddlResult', payload: { ddl, mode } });
+    this._send({ type: 'ddlResult', payload: { ddl, data, mode } });
+  }
+
+  /**
+   * Save dialog preset with the last file chosen for this diagram, else the
+   * `markdown-er.ddl.outputFile` / `dataOutputFile` setting (relative to the diagram's folder).
+   */
+  private async _saveSqlFile(kind: SqlFileKind, text: string) {
+    const key = `${this._fileUri.toString()}#${kind}`;
+    const defaultUri = this._lastSqlFile.get(key) ?? this._defaultSqlFile(kind);
+    const uri = await vscode.window.showSaveDialog({
+      defaultUri,
+      filters: { SQL: ['sql'], [t().allFiles]: ['*'] },
+      title: kind === 'ddl' ? t().saveDdlTitle : t().saveDataTitle,
+    });
+    if (!uri) { return; }
+    try {
+      await vscode.workspace.fs.writeFile(uri, Buffer.from(text.endsWith('\n') ? text : `${text}\n`, 'utf-8'));
+    } catch (err) {
+      vscode.window.showErrorMessage(t().sqlSaveFailed(err));
+      return;
+    }
+    this._lastSqlFile.set(key, uri);
+    const open = t().openFile;
+    if (await vscode.window.showInformationMessage(t().sqlSaved(vscode.workspace.asRelativePath(uri)), open) === open) {
+      await vscode.window.showTextDocument(uri);
+    }
+  }
+
+  private _defaultSqlFile(kind: SqlFileKind): vscode.Uri {
+    const fallback = kind === 'ddl' ? '${fileBasenameNoExtension}.sql' : '${fileBasenameNoExtension}_data.sql';
+    const pattern = vscode.workspace.getConfiguration('markdown-er.ddl')
+      .get<string>(kind === 'ddl' ? 'outputFile' : 'dataOutputFile', fallback) || fallback;
+    const fileName = this._fileUri.path.split('/').pop() ?? 'diagram.ermd';
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(this._fileUri)?.uri.fsPath ?? '';
+    const resolved = pattern
+      .replace(/\$\{fileBasenameNoExtension\}/g, fileName.replace(/\.[^.]*$/, ''))
+      .replace(/\$\{fileBasename\}/g, fileName)
+      .replace(/\$\{workspaceFolder\}/g, workspaceFolder);
+    const isAbsolute = /^([a-zA-Z]:)?[\\/]/.test(resolved);
+    return isAbsolute
+      ? vscode.Uri.file(resolved)
+      : vscode.Uri.joinPath(this._fileUri, '..', ...resolved.split(/[\\/]/));
   }
 
   private _buildHtml(): string {
@@ -291,10 +433,9 @@ export class ErmdPanel {
 
   private _dispose() {
     ErmdPanel.currentPanel = undefined;
-    if (this._saveTimer) {
-      clearTimeout(this._saveTimer);
-      this._saveTimer = undefined;
-    }
+    // Closing the panel right after an edit must not drop it
+    void this._flushPendingSave();
+    this._watcher?.dispose();
     this._panel.dispose();
     while (this._disposables.length) {
       this._disposables.pop()?.dispose();

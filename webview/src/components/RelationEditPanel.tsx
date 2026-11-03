@@ -1,6 +1,7 @@
 import { Cardinality } from '@shared/DiagramModel';
 import { useDiagramStore } from '../store/diagramStore';
 import { useUiStore } from '../store/uiStore';
+import { useMessages } from '../i18n';
 
 const CARDINALITIES: { value: Cardinality; label: string }[] = [
   { value: 'ONE_TO_ONE',  label: '1 : 1' },
@@ -16,6 +17,8 @@ export function RelationEditPanel() {
   const tables        = useDiagramStore((s) => s.model.tables);
   const updateRelation = useDiagramStore((s) => s.updateRelation);
   const deleteRelation = useDiagramStore((s) => s.deleteRelation);
+  const messages = useMessages();
+  const t = messages.relation;
 
   if (!selectedRelationId || !relation) return null;
 
@@ -25,7 +28,7 @@ export function RelationEditPanel() {
   return (
     <div style={panelStyle}>
       <div style={headerStyle}>
-        <span style={{ fontWeight: 700 }}>Edit Relation</span>
+        <span style={{ fontWeight: 700 }}>{t.editTitle}</span>
         <button onClick={() => selectRelation(null)} style={closeBtnStyle}>✕</button>
       </div>
 
@@ -38,7 +41,7 @@ export function RelationEditPanel() {
 
         {/* Cardinality */}
         <div style={rowStyle}>
-          <label style={labelStyle}>Cardinality</label>
+          <label style={labelStyle}>{t.cardinality}</label>
           <select
             style={inputStyle}
             value={relation.cardinality}
@@ -54,13 +57,13 @@ export function RelationEditPanel() {
 
         {/* From column */}
         <div style={rowStyle}>
-          <label style={labelStyle}>From column</label>
+          <label style={labelStyle}>{t.fromColumn}</label>
           <select
             style={inputStyle}
             value={relation.fromColumnId}
             onChange={(e) => updateRelation(selectedRelationId, { fromColumnId: e.target.value })}
           >
-            <option value="">— none —</option>
+            <option value="">{messages.common.none}</option>
             {fromTable?.columns.map((c) => (
               <option key={c.id} value={c.id}>{c.logicalName} ({c.physicalName})</option>
             ))}
@@ -69,13 +72,13 @@ export function RelationEditPanel() {
 
         {/* To column */}
         <div style={rowStyle}>
-          <label style={labelStyle}>To column</label>
+          <label style={labelStyle}>{t.toColumn}</label>
           <select
             style={inputStyle}
             value={relation.toColumnId}
             onChange={(e) => updateRelation(selectedRelationId, { toColumnId: e.target.value })}
           >
-            <option value="">— none —</option>
+            <option value="">{messages.common.none}</option>
             {toTable?.columns.map((c) => (
               <option key={c.id} value={c.id}>{c.logicalName} ({c.physicalName})</option>
             ))}
@@ -84,20 +87,20 @@ export function RelationEditPanel() {
 
         {/* FK */}
         <div style={rowStyle}>
-          <label style={labelStyle}>Foreign key</label>
+          <label style={labelStyle}>{t.foreignKey}</label>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
             <input
               type="checkbox"
               checked={relation.hasForeignKey}
               onChange={(e) => updateRelation(selectedRelationId, { hasForeignKey: e.target.checked })}
             />
-            Use FK constraint
+            {t.useFk}
           </label>
         </div>
 
         {relation.hasForeignKey && (
           <div style={rowStyle}>
-            <label style={labelStyle}>Constraint name</label>
+            <label style={labelStyle}>{t.constraintName}</label>
             <input
               style={inputStyle}
               value={relation.constraintName}
@@ -109,7 +112,7 @@ export function RelationEditPanel() {
 
         {/* Comment */}
         <div style={rowStyle}>
-          <label style={labelStyle}>Comment</label>
+          <label style={labelStyle}>{messages.common.comment}</label>
           <input
             style={inputStyle}
             value={relation.comment}
@@ -125,7 +128,7 @@ export function RelationEditPanel() {
             }}
             style={{ background: '#c33', color: '#fff', border: 'none', borderRadius: 4, padding: '5px 12px', cursor: 'pointer', fontSize: 12 }}
           >
-            Delete Relation
+            {t.delete}
           </button>
         </div>
       </div>

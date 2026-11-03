@@ -18,7 +18,8 @@ The diagram state (tables, columns, relations, dictionary, layout) is stored in 
 ```
 markdown-er/
 ├── shared/                 # Types shared by both the extension host and the WebView
-│   ├── DiagramModel.ts     # Canonical data model (Table, Column, Relation, DictionaryEntry, …)
+│   ├── DiagramModel.ts     # Canonical data model (Table, Column, Relation, DictionaryEntry, DatabaseSettings, …)
+│   ├── databaseOptions.ts  # Per-dialect CREATE DATABASE option fields (labels, defaults, suggestions)
 │   └── messages.ts         # Typed postMessage protocol between extension ↔ WebView
 │
 ├── src/                    # Extension host (Node.js / CommonJS)
@@ -26,14 +27,24 @@ markdown-er/
 │   ├── ErmdPanel.ts        # WebviewPanel lifecycle, postMessage bridge, debounced save
 │   ├── ErmdParser.ts       # .ermd text → DiagramModel  (uses js-yaml)
 │   ├── ErmdSerializer.ts   # DiagramModel → .ermd text  (uses js-yaml)
-│   ├── DdlExporter.ts      # DiagramModel → full CREATE TABLE DDL
-│   └── DdlDiffer.ts        # DiagramModel diff against git baseline → ALTER TABLE DDL
+│   ├── GitBaseline.ts      # `git show <ref>:<file>` → DiagramModel (only git / vscode-dependent DDL code)
+│   ├── i18n.ts             # Extension-host messages (en / ja) + locale resolution
+│   └── ddl/                # Pure DDL generation — no vscode import, unit-tested
+│       ├── SqlDialect.ts   # Abstract base: standard SQL + hooks (types, CREATE/ALTER, comments, inserts, CREATE DATABASE)
+│       ├── dialects/       # MySqlDialect / PostgresDialect / OracleDialect / SqlServerDialect / SqliteDialect
+│       ├── createDialect.ts# Factory: dialect id + DatabaseSettings → SqlDialect instance
+│       ├── Schema.ts       # Model lookups: dictionary, auto-increment keys, resolved FKs, dependency order
+│       ├── DdlExporter.ts  # Full DDL (CREATE DATABASE?, CREATE TABLE, FKs, indexes, seed INSERTs)
+│       └── SchemaDiffer.ts # ALTER script baseline → current (git ref or saved version)
+│
+├── test/                   # vitest: DDL per dialect (snapshots), diff, parser round-trip
 │
 ├── webview/                # React WebView (browser / ESM)
 │   ├── src/
 │   │   ├── main.tsx        # React root mount
 │   │   ├── App.tsx         # Top-level layout + keyboard shortcuts + message routing
 │   │   ├── vscodeApi.ts    # acquireVsCodeApi() typed wrapper (stubs for dev server)
+│   │   ├── i18n/           # en.ts (reference, defines `Messages`), ja.ts, useMessages() / getMessages()
 │   │   ├── store/
 │   │   │   ├── diagramStore.ts   # Zustand + zundo (undo/redo); all diagram mutations
 │   │   │   └── uiStore.ts        # UI-only state (selected table/relation, panels open)
@@ -42,25 +53,31 @@ markdown-er/
 │   │   │   ├── TableNode.tsx     # Custom ReactFlow node (table box + NodeResizer)
 │   │   │   ├── RelationEdge.tsx  # Custom ReactFlow edge (cardinality labels)
 │   │   │   ├── CardinalityMarkers.tsx  # SVG <defs> arrow markers
-│   │   │   ├── Toolbar.tsx       # Top toolbar (Add Table, name toggle, zoom, undo/redo)
+│   │   │   ├── Toolbar.tsx       # Top bar: diagram-wide (name toggle, search, dictionary, CSV, DB, versions, DDL, language)
+│   │   │   ├── CanvasToolbar.tsx # Left vertical bar: canvas editing (add table/region, undo/redo, zoom, auto layout, minimap)
 │   │   │   ├── TableEditPanel.tsx      # Double-click → edit table name + columns
 │   │   │   ├── RelationEditPanel.tsx   # Click edge → cardinality + FK settings
 │   │   │   ├── DictionaryPanel.tsx     # CRUD for column-type dictionary entries
+│   │   │   ├── ColumnSetPanel.tsx      # Column sets (e.g. audit columns): define, apply to all tables
 │   │   │   ├── CsvImportPanel.tsx      # CSV import dialog (Table / Dictionary tabs)
-│   │   │   └── ColumnRow.tsx           # Single column row inside TableEditPanel (free-form type input + inline register)
+│   │   │   ├── DatabasePanel.tsx       # Database name / schema / user + active dialect's charset & collation
+│   │   │   ├── ColumnRow.tsx           # Single column row inside TableEditPanel
+│   │   │   └── TypePicker.tsx          # Column type popover (dictionary by category, basic types, direct input, register)
 │   │   └── util/
 │   │       ├── xyflowAdapters.ts # DiagramModel ↔ ReactFlow Node[]/Edge[] conversion
 │   │       ├── idgen.ts          # Lightweight ID generator (no external dep)
-│   │       ├── ddlPreview.ts     # Client-side DDL generation (mirrors DdlExporter)
 │   │       └── csvImport.ts      # CSV parsing for table/dictionary import; BUILTIN_PRESETS
 │   ├── package.json        # Webview-only deps (React, @xyflow/react, Zustand, zundo, Vite)
 │   └── vite.config.ts      # Builds to ../media/webview.js + ../media/webview.css
 │
 ├── media/                  # Built WebView assets — gitignored, produced by `npm run build:webview`
 ├── out/                    # Compiled extension JS — gitignored, produced by `npm run compile`
+├── images/                 # icon.svg (source) → icon.png via `npm run icon`
+├── scripts/make-icon.mjs   # Renders the icon with resvg
+├── package.nls*.json       # Manifest strings (en / ja)
 ├── examples/
 │   └── sample.ermd         # Working 4-table EC-site diagram for manual testing
-├── package.json            # Extension manifest (main: ./out/src/extension.js)
+├── package.json            # Extension manifest (main: ./out/extension.js, bundled by esbuild)
 └── tsconfig.json           # Extension TS config (includes shared/)
 ```
 
@@ -72,17 +89,33 @@ Run from the **repo root** unless noted.
 
 | Command | What it does |
 |---|---|
-| `npm install` | Install extension host deps (js-yaml, TypeScript) |
-| `cd webview && npm install` | Install WebView deps (React, ReactFlow, Zustand, …) |
-| `npm run compile` | Compile extension host TypeScript → `out/` |
+| `npm ci` | Install extension host deps exactly as locked (js-yaml, TypeScript) |
+| `npm ci --prefix webview` | Install WebView deps exactly as locked (React, ReactFlow, Zustand, …) |
+| `npm run compile` | Type-check the extension host (`tsc --noEmit`) |
+| `npm run build:ext` | Bundle the extension host with esbuild → `out/extension.js` |
 | `npm run build:webview` | Build React WebView with Vite → `media/` |
-| `npm run build` | Both of the above in sequence |
+| `npm run build` | `build:ext` + `build:webview` |
+| `npm test` | Run vitest (DDL / diff / parser) |
+| `npm run icon` | Render `images/icon.svg` → `images/icon.png` (commit both) |
 | `npx tsc --noEmit` | Type-check extension host only |
 | `cd webview && npx tsc --noEmit` | Type-check WebView only |
 
-**Always run both type-check commands before opening a PR.**
+**Always run both type-check commands and `npm test` before opening a PR.**
+DDL output changes show up in `test/ddl/__snapshots__`; review them and update with `npx vitest run -u`.
 
 ---
+
+## Dependencies (supply-chain hardening)
+
+- `.npmrc` (root and `webview/`): `ignore-scripts=true` (no install scripts — esbuild, vite and resvg work without them),
+  `min-release-age=7` (versions younger than 7 days are not installed), `allow-git=none`, `save-exact=true`.
+- `package.json` versions are exact; lockfiles resolve only from registry.npmjs.org with integrity hashes. Use `npm ci`
+  to install; add or update with `npm install -D <pkg>@<version>` and review the lockfile diff.
+- Keep runtime dependencies few (they ship in the bundle): js-yaml, React, @xyflow/react, zustand, zundo, dagre.
+  Prefer a few lines of own code over a new package.
+- CI (`.github/workflows/ci.yml`) runs `npm audit signatures` and `npm audit` (high for shipped deps, critical for
+  tooling). Actions are pinned to commit SHAs; tokens are read-only except the release job.
+- Dependabot (`.github/dependabot.yml`) proposes grouped weekly updates after a 7-day cooldown.
 
 ## Development workflow
 
@@ -116,13 +149,24 @@ Defined in `shared/messages.ts`.
 
 | Direction | Message type | Payload |
 |---|---|---|
-| Extension → WebView | `load` | Full `DiagramModel` on file open |
+| Extension → WebView | `load` | Full `DiagramModel` + `fileUri` on file open |
 | Extension → WebView | `fileChanged` | Full `DiagramModel` on external file edit |
-| Extension → WebView | `ddlResult` | Generated DDL string |
+| Extension → WebView | `ddlResult` | Generated DDL string + `data` (seed INSERTs alone, full mode) |
 | Extension → WebView | `undo` / `redo` | (empty) relay from extension host |
 | WebView → Extension | `ready` | Triggers initial `load` |
-| WebView → Extension | `save` | Full `DiagramModel` + monotonic `version` number (debounced 300 ms) |
-| WebView → Extension | `requestDdl` | `{ mode: 'full' | 'diff', baselineRef?, insertSeedData?, skipAutoIncrementPk? }` |
+| WebView → Extension | `save` | Full `DiagramModel` + monotonic `version` number + `fileUri` it was edited for (debounced 300 ms) |
+| Extension → WebView | `localeChanged` | `{ locale: 'en' \| 'ja', setting: 'auto' \| 'en' \| 'ja' }` |
+| WebView → Extension | `requestDdl` | `{ mode, baselineRef?, fromVersionId?, toVersionId?, insertSeedData?, skipAutoIncrementPk?, includeCreateDatabase? }` |
+| WebView → Extension | `setLanguage` | `{ setting }` — writes `markdown-er.language` |
+| WebView → Extension | `saveSqlFile` | `{ kind: 'ddl' \| 'data', text }` — save dialog; default from `markdown-er.ddl.outputFile` / `dataOutputFile` (relative to the diagram, `${fileBasenameNoExtension}` etc.), then the last file chosen per diagram |
+
+### Save / undo invariants
+
+- WebView `saveVersion` only ever increases; `setModel` never resets it. The extension host drops saves with `version <= _saveVersion` and resets its counter only on `ready`.
+- Replace the model only via `loadModel()` (`diagramStore.ts`) — it bypasses and clears undo history.
+- Undo/redo only via `applyHistory()` — it bumps `saveVersion` so the result is saved, and keeps the current viewport and `schemaVersions`.
+- Viewport changes and `schemaVersions` are never recorded in undo history. The extension host owns `schemaVersions` and overrides them on every save.
+- Extension host keeps one pending save (`_pendingSave`); it is flushed before switching files, saving/deleting a version, generating DDL, and on dispose. The watcher ignores a change whose text equals `_lastWrittenText`.
 
 ---
 
@@ -232,21 +276,80 @@ viewport:
 - [x] Region group boxes (background rectangles with labels; double-click to rename; undo/redo; saved in `ermd-layout`)
 - [x] Seed data editor — spreadsheet-like row editor per table (Definition / Seed Data tabs in TableEditPanel); saved as `seedData` in `ermd-table` block; undo/redo
 - [x] DDL INSERT export — optional `INSERT INTO` statements for seed data; optional skip of auto-increment PK columns; options persisted in `uiStore`; output channel + DDL modal both updated
-- [x] Schema versioning — named snapshots saved in `ermd-versions` block; Versions panel (list + delete); Version Diff DDL modal mode; `DdlDiffer.diffModels()` for in-memory diff
+- [x] Schema versioning — named snapshots saved in `ermd-versions` block; Versions panel (list + delete); Version Diff DDL modal mode; `SchemaDiffer.diff()` for in-memory diff
 - [x] CSV import — tables/columns from CSV (`webview/src/util/csvImport.ts`); 14 built-in presets; `dictionaryName` column for preset/dict resolution; `CsvImportPanel.tsx`; `importTables` / `importDictionaryEntries` store actions
+- [x] DDL dialect class hierarchy (MySQL / PostgreSQL / Oracle / SQL Server / SQLite) with unit tests
+- [x] CREATE DATABASE / USER / SCHEMA with character set and collation (per dialect)
+- [x] DECIMAL precision and scale (`DictionaryEntry.scale`)
+- [x] English / Japanese UI (`markdown-er.language`, toolbar selector)
+- [x] Extension icon
 - [x] Inline custom type registration in ColumnRow — free-form `<input>` + `<datalist>` for type field; amber border signals unregistered input; `+` button pre-fills register form; `addColumnType` store action creates dict entry and assigns to column atomically
 
-### DDL dialect notes
+### DDL design (src/ddl)
 
-- Setting: `markdown-er.ddl.dialect` (default `mysql`) — appears in VSCode Settings UI under the extension
-- Extension host reads the setting in `ErmdPanel._getDialect()` and passes it to `DdlExporter.export()` and `DdlDiffer.diff()`
-- On `ready` the panel sends a `dialectChanged` message to the WebView so the badge and preview are in sync from the start
-- `onDidChangeConfiguration` re-sends `dialectChanged` whenever the user changes the setting — no reload required
-- WebView stores the dialect in `uiStore.dialect`; the toolbar badge displays the active dialect
-- `webview/src/util/ddlPreview.ts` mirrors the same dialect logic for the client-side preview (no round-trip needed)
-- Identifier quoting: MySQL `` ` ``, PostgreSQL/SQLite `"`, SQL Server `[bracket]`
-- SQLite: no separate `ALTER TABLE … ADD FOREIGN KEY` — FK constraints are inline only
-- SQL Server: `INT IDENTITY(1,1)` for PK auto-increment; `NVARCHAR`/`NCHAR` for string types
+- **Never branch on the dialect** in DdlExporter / SchemaDiffer. Anything database-specific is a method on
+  `SqlDialect`, overridden in `dialects/*`. To support a new database, add a subclass and a case in `createDialect`.
+- `SqlDialect` holds standard SQL; subclasses override only differences (types via `mapType`, quoting, `alterColumn`,
+  `changePrimaryKey`, `createDatabase`, `insertStatement`, `wrapExplicitIdentityInsert`, …).
+  Capabilities are flags: `inlineForeignKeys` (SQLite), `autoIncrementTypes`.
+- A dialect instance is bound to `model.database`; use `this.table(name)` for table references
+  (SQL Server qualifies with the schema), `this.quote()` for everything else.
+- `Schema` answers model questions (dictionary entry, auto-increment, resolved FKs with default names, dependency order).
+- `SchemaDiffer` decides *what* changed and the statement order; it builds a `ColumnChange` and lets the dialect render it.
+  Statements a database can't run become `-- <Label>: …` comments via `note()`.
+- Auto-increment: only a single integer PK that is not the child column of a relation.
+- Column definition order is `TYPE [DEFAULT] NULL|NOT NULL` (Oracle requires DEFAULT first). Boolean defaults are mapped
+  to dialect literals by `defaultValue()`.
+- Comments: `commentText()` = logical name (when ≠ physical) + comment. MySQL inline `COMMENT`, PostgreSQL/Oracle `COMMENT ON`.
+- PostgreSQL uses identity columns (not SERIAL) and `setval` after seed inserts with explicit ids; Oracle uses
+  `START WITH LIMIT VALUE`; SQL Server wraps with `IDENTITY_INSERT`.
+- Setting `markdown-er.ddl.dialect` (`mysql` / `postgresql` / `oracle` / `sqlserver` / `sqlite`); the extension sends
+  `dialectChanged` on `ready` and on config change; WebView keeps it in `uiStore.dialect`.
+
+### DDL style notes
+
+- `shared/ddlStyle.ts`: `DdlStyle { comments, tableOptions, explicitNull, quoteIdentifiers }`; default is a plain
+  CREATE TABLE (only `quoteIdentifiers` on). Stored in `markdown-er.ddl.<key>` settings.
+- Passed to the dialect at construction (`createDialect(id, database, style)`); `SqlDialect.quote()` quotes only when
+  needed if `quoteIdentifiers` is off (`needsQuoting()`; PostgreSQL also quotes capitals; Oracle ignores the option).
+- Extension sends `ddlStyleChanged` on load / config change; the DDL dialog checkboxes send `setDdlStyle`.
+
+### Column type notes
+
+- A column's type is its dictionary entry when `dictionaryId` resolves, else `Column.type` (`TypeSpec`, given directly).
+  Always resolve with `columnTypeSpec()` (shared) / `Schema.typeOf()` — never read `dictionaryId` alone.
+- `TypePicker.tsx`: search; dictionary and basic types as chips in rows by category (`DB_TYPE_KINDS`: string / number / datetime / other; uncategorised dictionary entries fall into their type kind), sticky section headers, `varchar(50)`-style direct input,
+  inline registration (with category). Fixed-position popover so panel scrolling doesn't clip it.
+- Choosing a dictionary type applies its `notNull` to the column (`withDictionaryType` in diagramStore).
+
+### Database / schema / user notes
+
+- `DiagramModel.database = { name, schema?, user?, options: { [dialect]: { charset?, collation?, ctype? } } }`,
+  serialized as an `ermd-database` block. Options are per dialect so switching dialects never mixes them.
+- `shared/databaseOptions.ts` lists which fields each dialect supports (label, default, suggestions); both the
+  `DatabasePanel` form and `SqlDialect.databaseOptions()` read it.
+- Passwords are never stored; DDL uses the `change_me` placeholder plus a note.
+- Emitted only when the DDL option `includeCreateDatabase` is on (`uiStore.ddlIncludeCreateDatabase` → `requestDdl`).
+
+### i18n notes
+
+- Setting `markdown-er.language` = `auto` | `en` | `ja`; `auto` follows `vscode.env.language`. Resolved in `src/i18n.ts`.
+- Extension sends `localeChanged { locale, setting }` on load and on config change; the toolbar selector sends
+  `setLanguage`, which updates the setting (single source of truth).
+- WebView: `webview/src/i18n/en.ts` is the reference; `Messages = typeof en`, so `ja.ts` must define every key (compile error otherwise).
+  Components call `useMessages()`; non-render code (FileReader callbacks) uses `getMessages()`. Parameterized strings are functions.
+- Do not translate SQL keywords or CSV column names. Manifest strings live in `package.nls.json` / `package.nls.ja.json`.
+
+### Column set notes
+
+- `DiagramModel.columnSets: ColumnSet[]` (`ermd-column-sets` block); a table lists the sets it uses in `columnSetIds`.
+- Set columns are **materialized** in `table.columns` with a `columnSet: { setId, columnId }` marker, so DDL, diff,
+  relations, indexes and seed data need no knowledge of sets. `syncColumnSets()` (`webview/src/util/columnSets.ts`, pure,
+  unit-tested) keeps them matching the set: update in place (instance ids stay), add, remove, unapplied sets dropped,
+  deleted sets' columns kept as ordinary columns.
+- Column store actions take an `ownerId` — a table id or a column set id; editing a set column re-syncs every table.
+- In the table editor, set columns are read-only (`ColumnRow lockedBy`); set chips above the columns toggle sets.
+- `applyToNewTables` sets are added by `addTable`.
 
 ### Seed data notes
 
@@ -272,8 +375,8 @@ viewport:
 - Stored as `ermd-versions` YAML block (array) at the bottom of the `.ermd` file; omitted when empty
 - **Save Version flow**: Toolbar button → WebView sends `saveVersion` with current model → extension shows `showInputBox` for name → snapshot created and written to disk → `versionSaved` (full updated model) sent back to WebView
 - **Delete Version flow**: VersionsPanel sends `deleteVersion` → extension filters out the version and writes to disk → `versionSaved` sent back
-- **Version Diff DDL**: DDL modal `version-diff` mode → `requestDdl` with `fromVersionId` / `toVersionId` → `ErmdPanel._generateDdl()` calls `DdlDiffer.diffModels(fromModel, toModel, dialect)`
-- `DdlDiffer.diffModels()` is a pure function wrapping the existing `generateAlterStatements()` — no git required
+- **Version Diff DDL**: DDL modal `version-diff` mode → `requestDdl` with `fromVersionId` / `toVersionId` → `ErmdPanel._generateDdl()` calls `SchemaDiffer.diff(fromModel, toModel, dialect)`
+- `SchemaDiffer.diff()` is pure (no git); the git variant loads the baseline with `loadGitBaseline()` first
 - WebView state: `uiStore.ddlMode`, `uiStore.ddlFromVersionId`, `uiStore.ddlToVersionId` (null = current state)
 - VersionsPanel is a floating panel (same pattern as DictionaryPanel); delete has 2-step confirmation
 
