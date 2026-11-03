@@ -17,6 +17,7 @@ export interface SerializeOptions {
 /** The `ermd-*` sections in file order */
 const SECTIONS = [
   { lang: 'ermd-database', heading: 'Database' },
+  { lang: 'ermd-ddl-replacements', heading: 'DDL Replacements' },
   { lang: 'ermd-dictionary', heading: 'Dictionary' },
   { lang: 'ermd-column-sets', heading: 'Column Sets' },
   { lang: 'ermd-table', heading: 'Tables' },
@@ -80,6 +81,7 @@ function desiredBlocks(model: DiagramModel, inlineVersions: boolean): Map<Sectio
     present ? [{ key: lang, text: fence(lang, value) }] : [];
   return new Map<SectionLang, Block[]>([
     ['ermd-database', single('ermd-database', model.database, !!model.database)],
+    ['ermd-ddl-replacements', single('ermd-ddl-replacements', model.ddlReplacements, (model.ddlReplacements?.length ?? 0) > 0)],
     ['ermd-dictionary', single('ermd-dictionary', model.dictionary, model.dictionary.length > 0)],
     ['ermd-column-sets', single('ermd-column-sets', model.columnSets, (model.columnSets?.length ?? 0) > 0)],
     ['ermd-table', model.tables.map((t) => ({ key: t.id, text: fence('ermd-table', t) }))],

@@ -3,6 +3,7 @@ import { useDiagramStore, loadModel, setSchemaVersions, applyHistory } from './s
 import { useUiStore } from './store/uiStore';
 import { sendToExtension, onMessageFromExtension } from './vscodeApi';
 import { Toolbar } from './components/Toolbar';
+import { DdlReplacementsEditor } from './components/DdlReplacementsEditor';
 import { CanvasToolbar } from './components/CanvasToolbar';
 import { DiagramCanvas } from './components/DiagramCanvas';
 import { TableEditPanel } from './components/TableEditPanel';
@@ -80,15 +81,24 @@ export function App() {
   }, []);
 
   // Debounced auto-save: send model to extension on any change
+  const pendingSaveRef = useRef<(() => void) | null>(null);
   useEffect(() => {
     if (saveVersion === 0) return; // skip initial load
     // Capture the file now: a file switch may happen before the timer fires
     const fileUri = fileUriRef.current;
-    saveTimerRef.current = setTimeout(() => {
+    const send = () => {
+      pendingSaveRef.current = null;
       sendToExtension({ type: 'save', payload: model, version: saveVersion, fileUri });
-    }, 300);
-    return () => clearTimeout(saveTimerRef.current);
+    };
+    pendingSaveRef.current = send;
+    saveTimerRef.current = setTimeout(send, 300);
+    return () => { clearTimeout(saveTimerRef.current); pendingSaveRef.current = null; };
   }, [saveVersion]);
+  // Send the pending save now (before a request that reads the saved model)
+  const flushSave = () => {
+    clearTimeout(saveTimerRef.current);
+    pendingSaveRef.current?.();
+  };
 
   // Keyboard shortcuts: undo/redo + Delete selected
   useEffect(() => {
@@ -134,6 +144,7 @@ export function App() {
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail as { mode: 'full' | 'diff' | 'version-diff' };
+      flushSave();
       const { ddlInsertSeedData, ddlSkipAutoIncrementPk, ddlIncludeCreateDatabase, ddlFromVersionId, ddlToVersionId } = useUiStore.getState();
       sendToExtension({
         type: 'requestDdl',
@@ -245,6 +256,15 @@ function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
   }, [ddl]);
 
   const hasVersions = schemaVersions.length > 0;
+
+  // Rules are applied by the extension host: regenerate once typing pauses (the request flushes the save first)
+  const replacements = useDiagramStore((s) => s.model.ddlReplacements);
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) { firstRender.current = false; return; }
+    const timer = setTimeout(() => window.dispatchEvent(new CustomEvent('er:requestDdl', { detail: { mode: ddlMode } })), 400);
+    return () => clearTimeout(timer);
+  }, [replacements]);
 
   return (
     <div style={{
@@ -365,6 +385,8 @@ function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
             </label>
           </div>
         )}
+
+        <DdlReplacementsEditor />
 
         <pre style={{ flex: 1, overflowY: 'auto', margin: 0, padding: 14, fontSize: 12, fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
           {ddl}

@@ -1,8 +1,9 @@
 import * as yaml from 'js-yaml';
 import {
   DiagramModel, DictionaryEntry, Table, Column, ColumnSet, Relation,
-  TableLayout, RegionLayout, SchemaVersion, DatabaseSettings, createEmptyModel,
+  TableLayout, RegionLayout, SchemaVersion, DatabaseSettings, DdlDialect, createEmptyModel,
 } from '../shared/DiagramModel';
+import type { DdlReplacement } from '../shared/ddlReplacements';
 
 export class ErmdParser {
   /** Whether the text has `er-diagram: true` front matter */
@@ -41,6 +42,11 @@ export class ErmdParser {
           case 'ermd-dictionary':
             if (Array.isArray(data)) {
               model.dictionary = data.map(normalizeDictionaryEntry);
+            }
+            break;
+          case 'ermd-ddl-replacements':
+            if (Array.isArray(data)) {
+              model.ddlReplacements = data.map(normalizeDdlReplacement);
             }
             break;
           case 'ermd-column-sets':
@@ -145,6 +151,19 @@ function normalizeDictionaryEntry(raw: unknown): DictionaryEntry {
   };
 }
 
+function normalizeDdlReplacement(raw: unknown): DdlReplacement {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  return {
+    id: String(r['id'] ?? ''),
+    dialect: typeof r['dialect'] === 'string' ? r['dialect'] as DdlDialect : undefined,
+    find: String(r['find'] ?? ''),
+    replace: String(r['replace'] ?? ''),
+    regex: r['regex'] === true ? true : undefined,
+    enabled: r['enabled'] === false ? false : undefined,
+    comment: r['comment'] ? String(r['comment']) : undefined,
+  };
+}
+
 function normalizeColumnSet(raw: unknown): ColumnSet {
   const s = (raw ?? {}) as Record<string, unknown>;
   return {
@@ -168,5 +187,6 @@ function normalizeColumn(raw: unknown): Column {
     isNullable: c['isNullable'] !== false,
     defaultValue: c['defaultValue'] == null ? null : String(c['defaultValue']),
     comment: String(c['comment'] ?? ''),
+    autoIncrement: typeof c['autoIncrement'] === 'boolean' ? c['autoIncrement'] : undefined,
   };
 }

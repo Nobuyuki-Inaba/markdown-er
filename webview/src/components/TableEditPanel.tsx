@@ -4,6 +4,7 @@ import { useUiStore } from '../store/uiStore';
 import { ColumnRow } from './ColumnRow';
 import { SeedDataEditor } from './SeedDataEditor';
 import type { ConstraintType } from '@shared/DiagramModel';
+import { AUTO_INCREMENT_TYPES, autoIncrementColumn } from '@shared/autoIncrement';
 import { useMessages } from '../i18n';
 
 type TabId = 'definition' | 'indexes' | 'seed';
@@ -18,6 +19,8 @@ export function TableEditPanel() {
 
   const table      = useDiagramStore((s) => s.model.tables.find((t) => t.id === selectedTableId));
   const dictionary = useDiagramStore((s) => s.model.dictionary);
+  const relations  = useDiagramStore((s) => s.model.relations);
+  const dialect    = useUiStore((s) => s.dialect);
   const columnSets = useDiagramStore((s) => s.model.columnSets);
   const setTableColumnSet = useDiagramStore((s) => s.setTableColumnSet);
   const openColumnSets    = useUiStore((s) => s.openColumnSets);
@@ -36,6 +39,14 @@ export function TableEditPanel() {
   const t = messages.table;
 
   if (!selectedTableId || !table) return null;
+
+  const autoIncrementTypes = AUTO_INCREMENT_TYPES[dialect];
+  const autoIncrementId = autoIncrementColumn(table, { relations, dictionary }, autoIncrementTypes)?.id;
+  // Whether the column would auto-increment with its own setting left to the default
+  const autoIncrementsByDefault = (columnId: string) => autoIncrementColumn(
+    { ...table, columns: table.columns.map((c) => (c.id === columnId ? { ...c, autoIncrement: undefined } : c)) },
+    { relations, dictionary }, autoIncrementTypes,
+  )?.id === columnId;
 
   return (
     <div style={panelStyle}>
@@ -61,6 +72,7 @@ export function TableEditPanel() {
         {activeTab === 'seed' ? (
           <SeedDataEditor
             table={table}
+            autoIncrementColumnId={autoIncrementId}
             onUpdate={(data) => updateSeedData(selectedTableId, data)}
           />
         ) : activeTab === 'indexes' ? (
@@ -179,7 +191,7 @@ export function TableEditPanel() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '28px 1fr 1fr 1.2fr 50px 28px 36px',
+            gridTemplateColumns: '28px 32px 1fr 1fr 1.2fr 48px 50px 28px 36px',
             gap: 4,
             fontSize: 11,
             color: '#888',
@@ -187,9 +199,11 @@ export function TableEditPanel() {
           }}
         >
           <span title={t.colPrimaryKey} style={{ textAlign: 'center' }}>PK</span>
+          <span title={t.colAutoIncrementTitle} style={{ textAlign: 'center' }}>{t.colAutoIncrement}</span>
           <span>{t.colLogical}</span>
           <span>{t.colPhysical}</span>
           <span>{t.colType}</span>
+          <span title={t.colSizeTitle}>{t.colSize}</span>
           <span>{t.colNull}</span>
           <span title={t.colNoteTitle} style={{ textAlign: 'center' }}>{t.colNote}</span>
           <span />
@@ -203,6 +217,7 @@ export function TableEditPanel() {
             dictionary={dictionary}
             onDelete={() => deleteColumn(selectedTableId, col.id)}
             lockedBy={col.columnSet ? columnSets?.find((cs) => cs.id === col.columnSet!.setId)?.name ?? '' : undefined}
+            autoIncrement={{ on: autoIncrementId === col.id, byDefault: autoIncrementsByDefault(col.id) }}
           />
         ))}
 

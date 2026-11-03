@@ -16,6 +16,14 @@ describe('ErmdParser / ErmdSerializer', () => {
     expect(parsed.dictionary).toEqual(model.dictionary);
   });
 
+  it('round-trips the auto-increment setting, and leaves it out when unset', () => {
+    const model = shopModel();
+    model.tables[0].columns[0].autoIncrement = false;
+    const text = ErmdSerializer.serialize(model, uri);
+    expect(text.match(/autoIncrement/g)).toHaveLength(1);
+    expect(ErmdParser.parse(text).tables).toEqual(model.tables);
+  });
+
   it('round-trips column sets and database settings', () => {
     const model = shopModel();
     model.database = { name: 'shop', schema: 'app', user: 'app_user', options: { mysql: { charset: 'utf8mb4' } } };

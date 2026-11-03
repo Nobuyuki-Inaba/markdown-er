@@ -1,6 +1,10 @@
-import { useState } from 'react';
-import { Column, DictionaryEntry, columnTypeSpec, formatTypeSpec } from '@shared/DiagramModel';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Column, DictionaryEntry, TypeSpec, columnTypeSpec, formatTypeSize, parseTypeSize, typeTakesSize,
+} from '@shared/DiagramModel';
+import { AUTO_INCREMENT_TYPES, canAutoIncrement } from '@shared/autoIncrement';
 import { useDiagramStore } from '../store/diagramStore';
+import { useUiStore } from '../store/uiStore';
 import { useMessages } from '../i18n';
 import { TypePicker } from './TypePicker';
 
@@ -12,24 +16,39 @@ interface Props {
   onDelete: () => void;
   /** Name of the column set this column comes from; the row is then read-only */
   lockedBy?: string;
+  /** In a table: whether the column auto-increments, and would with its setting left to the default rule */
+  autoIncrement?: { on: boolean; byDefault: boolean };
 }
 
-export function ColumnRow({ ownerId, column, dictionary, onDelete, lockedBy }: Props) {
+export function ColumnRow({ ownerId, column, dictionary, onDelete, lockedBy, autoIncrement }: Props) {
   const updateColumn  = useDiagramStore((s) => s.updateColumn);
   const setColumnType = useDiagramStore((s) => s.setColumnType);
   const addColumnType = useDiagramStore((s) => s.addColumnType);
-  const [noteOpen, setNoteOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const sizeRef = useRef<HTMLInputElement>(null);
   const messages = useMessages();
   const t = messages.column;
 
+  const entry = dictionary.find((e) => e.id === column.dictionaryId);
+  const hasDetails = !!(column.comment || column.defaultValue || column.designNote);
+  const dialect = useUiStore((s) => s.dialect);
+  const autoIncrementAllowed = canAutoIncrement(column, { dictionary }, AUTO_INCREMENT_TYPES[dialect]);
+  // Outside a table (column sets) only the column's own setting counts
+  const autoIncrementOn = autoIncrementAllowed && (autoIncrement?.on ?? column.autoIncrement === true);
+  // Store only a choice that differs from the default rule, so the file stays as it was otherwise
+  const setAutoIncrement = (on: boolean) =>
+    updateColumn(ownerId, column.id, { autoIncrement: on === (autoIncrement?.byDefault ?? false) ? undefined : on });
+  const spec = columnTypeSpec(column, dictionary);
+
   if (lockedBy !== undefined) {
-    const spec = columnTypeSpec(column, dictionary);
     return (
       <div style={{ ...gridStyle, background: '#f7f9fb', color: '#666', borderBottom: '1px solid #eee' }} title={t.fromSetTitle(lockedBy)}>
         <input type="checkbox" checked={column.isPrimaryKey} disabled style={{ justifySelf: 'center' }} />
+        <input type="checkbox" checked={autoIncrementOn} disabled style={{ justifySelf: 'center' }} />
         <span style={lockedCell}>{column.logicalName}</span>
         <span style={lockedCell}>{column.physicalName}</span>
-        <span style={lockedCell}>{spec ? formatTypeSpec(spec) : ''}</span>
+        <span style={lockedCell}>{entry?.name ?? spec?.dbType ?? ''}</span>
+        <span style={lockedCell}>{spec ? formatTypeSize(spec) : ''}</span>
         <label style={{ textAlign: 'center', fontSize: 11 }}>
           <input type="checkbox" checked={column.isNullable} disabled /> NULL
         </label>
@@ -50,6 +69,17 @@ export function ColumnRow({ ownerId, column, dictionary, onDelete, lockedBy }: P
           />
         </label>
 
+        {/* Auto-increment toggle */}
+        <input
+          type="checkbox"
+          style={{ justifySelf: 'center', cursor: autoIncrementAllowed ? 'pointer' : 'default' }}
+          checked={autoIncrementOn}
+          disabled={!autoIncrementAllowed}
+          title={!autoIncrementAllowed ? t.autoIncrementNotApplicable
+            : column.autoIncrement === undefined ? t.autoIncrementByRule : t.autoIncrementSet}
+          onChange={(e) => setAutoIncrement(e.target.checked)}
+        />
+
         <input
           style={inputStyle}
           value={column.logicalName}
@@ -68,8 +98,23 @@ export function ColumnRow({ ownerId, column, dictionary, onDelete, lockedBy }: P
           column={column}
           dictionary={dictionary}
           onSelectEntry={(entry) => setColumnType(ownerId, column.id, { entry })}
-          onSelectType={(type) => setColumnType(ownerId, column.id, { type })}
+          onSelectType={(type) => {
+            setColumnType(ownerId, column.id, { type });
+            // Type first, then size: move on to the size cell once the picker has closed
+            if (typeTakesSize(type.dbType)) setTimeout(() => sizeRef.current?.focus());
+          }}
           onRegister={(entry) => addColumnType(ownerId, column.id, entry)}
+        />
+
+        <SizeInput
+          inputRef={sizeRef}
+          spec={spec}
+          // A dictionary type's size is the dictionary's; a type without a size can't take one
+          disabledTitle={entry ? t.sizeFromDictionary(entry.name)
+            : !spec || !(typeTakesSize(spec.dbType) || spec.length != null) ? t.sizeNotApplicable
+            : undefined}
+          title={messages.table.colSizeTitle}
+          onChange={(size) => column.type && setColumnType(ownerId, column.id, { type: { ...column.type, ...size } })}
         />
 
         {/* Nullable toggle */}
@@ -82,13 +127,14 @@ export function ColumnRow({ ownerId, column, dictionary, onDelete, lockedBy }: P
           {' '}NULL
         </label>
 
-        {/* Note toggle */}
+        {/* Details toggle: filled when any detail is set, pressed while open */}
         <button
-          onClick={() => setNoteOpen((o) => !o)}
-          style={{ ...noteBtnStyle, color: column.designNote ? '#4a7c9e' : '#aaa' }}
-          title={messages.table.colNoteTitle}
+          onClick={() => setDetailsOpen((o) => !o)}
+          style={noteBtnStyle(detailsOpen, hasDetails)}
+          title={detailsOpen ? t.detailsHide : t.detailsShow}
+          aria-expanded={detailsOpen}
         >
-          {noteOpen ? '▲' : '▼'}
+          <NoteIcon filled={hasDetails} />
         </button>
 
         <button onClick={onDelete} style={deleteBtnStyle} title={t.deleteTitle}>
@@ -96,21 +142,90 @@ export function ColumnRow({ ownerId, column, dictionary, onDelete, lockedBy }: P
         </button>
       </div>
 
-      {noteOpen && (
-        <textarea
-          style={noteAreaStyle}
-          placeholder={messages.common.designNotePlaceholder}
-          value={column.designNote ?? ''}
-          onChange={(e) => updateColumn(ownerId, column.id, { designNote: e.target.value || undefined })}
-        />
+      {detailsOpen && (
+        <div style={detailsGrid}>
+          <label style={detailLabel}>{messages.common.comment}</label>
+          <input
+            autoFocus
+            style={inputStyle}
+            value={column.comment}
+            onChange={(e) => updateColumn(ownerId, column.id, { comment: e.target.value })}
+          />
+          <span style={detailHint}>{t.commentHint}</span>
+
+          <label style={detailLabel}>{t.defaultValue}</label>
+          <input
+            style={{ ...inputStyle, fontFamily: 'monospace' }}
+            value={column.defaultValue ?? ''}
+            placeholder={t.defaultPlaceholder}
+            onChange={(e) => updateColumn(ownerId, column.id, { defaultValue: e.target.value || null })}
+          />
+          <span style={detailHint}>{t.defaultHint}</span>
+
+          <label style={detailLabel}>{messages.table.designNote}</label>
+          <textarea
+            style={noteAreaStyle}
+            placeholder={messages.common.designNotePlaceholder}
+            value={column.designNote ?? ''}
+            onChange={(e) => updateColumn(ownerId, column.id, { designNote: e.target.value || undefined })}
+          />
+          <span style={detailHint}>{t.designNoteHint}</span>
+        </div>
       )}
     </div>
   );
 }
 
+interface SizeInputProps {
+  inputRef: React.RefObject<HTMLInputElement>;
+  spec: TypeSpec | undefined;
+  /** Read-only, with this explanation */
+  disabledTitle?: string;
+  title: string;
+  onChange: (size: Pick<TypeSpec, 'length' | 'scale'>) => void;
+}
+
+/** "255" or "10,2"; applied while typing whenever the text is a valid size */
+function SizeInput({ inputRef, spec, disabledTitle, title, onChange }: SizeInputProps) {
+  const value = spec ? formatTypeSize(spec) : '';
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+  // Only DECIMAL has a scale
+  const parse = (text: string) => {
+    const size = parseTypeSize(text);
+    return size && (size.scale == null || spec?.dbType === 'DECIMAL') ? size : null;
+  };
+  const valid = parse(draft) !== null;
+
+  return (
+    <input
+      ref={inputRef}
+      style={{
+        ...inputStyle,
+        textAlign: 'right',
+        fontFamily: 'monospace',
+        ...(disabledTitle !== undefined ? { background: '#f3f3f3', color: '#888' } : {}),
+        ...(valid ? {} : { borderColor: '#e55' }),
+      }}
+      value={draft}
+      disabled={disabledTitle !== undefined}
+      title={disabledTitle ?? title}
+      inputMode="numeric"
+      onFocus={(e) => e.target.select()}
+      onChange={(e) => {
+        setDraft(e.target.value);
+        const size = parse(e.target.value);
+        if (size) onChange(size);
+      }}
+      onBlur={() => setDraft(value)}
+      onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+    />
+  );
+}
+
 const gridStyle: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: '28px 1fr 1fr 1.2fr 50px 28px 36px',
+  gridTemplateColumns: '28px 32px 1fr 1fr 1.2fr 48px 50px 28px 36px',
   gap: 4,
   alignItems: 'center',
   padding: '4px 0',
@@ -148,16 +263,30 @@ const deleteBtnStyle: React.CSSProperties = {
   height: 26,
 };
 
-const noteBtnStyle: React.CSSProperties = {
-  background: 'none',
-  border: '1px solid #ddd',
+/** A sheet with a folded corner and text lines */
+function NoteIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.2" aria-hidden="true">
+      <path d="M3 1.5h5.5L11 4v8.5H3z" fill={filled ? 'currentColor' : 'none'} fillOpacity={0.15} strokeLinejoin="round" />
+      <path d="M8.5 1.5V4H11" strokeLinejoin="round" />
+      <path d="M5 6.5h4M5 8.5h4M5 10.5h2.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+const noteBtnStyle = (open: boolean, hasNote: boolean): React.CSSProperties => ({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: open ? '#e8f0fe' : '#fff',
+  border: `1px solid ${open ? '#4a7c9e' : '#ddd'}`,
   borderRadius: 3,
+  color: hasNote || open ? '#4a7c9e' : '#999',
   cursor: 'pointer',
-  fontSize: 10,
   width: 28,
   height: 26,
   padding: 0,
-};
+});
 
 const noteAreaStyle: React.CSSProperties = {
   width: '100%',
@@ -169,5 +298,12 @@ const noteAreaStyle: React.CSSProperties = {
   resize: 'vertical',
   boxSizing: 'border-box',
   fontFamily: 'inherit',
-  marginBottom: 4,
 };
+
+/** Label, field, and whether the field is output */
+const detailsGrid: React.CSSProperties = {
+  display: 'grid', gridTemplateColumns: '80px 1fr 150px', gap: '4px 8px', alignItems: 'start',
+  margin: '0 0 6px 32px', padding: '6px 8px', background: '#f7f9fb', borderRadius: 3,
+};
+const detailLabel: React.CSSProperties = { fontSize: 11, color: '#555', paddingTop: 4 };
+const detailHint: React.CSSProperties = { fontSize: 10, color: '#888', paddingTop: 5, lineHeight: 1.3 };

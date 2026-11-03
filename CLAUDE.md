@@ -21,6 +21,8 @@ markdown-er/
 ├── shared/                 # Types shared by both the extension host and the WebView
 │   ├── DiagramModel.ts     # Canonical data model (Table, Column, Relation, DictionaryEntry, DatabaseSettings, …)
 │   ├── databaseOptions.ts  # Per-dialect CREATE DATABASE option fields (labels, defaults, suggestions)
+│   ├── autoIncrement.ts    # Auto-increment column rule + per-dialect integer types (DDL and seed editor)
+│   ├── ddlReplacements.ts  # Find / replace rules applied to the generated DDL
 │   └── messages.ts         # Typed postMessage protocol between extension ↔ WebView
 │
 ├── src/                    # Extension host (Node.js / CommonJS)
@@ -334,7 +336,9 @@ viewport:
 - `Schema` answers model questions (dictionary entry, auto-increment, resolved FKs with default names, dependency order).
 - `SchemaDiffer` decides *what* changed and the statement order; it builds a `ColumnChange` and lets the dialect render it.
   Statements a database can't run become `-- <Label>: …` comments via `note()`.
-- Auto-increment: only a single integer PK that is not the child column of a relation.
+- Auto-increment: `Column.autoIncrement` when the user set it (integer PK only, first one per table); unset → only a single
+  integer PK that is not the child column of a relation. The table editor's AI checkbox shows the result; toggling stores
+  `autoIncrement` only when it differs from the rule (else `undefined`), so untouched files keep their bytes.
 - Column definition order is `TYPE [DEFAULT] NULL|NOT NULL` (Oracle requires DEFAULT first). Boolean defaults are mapped
   to dialect literals by `defaultValue()`.
 - Comments: `commentText()` = logical name (when ≠ physical) + comment. MySQL inline `COMMENT`, PostgreSQL/Oracle `COMMENT ON`.
@@ -351,12 +355,24 @@ viewport:
   needed if `quoteIdentifiers` is off (`needsQuoting()`; PostgreSQL also quotes capitals; Oracle ignores the option).
 - Extension sends `ddlStyleChanged` on load / config change; the DDL dialog checkboxes send `setDdlStyle`.
 
+### DDL replacement notes
+
+- `DiagramModel.ddlReplacements` (`ermd-ddl-replacements` block): `{ id, dialect?, find, replace, regex?, enabled?, comment? }`,
+  only non-defaults stored. An escape hatch for output the generator doesn't produce — prefer a `SqlDialect` change
+  when the case is common.
+- `applyDdlReplacements()` (shared, pure) runs in `ErmdPanel._generateDdl()` on every mode's DDL and on `data`;
+  rules apply in order, literal by default, regex with flags `gm`; invalid patterns are skipped (red in the UI).
+- Edited in the DDL dialog (`DdlReplacementsEditor`), undo-able store actions. The dialog re-requests the DDL 400 ms
+  after a rule change; `er:requestDdl` sends the pending WebView save first so the host reads the latest model.
+
 ### Column type notes
 
 - A column's type is its dictionary entry when `dictionaryId` resolves, else `Column.type` (`TypeSpec`, given directly).
   Always resolve with `columnTypeSpec()` (shared) / `Schema.typeOf()` — never read `dictionaryId` alone.
 - `TypePicker.tsx`: search; dictionary and basic types as chips in rows by category (`DB_TYPE_KINDS`: string / number / datetime / other; uncategorised dictionary entries fall into their type kind), sticky section headers, `varchar(50)`-style direct input,
-  inline registration (with category). Fixed-position popover so panel scrolling doesn't clip it.
+  inline registration (with category). Fixed-position popover so panel scrolling doesn't clip it. The picker chooses only the type;
+  the size is the row's own **Size** cell (`ColumnRow` `SizeInput`, `10,2` for DECIMAL): editable for direct types that
+  `typeTakesSize()` (shared), read-only for dictionary types (the dictionary owns their size), disabled otherwise.
 - Choosing a dictionary type applies its `notNull` to the column (`withDictionaryType` in diagramStore).
 
 ### Database / schema / user notes
@@ -402,7 +418,11 @@ viewport:
 
 - `DdlExporter.export()` accepts optional `DdlOptions { insertSeedData?, skipAutoIncrementPk? }`
 - INSERT statements are appended after schema DDL under a `-- Seed Data` comment
-- Auto-increment detection: `isPrimaryKey && dbType ∈ {INT, BIGINT}` (SQLite also includes `TINYINT`)
+- Auto-increment detection: `shared/autoIncrement.ts` — `autoIncrementColumn()` (the user's `Column.autoIncrement`, else a single integer PK, not the child of a relation)
+  with `AUTO_INCREMENT_TYPES[dialect]` (SQLite: every integer type); used by `Schema` (via `SqlDialect.autoIncrementTypes`)
+  and by the seed editor, which marks the column and shows empty cells as `auto`
+- Rows that leave the auto-increment key empty: `insertFor()` writes the explicit-id rows first (wrapped by the dialect),
+  then the empty-key rows without the column, so the database generates them after the explicit ids
 - SQL Server: explicit PK inserts are wrapped with `SET IDENTITY_INSERT table ON/OFF`
 - Options flow: WebView `uiStore.ddlInsertSeedData / ddlSkipAutoIncrementPk` → `requestDdl` message → `ErmdPanel._generateDdl()` → `DdlExporter.export()`
 - DDL modal checkboxes trigger immediate re-generation via `er:requestDdl` custom DOM event

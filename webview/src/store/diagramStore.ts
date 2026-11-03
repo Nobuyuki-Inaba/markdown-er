@@ -8,6 +8,7 @@ import {
 import { genId } from '../util/idgen';
 import { computeAutoLayout, LayoutDirection, TablePosition } from '../util/autoLayout';
 import type { ParsedTableImport, ParsedDictionaryImport } from '../util/csvImport';
+import type { DdlReplacement } from '@shared/ddlReplacements';
 import { syncColumnSets } from '../util/columnSets';
 
 
@@ -27,6 +28,10 @@ interface DiagramState {
   updateColumn: (ownerId: string, columnId: string, patch: Partial<Column>) => void;
   deleteColumn: (ownerId: string, columnId: string) => void;
   reorderColumns: (ownerId: string, fromIndex: number, toIndex: number) => void;
+
+  addDdlReplacement: (rule: Omit<DdlReplacement, 'id'>) => void;
+  updateDdlReplacement: (id: string, patch: Partial<Omit<DdlReplacement, 'id'>>) => void;
+  deleteDdlReplacement: (id: string) => void;
 
   addColumnSet: (set: ColumnSet) => void;
   updateColumnSet: (setId: string, patch: Partial<Pick<ColumnSet, 'name' | 'position' | 'applyToNewTables'>>) => void;
@@ -219,6 +224,21 @@ export const useDiagramStore = create<DiagramState>()(
           next.splice(toIndex, 0, moved);
           return next;
         })),
+
+      addDdlReplacement: (rule) =>
+        updateModel(set, (m) => ({ ...m, ddlReplacements: [...(m.ddlReplacements ?? []), { ...rule, id: genId('repl') }] })),
+
+      updateDdlReplacement: (id, patch) =>
+        updateModel(set, (m) => ({
+          ...m,
+          ddlReplacements: (m.ddlReplacements ?? []).map((r) => (r.id === id ? { ...r, ...patch } : r)),
+        })),
+
+      deleteDdlReplacement: (id) =>
+        updateModel(set, (m) => {
+          const rules = (m.ddlReplacements ?? []).filter((r) => r.id !== id);
+          return { ...m, ddlReplacements: rules.length > 0 ? rules : undefined };
+        }),
 
       addColumnSet: (columnSet) =>
         updateModel(set, (m) => ({ ...m, columnSets: [...(m.columnSets ?? []), columnSet] })),
