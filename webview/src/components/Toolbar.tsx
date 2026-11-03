@@ -77,8 +77,8 @@ export function Toolbar() {
 
       <div style={divider} />
 
-      <button onClick={undo} style={btnStyle} title={t.undoTitle}>{t.undo}</button>
-      <button onClick={redo} style={btnStyle} title={t.redoTitle}>{t.redo}</button>
+      <button onClick={undo} style={iconBtnStyle} title={t.undoTitle}>↩</button>
+      <button onClick={redo} style={iconBtnStyle} title={t.redoTitle}>↪</button>
 
       <div style={divider} />
 
@@ -235,7 +235,11 @@ const toolbarStyle: React.CSSProperties = {
   gap: 4,
   padding: '4px 8px',
   background: '#2c2c2c',
-  height: 40,
+  minHeight: 40,
+  boxSizing: 'border-box',
+  // Wrap onto a second row instead of clipping when the panel is narrow
+  flexWrap: 'wrap',
+  rowGap: 4,
   borderBottom: '1px solid #444',
   flexShrink: 0,
 };
@@ -251,6 +255,8 @@ const btnStyle: React.CSSProperties = {
   whiteSpace: 'nowrap',
 };
 
+const iconBtnStyle: React.CSSProperties = { ...btnStyle, padding: '4px 8px', minWidth: 28 };
+
 const divider: React.CSSProperties = {
   width: 1,
   height: 20,
@@ -265,7 +271,7 @@ const searchInputStyle: React.CSSProperties = {
   borderRadius: 4,
   padding: '4px 24px 4px 22px',
   fontSize: 12,
-  width: 200,
+  width: 170,
   outline: 'none',
 };
 
