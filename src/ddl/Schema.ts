@@ -1,4 +1,5 @@
 import { Column, DiagramModel, DictionaryEntry, TypeSpec, Relation, Table, columnTypeSpec } from '../../shared/DiagramModel';
+import { autoIncrementColumn } from '../../shared/autoIncrement';
 import type { SqlDialect } from './SqlDialect';
 
 /** A FK relation with every endpoint resolved. */
@@ -26,7 +27,7 @@ export class Schema {
     this.dict = new Map(model.dictionary.map((e) => [e.id, e]));
     this.foreignKeys = this.resolveForeignKeys();
     for (const t of model.tables) {
-      const col = this.autoIncrementColumn(t, dialect);
+      const col = autoIncrementColumn(t, model, dialect.autoIncrementTypes);
       if (col) { this.autoIncrement.add(col.id); }
     }
   }
@@ -67,21 +68,6 @@ export class Schema {
     };
     this.model.tables.forEach(visit);
     return ordered;
-  }
-
-  /**
-   * Only a single-column integer primary key that is not itself a foreign key
-   * (e.g. the child side of a 1:1 relation) becomes auto-increment.
-   * Composite keys of junction tables therefore never do.
-   */
-  private autoIncrementColumn(table: Table, dialect: SqlDialect): Column | undefined {
-    const pk = table.columns.filter((c) => c.isPrimaryKey);
-    if (pk.length !== 1) { return undefined; }
-    const col = pk[0];
-    const dbType = this.typeOf(col)?.dbType;
-    if (!dbType || !dialect.autoIncrementTypes.includes(dbType)) { return undefined; }
-    const isForeignKey = this.model.relations.some((r) => r.toTableId === table.id && r.toColumnId === col.id);
-    return isForeignKey ? undefined : col;
   }
 
   /** Relations with "Use FK constraint" whose tables and columns all exist. Unnamed FKs get `fk_<table>_<column>`. */

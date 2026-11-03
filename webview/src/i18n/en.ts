@@ -267,6 +267,9 @@ export const en = {
     csvEmpty: 'CSV is empty.',
     headerRequired: 'Header row is required.',
     readFailed: 'Failed to read file.',
+    autoIncrement: 'auto',
+    autoPlaceholder: 'auto',
+    autoIncrementTitle: 'Auto-increment: leave empty and the database generates the value; enter one to set it explicitly',
   },
 
   csv: {

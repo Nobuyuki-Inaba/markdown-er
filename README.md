@@ -198,6 +198,9 @@ Double-click a table → select the **Seed Data** tab.
 - Click **✕** to delete a row
 - Changes are undo-able with `Ctrl+Z`
 - With many rows, the table scrolls on its own; the column headers and row numbers stay in view
+- The auto-increment primary key is marked **auto**. Leave it empty and the database generates the value; enter one
+  to set it explicitly (safer when child tables' seed data refer to it). Rows with explicit ids are inserted first,
+  with the database's identity handling (`setval`, `IDENTITY_INSERT`, …); rows without follow, without the column.
 
 ### Add a region group box
 
@@ -298,7 +301,7 @@ For diff-only output run `ER Diagram: Export DDL (Diff)` and enter a git ref (e.
 | DDL option | Effect |
 |---|---|
 | **Include seed data as INSERT statements** | Appends `INSERT INTO` for every table with seed data |
-| **Skip auto-increment PK columns** | Omits auto-increment PK columns from the `INSERT` column list |
+| **Skip auto-increment PK columns** | Omits auto-increment PK columns from the `INSERT` column list, even where a value is entered |
 | **Include CREATE DATABASE / USER / SCHEMA** | Prepends the database / user / schema setup (see above) |
 
 **Save DDL…** writes the DDL shown to a file; **Save data…** writes only the seed-data `INSERT`s to a separate file.

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { SEED_TABLE_MAX_HEIGHT, SeedDataEditor } from '../../webview/src/components/SeedDataEditor';
-import { col, table } from '../fixtures';
+import { col, fk, shopModel, table, tableOf } from '../fixtures';
+import { AUTO_INCREMENT_TYPES, autoIncrementColumn } from '../../shared/autoIncrement';
 
 /** A table with many columns and 50 seed rows */
 function render() {
@@ -73,5 +74,23 @@ describe('SeedDataEditor scrolling', () => {
     const after = doc.html.slice(doc.html.indexOf(scroll) + scroll.length);
     expect(after).toContain('type="file"');
     expect(after.match(/<button/g)!.length).toBe(2); // add row, CSV template
+  });
+});
+
+describe('SeedDataEditor auto-increment column', () => {
+  it('marks the column and shows the empty cells as generated', () => {
+    const model = shopModel();
+    const users = tableOf(model, 't_users');
+    users.seedData = [{ id: '', name: 'A' }];
+    const id = autoIncrementColumn(users, model, AUTO_INCREMENT_TYPES.mysql)!.id;
+    const html = renderToStaticMarkup(<SeedDataEditor table={users} autoIncrementColumnId={id} onUpdate={() => {}} />);
+    expect(html).toContain('>auto</span>');
+    expect(html).toContain('placeholder="auto"');
+  });
+
+  it('is not the child side of a relation', () => {
+    const model = shopModel();
+    model.relations.push(fk('r_1to1', ['t_users', 'u_id'], ['t_orders', 'o_id']));
+    expect(autoIncrementColumn(tableOf(model, 't_orders'), model, AUTO_INCREMENT_TYPES.mysql)).toBeUndefined();
   });
 });

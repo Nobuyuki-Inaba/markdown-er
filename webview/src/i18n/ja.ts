@@ -261,6 +261,9 @@ export const ja: Messages = {
     csvEmpty: 'CSV が空です。',
     headerRequired: 'ヘッダー行が必要です。',
     readFailed: 'ファイルを読み込めませんでした。',
+    autoIncrement: '自動採番',
+    autoPlaceholder: '自動',
+    autoIncrementTitle: '自動採番: 空欄なら DB が採番します。値を入れるとその値で登録します',
   },
 
   csv: {
