@@ -1,4 +1,4 @@
-import { Column, DictionaryEntry, Table, typeSizeSuffix } from '../../../shared/DiagramModel';
+import { Column, TypeSpec, Table, typeSizeSuffix } from '../../../shared/DiagramModel';
 import { ColumnChange, SqlDialect, commentText } from '../SqlDialect';
 import type { Schema } from '../Schema';
 
@@ -38,7 +38,7 @@ export class OracleDialect extends SqlDialect {
     return 'VARCHAR2(255 CHAR)';
   }
 
-  protected mapType(entry: DictionaryEntry, autoIncrement: boolean): string {
+  protected mapType(entry: TypeSpec, autoIncrement: boolean): string {
     const len = entry.length;
     switch (entry.dbType) {
       case 'INT':       return autoIncrement ? `NUMBER(10) ${IDENTITY}` : 'NUMBER(10)';

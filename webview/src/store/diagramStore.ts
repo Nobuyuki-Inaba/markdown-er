@@ -3,7 +3,7 @@ import { temporal } from 'zundo';
 import {
   DiagramModel, Table, Column, Relation, DictionaryEntry,
   createEmptyModel, TableLayout, RegionLayout,
-  TableIndex, TableConstraint, ConstraintType, DatabaseSettings, DatabaseOptions, DdlDialect,
+  TableIndex, TableConstraint, ConstraintType, DatabaseSettings, DatabaseOptions, DdlDialect, TypeSpec,
 } from '@shared/DiagramModel';
 import { genId } from '../util/idgen';
 import { computeAutoLayout, LayoutDirection, TablePosition } from '../util/autoLayout';
@@ -50,7 +50,10 @@ interface DiagramState {
 
   importTables: (parsed: ParsedTableImport) => void;
   importDictionaryEntries: (parsed: ParsedDictionaryImport) => void;
+  /** Create a dictionary entry and assign it to the column (one undo step) */
   addColumnType: (tableId: string, columnId: string, entry: Omit<DictionaryEntry, 'id'>) => void;
+  /** Assign a dictionary type, or a type given directly */
+  setColumnType: (tableId: string, columnId: string, choice: { entry: DictionaryEntry } | { type: TypeSpec }) => void;
 
   addIndex: (tableId: string) => void;
   updateIndex: (tableId: string, indexId: string, patch: Partial<Omit<TableIndex, 'id'>>) => void;
@@ -59,6 +62,22 @@ interface DiagramState {
   addConstraint: (tableId: string, type: ConstraintType) => void;
   updateConstraint: (tableId: string, constraintId: string, patch: Partial<Omit<TableConstraint, 'id'>>) => void;
   deleteConstraint: (tableId: string, constraintId: string) => void;
+}
+
+function mapColumn(tables: Table[], tableId: string, columnId: string, fn: (c: Column) => Column): Table[] {
+  return tables.map((t) =>
+    t.id === tableId ? { ...t, columns: t.columns.map((c) => (c.id === columnId ? fn(c) : c)) } : t
+  );
+}
+
+/** Use a dictionary type; its NOT NULL default applies (primary keys are NOT NULL anyway) */
+function withDictionaryType(c: Column, entry: DictionaryEntry): Column {
+  return {
+    ...c,
+    dictionaryId: entry.id,
+    type: undefined,
+    isNullable: c.isPrimaryKey ? c.isNullable : !entry.notNull,
+  };
 }
 
 function nextVersion(state: DiagramState): number {
@@ -369,18 +388,17 @@ export const useDiagramStore = create<DiagramState>()(
           return {
             ...m,
             dictionary: [...m.dictionary, dictEntry],
-            tables: m.tables.map((t) =>
-              t.id === tableId
-                ? {
-                    ...t,
-                    columns: t.columns.map((c) =>
-                      c.id === columnId ? { ...c, dictionaryId: dictEntry.id } : c
-                    ),
-                  }
-                : t
-            ),
+            tables: mapColumn(m.tables, tableId, columnId, (c) => withDictionaryType(c, dictEntry)),
           };
         }),
+
+      setColumnType: (tableId, columnId, choice) =>
+        updateModel(set, (m) => ({
+          ...m,
+          tables: mapColumn(m.tables, tableId, columnId, (c) =>
+            'entry' in choice ? withDictionaryType(c, choice.entry) : { ...c, dictionaryId: '', type: choice.type }
+          ),
+        })),
 
       addIndex: (tableId) =>
         updateModel(set, (m) => ({

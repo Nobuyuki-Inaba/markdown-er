@@ -157,7 +157,7 @@ export function TableEditPanel() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '28px 1fr 1fr 1fr 50px 28px 36px',
+            gridTemplateColumns: '28px 1fr 1fr 1.2fr 50px 28px 36px',
             gap: 4,
             fontSize: 11,
             color: '#888',

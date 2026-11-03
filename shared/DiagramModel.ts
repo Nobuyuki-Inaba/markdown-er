@@ -15,16 +15,35 @@ export const DB_TYPES: DbType[] = [
   'BOOLEAN', 'JSON', 'BLOB',
 ];
 
-export interface DictionaryEntry {
-  id: string;
-  name: string;
+/** A concrete column type, e.g. VARCHAR(100) or DECIMAL(10,2) */
+export interface TypeSpec {
   dbType: DbType;
   length: number | null;
   /** Digits after the decimal point (DECIMAL only), e.g. DECIMAL(10,2) */
   scale?: number | null;
+}
+
+/** A named, reusable type */
+export interface DictionaryEntry extends TypeSpec {
+  id: string;
+  name: string;
+  /** Default NOT NULL applied to a column when the type is chosen */
   notNull: boolean;
   comment: string;
   category?: string;
+}
+
+/** The column's type: its dictionary entry if it resolves, else its direct type */
+export function columnTypeSpec(col: Column, dictionary: ReadonlyMap<string, DictionaryEntry> | DictionaryEntry[]): TypeSpec | undefined {
+  const entry = Array.isArray(dictionary)
+    ? dictionary.find((e) => e.id === col.dictionaryId)
+    : dictionary.get(col.dictionaryId);
+  return entry ?? col.type;
+}
+
+/** "VARCHAR(100)" */
+export function formatTypeSpec(spec: TypeSpec): string {
+  return `${spec.dbType}${typeSizeSuffix(spec)}`;
 }
 
 /** "(10,2)", "(255)" or "" */
@@ -37,7 +56,10 @@ export interface Column {
   id: string;
   logicalName: string;
   physicalName: string;
+  /** Dictionary type; takes precedence over `type` when it resolves */
   dictionaryId: string;
+  /** Type given directly, without the dictionary */
+  type?: TypeSpec;
   isPrimaryKey: boolean;
   isNullable: boolean;
   defaultValue: string | null;

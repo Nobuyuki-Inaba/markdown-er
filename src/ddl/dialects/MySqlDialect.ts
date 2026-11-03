@@ -1,4 +1,4 @@
-import { DictionaryEntry, Table, TableConstraint, TableIndex, typeSizeSuffix } from '../../../shared/DiagramModel';
+import { TypeSpec, Table, TableConstraint, TableIndex, typeSizeSuffix } from '../../../shared/DiagramModel';
 import { ColumnChange, SqlDialect, commentText } from '../SqlDialect';
 import type { ResolvedForeignKey } from '../Schema';
 
@@ -11,11 +11,11 @@ export class MySqlDialect extends SqlDialect {
   }
 
   /** MySQL keeps integer display widths such as INT(11) */
-  protected sized(entry: DictionaryEntry): string {
+  protected sized(entry: TypeSpec): string {
     return `${entry.dbType}${typeSizeSuffix(entry)}`;
   }
 
-  protected mapType(entry: DictionaryEntry, autoIncrement: boolean): string {
+  protected mapType(entry: TypeSpec, autoIncrement: boolean): string {
     if (autoIncrement) { return `${this.sized(entry)} AUTO_INCREMENT`; }
     if (entry.dbType === 'BOOLEAN') { return 'TINYINT(1)'; }
     return this.sized(entry);

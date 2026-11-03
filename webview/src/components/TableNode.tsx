@@ -3,7 +3,7 @@ import { Handle, Position, NodeResizer, type NodeProps } from '@xyflow/react';
 import { useDiagramStore } from '../store/diagramStore';
 import { useUiStore } from '../store/uiStore';
 import type { TableNodeType } from '../util/xyflowAdapters';
-import { typeSizeSuffix } from '@shared/DiagramModel';
+import { typeSizeSuffix, formatTypeSpec } from '@shared/DiagramModel';
 import { useMessages } from '../i18n';
 
 const HEADER_BG   = '#4a7c9e';
@@ -83,7 +83,7 @@ export const TableNode = memo(({ data, selected }: NodeProps<TableNodeType>) => 
         const entry = dict.find((e) => e.id === col.dictionaryId);
         const typeName = entry
           ? `${entry.name}${typeSizeSuffix(entry)}`
-          : '—';
+          : col.type ? formatTypeSpec(col.type) : '—';
         const colName = nameMode === 'logical' ? col.logicalName : col.physicalName;
 
         return (

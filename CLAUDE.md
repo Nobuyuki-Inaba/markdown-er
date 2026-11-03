@@ -60,7 +60,8 @@ markdown-er/
 │   │   │   ├── DictionaryPanel.tsx     # CRUD for column-type dictionary entries
 │   │   │   ├── CsvImportPanel.tsx      # CSV import dialog (Table / Dictionary tabs)
 │   │   │   ├── DatabasePanel.tsx       # Database name / schema / user + active dialect's charset & collation
-│   │   │   └── ColumnRow.tsx           # Single column row inside TableEditPanel (free-form type input + inline register)
+│   │   │   ├── ColumnRow.tsx           # Single column row inside TableEditPanel
+│   │   │   └── TypePicker.tsx          # Column type popover (dictionary by category, basic types, direct input, register)
 │   │   └── util/
 │   │       ├── xyflowAdapters.ts # DiagramModel ↔ ReactFlow Node[]/Edge[] conversion
 │   │       ├── idgen.ts          # Lightweight ID generator (no external dep)
@@ -290,6 +291,22 @@ viewport:
   `START WITH LIMIT VALUE`; SQL Server wraps with `IDENTITY_INSERT`.
 - Setting `markdown-er.ddl.dialect` (`mysql` / `postgresql` / `oracle` / `sqlserver` / `sqlite`); the extension sends
   `dialectChanged` on `ready` and on config change; WebView keeps it in `uiStore.dialect`.
+
+### DDL style notes
+
+- `shared/ddlStyle.ts`: `DdlStyle { comments, tableOptions, explicitNull, quoteIdentifiers }`; default is a plain
+  CREATE TABLE (only `quoteIdentifiers` on). Stored in `markdown-er.ddl.<key>` settings.
+- Passed to the dialect at construction (`createDialect(id, database, style)`); `SqlDialect.quote()` quotes only when
+  needed if `quoteIdentifiers` is off (`needsQuoting()`; PostgreSQL also quotes capitals; Oracle ignores the option).
+- Extension sends `ddlStyleChanged` on load / config change; the DDL dialog checkboxes send `setDdlStyle`.
+
+### Column type notes
+
+- A column's type is its dictionary entry when `dictionaryId` resolves, else `Column.type` (`TypeSpec`, given directly).
+  Always resolve with `columnTypeSpec()` (shared) / `Schema.typeOf()` — never read `dictionaryId` alone.
+- `TypePicker.tsx`: search, dictionary grouped by category, basic types, `varchar(50)`-style direct input,
+  inline registration (with category). Fixed-position popover so panel scrolling doesn't clip it.
+- Choosing a dictionary type applies its `notNull` to the column (`withDictionaryType` in diagramStore).
 
 ### Database / schema / user notes
 

@@ -1,4 +1,4 @@
-import { Column, DictionaryEntry, Table, TableIndex, typeSizeSuffix } from '../../../shared/DiagramModel';
+import { Column, TypeSpec, Table, TableIndex, typeSizeSuffix } from '../../../shared/DiagramModel';
 import { ColumnChange, SqlDialect } from '../SqlDialect';
 import type { Schema } from '../Schema';
 
@@ -19,7 +19,7 @@ export class SqlServerDialect extends SqlDialect {
     return 'NVARCHAR(255)';
   }
 
-  protected mapType(entry: DictionaryEntry, autoIncrement: boolean): string {
+  protected mapType(entry: TypeSpec, autoIncrement: boolean): string {
     const size = typeSizeSuffix(entry);
     switch (entry.dbType) {
       case 'INT':

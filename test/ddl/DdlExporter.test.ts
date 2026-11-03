@@ -162,6 +162,17 @@ describe('DdlExporter', () => {
     expect(createOf(DdlExporter.export(shopModel(), 'postgresql'), 'orders')).toContain('"total" DECIMAL(10,2)');
   });
 
+  it('uses a column type given directly, without the dictionary', () => {
+    const model = shopModel();
+    const bio = tableOf(model, 't_profiles').columns[1];
+    bio.dictionaryId = '';
+    bio.type = { dbType: 'VARCHAR', length: 500 };
+    expect(createOf(DdlExporter.export(model, 'postgresql'), 'profiles')).toContain('"bio" VARCHAR(500)');
+    // The dictionary wins while it resolves
+    bio.dictionaryId = 'd_name';
+    expect(createOf(DdlExporter.export(model, 'postgresql'), 'profiles')).toContain('"bio" VARCHAR(100)');
+  });
+
   it('writes logical names and comments as column comments when comments are on', () => {
     const mysql = DdlExporter.export(shopModel(), 'mysql', { comments: true });
     expect(mysql).toContain("COMMENT 'ユーザー名: display name, can''t be empty'");

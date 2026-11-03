@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DictionaryEntry, DbType, DB_TYPES } from '@shared/DiagramModel';
+import { DictionaryEntry, DbType, DB_TYPES, formatTypeSpec } from '@shared/DiagramModel';
 import { useDiagramStore } from '../store/diagramStore';
 import { useUiStore } from '../store/uiStore';
 import { useMessages } from '../i18n';
@@ -14,6 +14,7 @@ export function DictionaryPanel() {
   const deleteDictionaryEntry = useDiagramStore((s) => s.deleteDictionaryEntry);
 
   const [filterCategory, setFilterCategory] = useState('');
+  const [search, setSearch] = useState('');
   const messages = useMessages();
   const t = messages.dictionary;
   const [newEntry, setNewEntry] = useState<Omit<DictionaryEntry, 'id'>>({
@@ -26,9 +27,11 @@ export function DictionaryPanel() {
     new Set(dictionary.map((e) => e.category ?? '').filter(Boolean))
   ).sort();
 
-  const filtered = filterCategory
-    ? dictionary.filter((e) => (e.category ?? '') === filterCategory)
-    : dictionary;
+  const q = search.trim().toLowerCase();
+  const filtered = dictionary.filter((e) =>
+    (!filterCategory || (e.category ?? '') === filterCategory) &&
+    (!q || [e.name, formatTypeSpec(e), e.category, e.comment].some((s) => s?.toLowerCase().includes(q)))
+  );
 
   // Group entries: categorised first (alphabetically by category), then uncategorised
   const grouped: { label: string | null; entries: DictionaryEntry[] }[] = [];
@@ -37,7 +40,7 @@ export function DictionaryPanel() {
   } else {
     const byCat = new Map<string, DictionaryEntry[]>();
     const uncategorised: DictionaryEntry[] = [];
-    for (const e of dictionary) {
+    for (const e of filtered) {
       const cat = e.category?.trim() ?? '';
       if (cat) {
         if (!byCat.has(cat)) byCat.set(cat, []);
@@ -60,22 +63,34 @@ export function DictionaryPanel() {
       </div>
 
       <div style={{ padding: '10px 12px', overflowY: 'auto', maxHeight: 'calc(100vh - 140px)' }}>
-        {/* Category filter */}
-        {categories.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <span style={{ fontSize: 12, color: '#555', whiteSpace: 'nowrap' }}>{t.filterByCategory}</span>
-            <select
-              style={{ ...cellInput, width: 160 }}
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-            >
-              <option value="">{t.all}</option>
-              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-            {filterCategory && (
-              <button onClick={() => setFilterCategory('')} style={clearBtnStyle}>{t.clear}</button>
-            )}
-          </div>
+        {/* Search + category filter */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+          <input
+            style={{ ...cellInput, width: 220 }}
+            placeholder={t.search}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          {categories.length > 0 && (
+            <>
+              <span style={{ fontSize: 12, color: '#555', whiteSpace: 'nowrap' }}>{t.filterByCategory}</span>
+              <select
+                style={{ ...cellInput, width: 160 }}
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+              >
+                <option value="">{t.all}</option>
+                {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </>
+          )}
+          {(filterCategory || search) && (
+            <button onClick={() => { setFilterCategory(''); setSearch(''); }} style={clearBtnStyle}>{t.clear}</button>
+          )}
+          <span style={{ fontSize: 11, color: '#999', marginLeft: 'auto' }}>{t.count(filtered.length, dictionary.length)}</span>
+        </div>
+        {filtered.length === 0 && dictionary.length > 0 && (
+          <div style={{ fontSize: 12, color: '#999', padding: '6px 0' }}>{t.noMatch}</div>
         )}
 
         {/* Grouped entries */}

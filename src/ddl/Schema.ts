@@ -1,4 +1,4 @@
-import { Column, DiagramModel, DictionaryEntry, Relation, Table } from '../../shared/DiagramModel';
+import { Column, DiagramModel, DictionaryEntry, TypeSpec, Relation, Table, columnTypeSpec } from '../../shared/DiagramModel';
 import type { SqlDialect } from './SqlDialect';
 
 /** A FK relation with every endpoint resolved. */
@@ -31,8 +31,9 @@ export class Schema {
     }
   }
 
-  entryOf(col: Column): DictionaryEntry | undefined {
-    return this.dict.get(col.dictionaryId);
+  /** Dictionary type, or the column's direct type */
+  typeOf(col: Column): TypeSpec | undefined {
+    return columnTypeSpec(col, this.dict);
   }
 
   isAutoIncrement(col: Column): boolean {
@@ -77,7 +78,7 @@ export class Schema {
     const pk = table.columns.filter((c) => c.isPrimaryKey);
     if (pk.length !== 1) { return undefined; }
     const col = pk[0];
-    const dbType = this.entryOf(col)?.dbType;
+    const dbType = this.typeOf(col)?.dbType;
     if (!dbType || !dialect.autoIncrementTypes.includes(dbType)) { return undefined; }
     const isForeignKey = this.model.relations.some((r) => r.toTableId === table.id && r.toColumnId === col.id);
     return isForeignKey ? undefined : col;

@@ -1,5 +1,5 @@
 import {
-  Column, DatabaseOptions, DatabaseSettings, DbType, DdlDialect, DictionaryEntry, Table, TableConstraint, TableIndex,
+  Column, DatabaseOptions, DatabaseSettings, DbType, DdlDialect, TypeSpec, Table, TableConstraint, TableIndex,
   typeSizeSuffix,
 } from '../../shared/DiagramModel';
 import { resolveDatabaseOptions } from '../../shared/databaseOptions';
@@ -87,7 +87,7 @@ export abstract class SqlDialect {
   }
 
   /** Database type for a dictionary entry */
-  protected abstract mapType(entry: DictionaryEntry, autoIncrement: boolean): string;
+  protected abstract mapType(entry: TypeSpec, autoIncrement: boolean): string;
 
   /** Table reference; dialects that need a schema prefix override this */
   table(name: string): string {
@@ -98,7 +98,7 @@ export abstract class SqlDialect {
     return `'${s.replace(/'/g, "''")}'`;
   }
 
-  formatType(entry: DictionaryEntry | undefined, autoIncrement: boolean): string {
+  formatType(entry: TypeSpec | undefined, autoIncrement: boolean): string {
     return entry ? this.mapType(entry, autoIncrement) : this.defaultType();
   }
 
@@ -111,7 +111,7 @@ export abstract class SqlDialect {
   }
 
   /** Type with size, e.g. VARCHAR(100) / DECIMAL(10,2). Integer display widths are dropped. */
-  protected sized(entry: DictionaryEntry): string {
+  protected sized(entry: TypeSpec): string {
     return INTEGER_TYPES.includes(entry.dbType) ? entry.dbType : `${entry.dbType}${typeSizeSuffix(entry)}`;
   }
 
@@ -128,7 +128,7 @@ export abstract class SqlDialect {
   defaultValue(col: Column, schema: Schema): string | null {
     const raw = col.defaultValue?.trim();
     if (!raw) { return null; }
-    if (schema.entryOf(col)?.dbType === 'BOOLEAN' && /^(true|false|1|0)$/i.test(raw)) {
+    if (schema.typeOf(col)?.dbType === 'BOOLEAN' && /^(true|false|1|0)$/i.test(raw)) {
       return this.booleanLiteral(/^(true|1)$/i.test(raw));
     }
     return raw;
@@ -154,7 +154,7 @@ export abstract class SqlDialect {
 
   /** `name TYPE [DEFAULT x] NULL|NOT NULL` — DEFAULT first, as Oracle requires and the others accept */
   columnDefinition(col: Column, schema: Schema): string {
-    const type = this.formatType(schema.entryOf(col), schema.isAutoIncrement(col));
+    const type = this.formatType(schema.typeOf(col), schema.isAutoIncrement(col));
     const defaultSql = this.defaultValue(col, schema);
     const defaultPart = defaultSql ? ` DEFAULT ${defaultSql}` : '';
     const nullPart = schema.isNotNull(col) ? ' NOT NULL' : this.style.explicitNull ? ' NULL' : '';

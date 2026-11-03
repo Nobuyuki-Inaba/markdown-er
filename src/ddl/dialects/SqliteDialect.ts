@@ -1,4 +1,4 @@
-import { DbType, DictionaryEntry, Table, TableConstraint } from '../../../shared/DiagramModel';
+import { DbType, TypeSpec, Table, TableConstraint } from '../../../shared/DiagramModel';
 import { ColumnChange, INTEGER_TYPES, SqlDialect } from '../SqlDialect';
 import type { ResolvedForeignKey } from '../Schema';
 
@@ -16,7 +16,7 @@ export class SqliteDialect extends SqlDialect {
     return `"${name.replace(/"/g, '""')}"`;
   }
 
-  protected mapType(entry: DictionaryEntry): string {
+  protected mapType(entry: TypeSpec): string {
     const t = entry.dbType;
     if (INTEGER_TYPES.includes(t) || t === 'BOOLEAN') { return 'INTEGER'; }
     if (t === 'DECIMAL') { return 'NUMERIC'; }

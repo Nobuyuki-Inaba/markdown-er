@@ -74,7 +74,7 @@ export class DdlExporter {
       const values = cols.map((c) => {
         const raw = row[c.physicalName];
         if (raw === undefined || raw === null || raw === '') { return 'NULL'; }
-        const dbType = schema.entryOf(c)?.dbType;
+        const dbType = schema.typeOf(c)?.dbType;
         if (dbType && NUMERIC_TYPES.includes(dbType)) { return raw; }
         if (dbType === 'BOOLEAN') { return dialect.booleanLiteral(raw === '1' || raw.toLowerCase() === 'true'); }
         return dialect.string(String(raw));

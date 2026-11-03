@@ -119,8 +119,8 @@ export class SchemaDiffer {
   private columnChange(table: Table, before: Column, after: Column): ColumnChange | null {
     const { dialect, base, cur } = this;
     // Compare dialect types, so dictionary edits are picked up and equivalent types are not
-    const oldType = dialect.formatType(base.entryOf(before), false);
-    const newType = dialect.formatType(cur.entryOf(after), false);
+    const oldType = dialect.formatType(base.typeOf(before), false);
+    const newType = dialect.formatType(cur.typeOf(after), false);
     const notNull = cur.isNotNull(after);
     const change: ColumnChange = {
       table, before, after, newType, notNull,
