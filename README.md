@@ -276,7 +276,12 @@ For diff-only output run `ER Diagram: Export DDL (Diff)` and enter a git ref (e.
 | **Skip auto-increment PK columns** | Omits auto-increment PK columns from the `INSERT` column list |
 | **Include CREATE DATABASE / USER / SCHEMA** | Prepends the database / user / schema setup (see above) |
 
-Logical names and comments are written as column / table comments (`ユーザー名: comment`).
+**Save DDL…** writes the DDL shown to a file; **Save data…** writes only the seed-data `INSERT`s to a separate file.
+The save dialog starts at the settings `markdown-er.ddl.outputFile` (default `${fileBasenameNoExtension}.sql`) and
+`markdown-er.ddl.dataOutputFile` (default `${fileBasenameNoExtension}_data.sql`), relative to the diagram's folder;
+after that it offers the file you last chose for the diagram.
+
+With **Comments** on, logical names and comments are written as column / table comments (`ユーザー名: comment`).
 Diff DDL handles renamed tables and columns, type / nullability / default changes, primary keys, indexes, constraints and foreign keys, using each dialect's own syntax.
 
 ---

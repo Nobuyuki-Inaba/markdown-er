@@ -27,6 +27,12 @@ export class DdlExporter {
     return new DdlExporter(model, createDialect(dialect, model.database, options)).build(options);
   }
 
+  /** Seed-data INSERTs only (for a separate data file); '' when no table has seed data */
+  static exportData(model: DiagramModel, dialect: DdlDialect = 'mysql', options: DdlOptions = {}): string {
+    return new DdlExporter(model, createDialect(dialect, model.database, options))
+      .seedInserts(options.skipAutoIncrementPk ?? false);
+  }
+
   constructor(model: DiagramModel, private readonly dialect: SqlDialect) {
     this.schema = new Schema(model, dialect);
   }
@@ -54,7 +60,7 @@ export class DdlExporter {
   }
 
   /** Parents first, so the INSERTs satisfy FK constraints */
-  private seedInserts(skipAutoIncrementPk: boolean): string {
+  seedInserts(skipAutoIncrementPk: boolean): string {
     return this.schema.tablesInDependencyOrder()
       .map((t) => this.insertFor(t, skipAutoIncrementPk))
       .filter((s): s is string => s !== null)

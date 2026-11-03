@@ -105,6 +105,16 @@
           "default": true,
           "description": "%config.ddl.quoteIdentifiers%"
         },
+        "markdown-er.ddl.outputFile": {
+          "type": "string",
+          "default": "${fileBasenameNoExtension}.sql",
+          "markdownDescription": "%config.ddl.outputFile%"
+        },
+        "markdown-er.ddl.dataOutputFile": {
+          "type": "string",
+          "default": "${fileBasenameNoExtension}_data.sql",
+          "markdownDescription": "%config.ddl.dataOutputFile%"
+        },
         "markdown-er.mcp.enabled": {
           "type": "boolean",
           "default": false,

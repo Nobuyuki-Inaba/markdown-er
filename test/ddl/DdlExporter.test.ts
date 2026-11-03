@@ -215,3 +215,15 @@ describe('DdlExporter', () => {
     });
   });
 });
+
+describe('DdlExporter.exportData', () => {
+  it('returns only the seed INSERTs, as appended to the full DDL', () => {
+    const model = shopModel();
+    tableOf(model, 't_users').seedData = [{ id: '1', name: 'Alice' }];
+    const data = DdlExporter.exportData(model, 'mysql');
+    expect(data).toMatch(/^INSERT INTO/);
+    expect(data).not.toContain('CREATE TABLE');
+    expect(DdlExporter.export(model, 'mysql', { insertSeedData: true })).toContain(`-- Seed Data\n${data}`);
+    expect(DdlExporter.exportData(shopModel(), 'mysql')).toBe('');
+  });
+});

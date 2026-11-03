@@ -186,6 +186,11 @@ export const en = {
   ddl: {
     title: 'Generated DDL',
     copy: 'Copy',
+    saveDdl: 'Save DDL…',
+    saveDdlTitle: 'Save the DDL shown below to a file (default name: Settings › markdown-er.ddl.outputFile)',
+    saveData: 'Save data…',
+    saveDataTitle: 'Save only the seed-data INSERTs to a file (default name: markdown-er.ddl.dataOutputFile)',
+    saveDataNone: 'No seed data (full DDL only)',
     full: 'Full DDL',
     versionDiff: 'Version Diff',
     versionDiffHint: '(save a version to compare)',

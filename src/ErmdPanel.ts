@@ -5,7 +5,7 @@ import { DdlExporter, DdlOptions, SchemaDiffer } from './ddl';
 import { loadGitBaseline } from './GitBaseline';
 import { languageSetting, resolveLocale, t } from './i18n';
 import { DiagramModel, SchemaVersion } from '../shared/DiagramModel';
-import { DdlDialect, ExtToWebMsg, WebToExtMsg } from '../shared/messages';
+import { DdlDialect, ExtToWebMsg, SqlFileKind, WebToExtMsg } from '../shared/messages';
 import { DdlStyle, DEFAULT_DDL_STYLE, DDL_STYLE_KEYS } from '../shared/ddlStyle';
 
 export class ErmdPanel {
@@ -23,6 +23,8 @@ export class ErmdPanel {
   private _watcher: vscode.Disposable | undefined;
   private readonly _disposables: vscode.Disposable[] = [];
   private readonly _outputChannel: vscode.OutputChannel;
+  // Last file chosen per diagram + kind, offered again in the save dialog
+  private readonly _lastSqlFile = new Map<string, vscode.Uri>();
 
   public static createOrShow(context: vscode.ExtensionContext, fileUri: vscode.Uri) {
     const column = vscode.window.activeTextEditor?.viewColumn;
@@ -273,6 +275,10 @@ export class ErmdPanel {
         break;
       }
 
+      case 'saveSqlFile':
+        await this._saveSqlFile(msg.payload.kind, msg.payload.text);
+        break;
+
       case 'openSettings':
         vscode.commands.executeCommand('workbench.action.openSettings', 'markdown-er');
         break;
@@ -321,8 +327,10 @@ export class ErmdPanel {
     const dialect = this._getDialect();
     const style = this._getDdlStyle();
     let ddl: string;
+    let data: string | undefined;
     if (mode === 'full') {
       ddl = DdlExporter.export(model, dialect, { ...options, ...style });
+      data = DdlExporter.exportData(model, dialect, { ...options, ...style });
     } else if (mode === 'version-diff') {
       const versions = model.schemaVersions ?? [];
       const fromVer = versions.find((v) => v.id === options.fromVersionId);
@@ -351,7 +359,49 @@ export class ErmdPanel {
     this._outputChannel.clear();
     this._outputChannel.appendLine(ddl);
     this._outputChannel.show();
-    this._send({ type: 'ddlResult', payload: { ddl, mode } });
+    this._send({ type: 'ddlResult', payload: { ddl, data, mode } });
+  }
+
+  /**
+   * Save dialog preset with the last file chosen for this diagram, else the
+   * `markdown-er.ddl.outputFile` / `dataOutputFile` setting (relative to the diagram's folder).
+   */
+  private async _saveSqlFile(kind: SqlFileKind, text: string) {
+    const key = `${this._fileUri.toString()}#${kind}`;
+    const defaultUri = this._lastSqlFile.get(key) ?? this._defaultSqlFile(kind);
+    const uri = await vscode.window.showSaveDialog({
+      defaultUri,
+      filters: { SQL: ['sql'], [t().allFiles]: ['*'] },
+      title: kind === 'ddl' ? t().saveDdlTitle : t().saveDataTitle,
+    });
+    if (!uri) { return; }
+    try {
+      await vscode.workspace.fs.writeFile(uri, Buffer.from(text.endsWith('\n') ? text : `${text}\n`, 'utf-8'));
+    } catch (err) {
+      vscode.window.showErrorMessage(t().sqlSaveFailed(err));
+      return;
+    }
+    this._lastSqlFile.set(key, uri);
+    const open = t().openFile;
+    if (await vscode.window.showInformationMessage(t().sqlSaved(vscode.workspace.asRelativePath(uri)), open) === open) {
+      await vscode.window.showTextDocument(uri);
+    }
+  }
+
+  private _defaultSqlFile(kind: SqlFileKind): vscode.Uri {
+    const fallback = kind === 'ddl' ? '${fileBasenameNoExtension}.sql' : '${fileBasenameNoExtension}_data.sql';
+    const pattern = vscode.workspace.getConfiguration('markdown-er.ddl')
+      .get<string>(kind === 'ddl' ? 'outputFile' : 'dataOutputFile', fallback) || fallback;
+    const fileName = this._fileUri.path.split('/').pop() ?? 'diagram.ermd';
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(this._fileUri)?.uri.fsPath ?? '';
+    const resolved = pattern
+      .replace(/\$\{fileBasenameNoExtension\}/g, fileName.replace(/\.[^.]*$/, ''))
+      .replace(/\$\{fileBasename\}/g, fileName)
+      .replace(/\$\{workspaceFolder\}/g, workspaceFolder);
+    const isAbsolute = /^([a-zA-Z]:)?[\\/]/.test(resolved);
+    return isAbsolute
+      ? vscode.Uri.file(resolved)
+      : vscode.Uri.joinPath(this._fileUri, '..', ...resolved.split(/[\\/]/));
   }
 
   private _buildHtml(): string {

@@ -181,6 +181,11 @@ export const ja: Messages = {
   ddl: {
     title: '生成された DDL',
     copy: 'コピー',
+    saveDdl: 'DDL を保存…',
+    saveDdlTitle: '表示中の DDL をファイルに保存（既定のファイル名: 設定 markdown-er.ddl.outputFile）',
+    saveData: 'データを保存…',
+    saveDataTitle: '初期データの INSERT 文だけをファイルに保存（既定のファイル名: markdown-er.ddl.dataOutputFile）',
+    saveDataNone: '初期データがありません（全体 DDL のみ）',
     full: '全体 DDL',
     versionDiff: 'バージョン差分',
     versionDiffHint: '（バージョンを保存すると比較できます）',

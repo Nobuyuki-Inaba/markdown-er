@@ -138,13 +138,14 @@ Defined in `shared/messages.ts`.
 |---|---|---|
 | Extension → WebView | `load` | Full `DiagramModel` + `fileUri` on file open |
 | Extension → WebView | `fileChanged` | Full `DiagramModel` on external file edit |
-| Extension → WebView | `ddlResult` | Generated DDL string |
+| Extension → WebView | `ddlResult` | Generated DDL string + `data` (seed INSERTs alone, full mode) |
 | Extension → WebView | `undo` / `redo` | (empty) relay from extension host |
 | WebView → Extension | `ready` | Triggers initial `load` |
 | WebView → Extension | `save` | Full `DiagramModel` + monotonic `version` number + `fileUri` it was edited for (debounced 300 ms) |
 | Extension → WebView | `localeChanged` | `{ locale: 'en' \| 'ja', setting: 'auto' \| 'en' \| 'ja' }` |
 | WebView → Extension | `requestDdl` | `{ mode, baselineRef?, fromVersionId?, toVersionId?, insertSeedData?, skipAutoIncrementPk?, includeCreateDatabase? }` |
 | WebView → Extension | `setLanguage` | `{ setting }` — writes `markdown-er.language` |
+| WebView → Extension | `saveSqlFile` | `{ kind: 'ddl' \| 'data', text }` — save dialog; default from `markdown-er.ddl.outputFile` / `dataOutputFile` (relative to the diagram, `${fileBasenameNoExtension}` etc.), then the last file chosen per diagram |
 
 ### Save / undo invariants
 

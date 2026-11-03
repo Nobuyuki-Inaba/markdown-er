@@ -11,7 +11,8 @@ export type LanguageSetting = 'auto' | Locale;
 export type ExtToWebMsg =
   | { type: 'load'; payload: DiagramModel; fileUri: string }
   | { type: 'fileChanged'; payload: DiagramModel }
-  | { type: 'ddlResult'; payload: { ddl: string; mode: 'full' | 'diff' | 'version-diff' } }
+  /** `data`: seed-data INSERTs alone (full mode), for saving to a separate file */
+  | { type: 'ddlResult'; payload: { ddl: string; data?: string; mode: 'full' | 'diff' | 'version-diff' } }
   | { type: 'dialectChanged'; payload: { dialect: DdlDialect } }
   | { type: 'localeChanged'; payload: { locale: Locale; setting: LanguageSetting } }
   | { type: 'ddlStyleChanged'; payload: DdlStyle }
@@ -35,4 +36,8 @@ export type WebToExtMsg =
   | { type: 'deleteVersion'; payload: { versionId: string } }
   | { type: 'setLanguage'; payload: { setting: LanguageSetting } }
   | { type: 'setDdlStyle'; payload: Partial<DdlStyle> }
+  /** Save DDL or seed data to a file chosen in a save dialog (default name from settings) */
+  | { type: 'saveSqlFile'; payload: { kind: SqlFileKind; text: string } }
   | { type: 'openSettings' };
+
+export type SqlFileKind = 'ddl' | 'data';

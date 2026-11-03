@@ -10,5 +10,7 @@
   "config.ddl.comments": "Write column / table comments (logical name + comment) in DDL.",
   "config.ddl.tableOptions": "Write MySQL table options (ENGINE, DEFAULT CHARSET, COLLATE).",
   "config.ddl.explicitNull": "Write NULL on nullable columns (otherwise only NOT NULL is written).",
-  "config.ddl.quoteIdentifiers": "Quote every identifier. When off, only names that need it are quoted."
+  "config.ddl.quoteIdentifiers": "Quote every identifier. When off, only names that need it are quoted.",
+  "config.ddl.outputFile": "Default file for **Save DDL…**, relative to the diagram's folder. Variables: `${fileBasenameNoExtension}`, `${fileBasename}`, `${workspaceFolder}`.",
+  "config.ddl.dataOutputFile": "Default file for **Save data…** (seed-data INSERTs only), relative to the diagram's folder. Same variables as `#markdown-er.ddl.outputFile#`."
 }

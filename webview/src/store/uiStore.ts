@@ -11,6 +11,8 @@ interface UiState {
   isVersionsOpen: boolean;
   isDdlOpen: boolean;
   lastDdl: string;
+  /** Seed-data INSERTs alone (full mode), for "Save data…" */
+  lastDdlData: string;
   dialect: DdlDialect;
   locale: Locale;
   languageSetting: LanguageSetting;
@@ -35,7 +37,7 @@ interface UiState {
   closeCsvImport: () => void;
   openVersions: () => void;
   closeVersions: () => void;
-  openDdl: (ddl: string) => void;
+  openDdl: (ddl: string, data?: string) => void;
   closeDdl: () => void;
   setDialect: (dialect: DdlDialect) => void;
   setLocale: (locale: Locale, setting: LanguageSetting) => void;
@@ -59,6 +61,7 @@ export const useUiStore = create<UiState>()((set) => ({
   isVersionsOpen: false,
   isDdlOpen: false,
   lastDdl: '',
+  lastDdlData: '',
   dialect: 'mysql',
   locale: 'en',
   languageSetting: 'auto',
@@ -82,7 +85,7 @@ export const useUiStore = create<UiState>()((set) => ({
   closeCsvImport: () => set({ isCsvImportOpen: false }),
   openVersions: () => set({ isVersionsOpen: true }),
   closeVersions: () => set({ isVersionsOpen: false }),
-  openDdl: (ddl) => set({ isDdlOpen: true, lastDdl: ddl }),
+  openDdl: (ddl, data = '') => set({ isDdlOpen: true, lastDdl: ddl, lastDdlData: data }),
   closeDdl: () => set({ isDdlOpen: false }),
   setDialect: (dialect) => set({ dialect }),
   setLocale: (locale, languageSetting) => set({ locale, languageSetting }),

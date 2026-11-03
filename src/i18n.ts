@@ -9,6 +9,12 @@ const en = {
   versionNotFound: '-- Version not found',
   loadFailed: (err: unknown) => `Failed to load ER diagram: ${err}`,
   saveFailed: (err: unknown) => `Failed to save ER diagram: ${err}`,
+  saveDdlTitle: 'Save DDL',
+  saveDataTitle: 'Save seed data (INSERT)',
+  allFiles: 'All files',
+  sqlSaved: (path: string) => `Saved ${path}`,
+  sqlSaveFailed: (err: unknown) => `Failed to save SQL file: ${err}`,
+  openFile: 'Open',
 };
 
 type ExtensionMessages = typeof en;
@@ -21,6 +27,12 @@ const ja: ExtensionMessages = {
   versionNotFound: '-- バージョンが見つかりません',
   loadFailed: (err: unknown) => `ER 図を読み込めませんでした: ${err}`,
   saveFailed: (err: unknown) => `ER 図を保存できませんでした: ${err}`,
+  saveDdlTitle: 'DDL を保存',
+  saveDataTitle: '初期データ（INSERT）を保存',
+  allFiles: 'すべてのファイル',
+  sqlSaved: (path: string) => `${path} に保存しました`,
+  sqlSaveFailed: (err: unknown) => `SQL ファイルを保存できませんでした: ${err}`,
+  openFile: '開く',
 };
 
 export function languageSetting(): LanguageSetting {

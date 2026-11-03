@@ -39,7 +39,7 @@ export function App() {
           loadModel(msg.payload);
           break;
         case 'ddlResult':
-          openDdl(msg.payload.ddl);
+          openDdl(msg.payload.ddl, msg.payload.data);
           break;
         case 'versionSaved':
           // Only versions changed; keep any in-flight diagram edits
@@ -224,6 +224,10 @@ function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
     window.dispatchEvent(new CustomEvent('er:requestDdl', { detail: { mode: 'version-diff' } }));
   };
 
+  const data = useUiStore((s) => s.lastDdlData);
+  const saveFile = (kind: 'ddl' | 'data') =>
+    sendToExtension({ type: 'saveSqlFile', payload: { kind, text: kind === 'ddl' ? ddl : data } });
+
   const copyToClipboard = useCallback(() => {
     navigator.clipboard.writeText(ddl).catch(() => {});
   }, [ddl]);
@@ -245,6 +249,15 @@ function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderBottom: '1px solid #333' }}>
           <span style={{ fontWeight: 700, fontSize: 14 }}>{t.title}</span>
           <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => saveFile('ddl')} style={{ ...modalBtnStyle, background: '#4a7c9e' }} title={t.saveDdlTitle}>{t.saveDdl}</button>
+            <button
+              onClick={() => saveFile('data')}
+              disabled={!data}
+              style={{ ...modalBtnStyle, background: '#4a7c9e', opacity: data ? 1 : 0.4, cursor: data ? 'pointer' : 'default' }}
+              title={data ? t.saveDataTitle : t.saveDataNone}
+            >
+              {t.saveData}
+            </button>
             <button onClick={copyToClipboard} style={{ ...modalBtnStyle, background: '#4a7c9e' }}>{t.copy}</button>
             <button onClick={onClose} style={{ ...modalBtnStyle, background: '#555' }}>{messages.common.close}</button>
           </div>
