@@ -283,7 +283,10 @@ viewport:
 - [x] DECIMAL precision and scale (`DictionaryEntry.scale`)
 - [x] English / Japanese UI (`markdown-er.language`, toolbar selector)
 - [x] Extension icon
-- [x] Inline custom type registration in ColumnRow — free-form `<input>` + `<datalist>` for type field; amber border signals unregistered input; `+` button pre-fills register form; `addColumnType` store action creates dict entry and assigns to column atomically
+- [x] Type picker (`TypePicker.tsx`) — dictionary / basic types as category-grouped chips, direct `varchar(50)` input, inline registration; columns may use a type without the dictionary
+- [x] Column sets — common columns (e.g. audit) defined once, applied per table, kept in sync
+- [x] DDL format options (comments, table options, explicit NULL, quoting) and Save DDL / Save data to files
+- [x] Supply-chain hardening (.npmrc, exact versions, CI audit + signatures, SHA-pinned actions, Dependabot cooldown)
 
 ### DDL design (src/ddl)
 
@@ -388,14 +391,6 @@ viewport:
 - `ParsedTableImport.autoCreatedDictEntries` carries newly created entries; `importTables` in `diagramStore.ts` appends them atomically with the tables
 - `CsvImportPanel.tsx`: fixed-height dialog with scrollable spec pane; two category tabs; upload zone always visible at top
 - UI state: `uiStore.isCsvImportOpen` / `openCsvImport` / `closeCsvImport`
-
-### Inline custom type registration notes
-
-- `ColumnRow.tsx` type field is an `<input type="text">` with `<datalist id="dict-list-{columnId}">` (all dict entry names as options)
-- On change: exact name match → `updateColumn(dictionaryId)` + clear `typeText`; no match → set `typeText`, show amber border
-- `unregistered` flag: `typeText.trim() !== '' && no dict entry matches` → amber border on input, orange `+` button
-- Clicking `+` opens the inline form with `name` pre-filled from `typeText`
-- `addColumnType(tableId, columnId, entry)` in `diagramStore.ts`: creates `DictionaryEntry` with new id, pushes to `model.dictionary`, updates `column.dictionaryId` — single `updateModel` call → one undo entry
 
 ### Auto Layout notes
 

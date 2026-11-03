@@ -24,7 +24,7 @@ The diagram is stored in a `.ermd` file (with `er-diagram: true` in the front ma
 | **Region group boxes** | Group related tables with a labeled background rectangle |
 | **Undo / Redo** | Full history via `Ctrl+Z` / `Ctrl+Y` |
 | **Persistent layout** | Positions and viewport are saved back to the `.ermd` file automatically |
-| **DDL export** | Export full `CREATE TABLE` DDL, or diff-only `ALTER TABLE` statements against a git baseline |
+| **DDL export** | Export full `CREATE TABLE` DDL, or diff-only `ALTER TABLE` statements against a git baseline. Plain `CREATE TABLE` by default; comments, table options, explicit `NULL` and identifier quoting are switchable. **Save DDL…** / **Save data…** write `.sql` files |
 | **Seed data editor** | Enter initial rows for each table in a spreadsheet-like editor. Data is saved in the `.ermd` file and is git-diffable |
 | **INSERT export** | Optionally include seed data as `INSERT INTO` statements in the DDL output |
 | **Auto Layout** | Arrange all tables automatically — Vertical, Horizontal, or Auto. Undo-able with `Ctrl+Z` |
@@ -34,13 +34,14 @@ The diagram is stored in a `.ermd` file (with `er-diagram: true` in the front ma
 | **Minimap toggle** | Show or hide the minimap with the Minimap button in the toolbar |
 | **Schema versioning** | Save named snapshots of the schema inside the `.ermd` file; generate `ALTER TABLE` DDL between any two versions — no git commit required |
 | **CSV import** | Import tables and columns (or dictionary entries) from a CSV file via the **Import CSV** button in the toolbar |
-| **Inline type registration** | Type any type name directly in the column editor; autocomplete suggests existing dictionary entries; unrecognised names can be registered to the dictionary inline |
+| **Type picker** | Pick a column type from the dictionary or from basic types (both grouped by category), type `varchar(50)` directly, or register a new dictionary type inline |
+| **Column sets** | Define common columns once (e.g. version, created / updated at and by) and add them to tables; changes reach every table using the set |
 
 ---
 
 ## Getting started
 
-> **v0.0.1 note:** This is an initial release. The `.ermd` file schema (YAML block structure, field names) may receive **breaking changes** in future versions before a stable 1.0 release. Back up or version-control your `.ermd` files if you rely on them long-term.
+> **v0.x note:** This project is in early development. The `.ermd` file schema (YAML block structure, field names) may receive **breaking changes** in future versions before a stable 1.0 release. Back up or version-control your `.ermd` files if you rely on them long-term.
 
 ### Install
 
@@ -88,7 +89,7 @@ Double-click any table to open the **Table Edit Panel** on the right.
 
 - Set the logical name (display) and physical name (database)
 - Add columns with the **+ Add Column** button
-- For each column: choose a dictionary type, toggle PK, set nullable
+- For each column: choose a type, toggle PK, set nullable
 
 ### Common columns (Column Sets)
 
@@ -100,18 +101,21 @@ editor or use **Add to all tables**. Changing a set updates every table that use
 ### Define column types (Dictionary)
 
 Click **Dictionary** in the toolbar.  
-Add reusable types like `UserID → INT`, `Name → VARCHAR(100)`, `Timestamp → DATETIME`.  
-Columns pick a dictionary entry instead of specifying type and length directly.
+Add reusable types like `UserID → INT`, `Name → VARCHAR(100)`, `Timestamp → DATETIME`, optionally with a category.
+Search and filter by category when the dictionary grows. A dictionary type's NOT NULL applies to columns that pick it.
 
-### Column type — select, type, or register inline
+### Column type picker
 
-The type field in the column editor supports three workflows:
+Click the type field of a column to open the picker:
 
 | Workflow | How |
 |---|---|
-| **Select from dictionary** | Click the input and pick a suggestion from the dropdown list |
-| **Type directly** | Start typing a name (e.g. `VARCHAR2`). If it matches a dictionary entry the field commits automatically |
-| **Register a new type** | If the typed name is not in the dictionary the input border turns amber and the **+** button turns orange. Click **+** to open an inline form (name pre-filled). Fill in dbType / length / notNull and click **Register & use** to add the entry to the dictionary and assign it to the column in one step |
+| **Dictionary type** | Click a button; entries are grouped by category (entries without one fall under String / Number / Date-time / Other) |
+| **Basic type** | Click e.g. `VARCHAR` — for types with a size the picker stays open with the length selected; type it and press Enter |
+| **Type directly** | Type `varchar(50)` or `decimal(10,2)` in the search box and press Enter |
+| **Register a new type** | **+ Register a new dictionary type…** — name, category, type, size, NOT NULL; registers and assigns in one step |
+
+Search matches names, types and categories. Columns may use a type without a dictionary entry.
 
 ### Import tables from CSV
 
@@ -231,10 +235,18 @@ Click the **⚙** gear button in the toolbar to open VSCode Settings filtered to
 |---|---|---|
 | `markdown-er.ddl.dialect` | `mysql` / `postgresql` / `oracle` / `sqlserver` / `sqlite` | `mysql` |
 | `markdown-er.language` | `auto` (follow VSCode) / `en` / `ja` — also switchable from the toolbar | `auto` |
+| `markdown-er.ddl.comments` | Column / table comments from logical names and comments | `false` |
+| `markdown-er.ddl.tableOptions` | MySQL `ENGINE` / `DEFAULT CHARSET` / `COLLATE` | `false` |
+| `markdown-er.ddl.explicitNull` | Write `NULL` on nullable columns | `false` |
+| `markdown-er.ddl.quoteIdentifiers` | Quote every identifier (off: only names that need it) | `true` |
+| `markdown-er.ddl.outputFile` | Default file for **Save DDL…** (relative to the diagram) | `${fileBasenameNoExtension}.sql` |
+| `markdown-er.ddl.dataOutputFile` | Default file for **Save data…** | `${fileBasenameNoExtension}_data.sql` |
+
+The DDL style options can also be switched with the **Format** checkboxes in the DDL dialog.
 
 Notes per dialect:
 
-- **MySQL** — `AUTO_INCREMENT`, column / table `COMMENT`, `ENGINE=InnoDB` with the database character set and collation.
+- **MySQL** — `AUTO_INCREMENT`; with the options on, column / table `COMMENT` and `ENGINE=InnoDB` with the database character set and collation.
 - **PostgreSQL** — `GENERATED BY DEFAULT AS IDENTITY`, `COMMENT ON`, `JSONB`; after seed `INSERT`s with explicit ids the identity sequence is advanced with `setval`.
 - **Oracle (12c+)** — `NUMBER` / `VARCHAR2(n CHAR)` / `CLOB`, identity columns, unquoted identifiers (quoted only for reserved words), one `INSERT` per row.
 - **SQL Server** — `IDENTITY(1,1)`, `NVARCHAR`, `IDENTITY_INSERT` around explicit ids; tables are qualified with the schema.

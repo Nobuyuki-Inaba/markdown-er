@@ -13,6 +13,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.0] - 2026-11-03
+
+### Added
+
+- **Column sets** — define common columns once (e.g. version, created at / by, updated at / by; **+ Audit columns** creates that set) and add them to tables from the table editor or to all tables at once. Changes to a set reach every table that uses it; sets can be added to new tables automatically. Stored in an `ermd-column-sets` block.
+- **Type picker** — dictionary types and basic types as buttons grouped by category; pick a basic type, then enter its size; `varchar(50)`-style direct input; register a new dictionary type (with category) inline. Columns may now use a type without a dictionary entry.
+- **Dictionary search** and category filter; a dictionary type's NOT NULL now applies to columns that pick it.
+- **Oracle** dialect, alongside MySQL, PostgreSQL, SQL Server and SQLite.
+- **CREATE DATABASE / USER / SCHEMA** with character set and collation per dialect (**Database** button); passwords are never stored.
+- **DECIMAL precision and scale.**
+- **DDL format options** — plain `CREATE TABLE` by default; comments, MySQL table options, explicit `NULL` and identifier quoting can be switched on in the DDL dialog or in Settings.
+- **Save DDL… / Save data…** — write the DDL and the seed-data `INSERT`s to files; default file names in `markdown-er.ddl.outputFile` / `dataOutputFile`.
+- **English / Japanese UI** (`markdown-er.language`, toolbar selector).
+- **Extension icon.**
+- **Toolbar split by role** — top bar for diagram-wide actions, vertical bar for canvas tools.
+
+### Fixed
+
+- Edits could be lost or written to the wrong file: saves are versioned and tagged with their file, pending saves are flushed before switching files, versions, DDL and closing; undo results are saved; loading a file clears the undo history.
+- DDL correctness across dialects: column order (`DEFAULT` before `NULL`), auto-increment only for a single integer primary key that is not a foreign key, PostgreSQL identity columns and `setval` after seed inserts, SQL Server `IDENTITY_INSERT`, boolean defaults, foreign keys and seed data in dependency order, diff DDL with each dialect's `ALTER` syntax.
+- The database schema and user were dropped when a file was reopened.
+- Auto-layout menu closes on a canvas click or Escape; the toolbar no longer clips.
+
+### Changed
+
+- DDL generation is a class per dialect (`SqlDialect` subclasses) with unit tests.
+- Supply-chain hardening: install scripts disabled, packages must be 7 days old, exact versions, CI with signature and audit checks, actions pinned to commit SHAs, Dependabot with a cooldown. Build tools upgraded (vite 6, vitest 4, vsce 4).
+
 ## [0.0.4] - 2026-05-22
 
 ### Added
@@ -70,7 +98,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Indexes and constraints — define indexes (UNIQUE / INDEX) and check/unique constraints per table; exported in DDL
 - CSV import for seed data — import rows from a CSV file; download a column-header template CSV
 
-[Unreleased]: https://github.com/Nobuyuki-Inaba/markdown-er/compare/v0.0.4...HEAD
+[Unreleased]: https://github.com/Nobuyuki-Inaba/markdown-er/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/Nobuyuki-Inaba/markdown-er/compare/v0.0.4...v0.1.0
 [0.0.4]: https://github.com/Nobuyuki-Inaba/markdown-er/compare/v0.0.3...v0.0.4
 [0.0.3]: https://github.com/Nobuyuki-Inaba/markdown-er/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/Nobuyuki-Inaba/markdown-er/compare/v0.0.1...v0.0.2
