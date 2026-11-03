@@ -3,6 +3,7 @@ import { useDiagramStore, loadModel, setSchemaVersions, applyHistory } from './s
 import { useUiStore } from './store/uiStore';
 import { sendToExtension, onMessageFromExtension } from './vscodeApi';
 import { Toolbar } from './components/Toolbar';
+import { CanvasToolbar } from './components/CanvasToolbar';
 import { DiagramCanvas } from './components/DiagramCanvas';
 import { TableEditPanel } from './components/TableEditPanel';
 import { RelationEditPanel } from './components/RelationEditPanel';
@@ -138,17 +139,20 @@ export function App() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       <Toolbar />
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', minHeight: 0 }}>
-        <DiagramCanvas />
-        <TableEditPanel />
-        <RelationEditPanel />
-        <DictionaryPanel />
-        <CsvImportPanel />
-        <VersionsPanel />
-        <DatabasePanel />
-        {isDdlOpen && (
-          <DdlModal ddl={lastDdl} onClose={closeDdl} />
-        )}
+      <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
+        <CanvasToolbar />
+        <div style={{ flex: 1, position: 'relative', overflow: 'hidden', minWidth: 0 }}>
+          <DiagramCanvas />
+          <TableEditPanel />
+          <RelationEditPanel />
+          <DictionaryPanel />
+          <CsvImportPanel />
+          <VersionsPanel />
+          <DatabasePanel />
+          {isDdlOpen && (
+            <DdlModal ddl={lastDdl} onClose={closeDdl} />
+          )}
+        </div>
       </div>
     </div>
   );

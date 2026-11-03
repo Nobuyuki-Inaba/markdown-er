@@ -53,7 +53,8 @@ markdown-er/
 │   │   │   ├── TableNode.tsx     # Custom ReactFlow node (table box + NodeResizer)
 │   │   │   ├── RelationEdge.tsx  # Custom ReactFlow edge (cardinality labels)
 │   │   │   ├── CardinalityMarkers.tsx  # SVG <defs> arrow markers
-│   │   │   ├── Toolbar.tsx       # Top toolbar (Add Table, name toggle, zoom, undo/redo)
+│   │   │   ├── Toolbar.tsx       # Top bar: diagram-wide (name toggle, search, dictionary, CSV, DB, versions, DDL, language)
+│   │   │   ├── CanvasToolbar.tsx # Left vertical bar: canvas editing (add table/region, undo/redo, zoom, auto layout, minimap)
 │   │   │   ├── TableEditPanel.tsx      # Double-click → edit table name + columns
 │   │   │   ├── RelationEditPanel.tsx   # Click edge → cardinality + FK settings
 │   │   │   ├── DictionaryPanel.tsx     # CRUD for column-type dictionary entries
