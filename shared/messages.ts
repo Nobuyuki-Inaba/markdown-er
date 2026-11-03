@@ -3,7 +3,7 @@ import { DiagramModel } from './DiagramModel';
 export type DdlDialect = 'mysql' | 'postgresql' | 'sqlite' | 'sqlserver';
 
 export type ExtToWebMsg =
-  | { type: 'load'; payload: DiagramModel }
+  | { type: 'load'; payload: DiagramModel; fileUri: string }
   | { type: 'fileChanged'; payload: DiagramModel }
   | { type: 'ddlResult'; payload: { ddl: string; mode: 'full' | 'diff' | 'version-diff' } }
   | { type: 'dialectChanged'; payload: { dialect: DdlDialect } }
@@ -13,7 +13,7 @@ export type ExtToWebMsg =
 
 export type WebToExtMsg =
   | { type: 'ready' }
-  | { type: 'save'; payload: DiagramModel; version: number }
+  | { type: 'save'; payload: DiagramModel; version: number; fileUri: string }
   | { type: 'requestDdl'; payload: {
       mode: 'full' | 'diff' | 'version-diff';
       baselineRef?: string;

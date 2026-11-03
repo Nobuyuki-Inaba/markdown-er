@@ -78,7 +78,9 @@ export const useDiagramStore = create<DiagramState>()(
       model: createEmptyModel(),
       saveVersion: 0,
 
-      setModel: (model) => set({ model, saveVersion: 0 }),
+      // saveVersion is intentionally left untouched: the extension host drops
+      // saves whose version is not greater than the last one it wrote.
+      setModel: (model) => set({ model }),
 
       addTable: (x, y) =>
         updateModel(set, (m) => {
@@ -221,14 +223,17 @@ export const useDiagramStore = create<DiagramState>()(
           saveVersion: nextVersion(state),
         })),
 
+      // Panning / zooming is persisted but must not land on the undo stack
       updateViewport: (x, y, zoom) =>
-        set((state) => ({
-          model: {
-            ...state.model,
-            layout: { ...state.model.layout, viewport: { x, y, zoom } },
-          },
-          saveVersion: nextVersion(state),
-        })),
+        withoutHistory(() =>
+          set((state) => ({
+            model: {
+              ...state.model,
+              layout: { ...state.model.layout, viewport: { x, y, zoom } },
+            },
+            saveVersion: nextVersion(state),
+          }))
+        ),
 
       setNameMode: (mode) =>
         updateModel(set, (m) => ({
@@ -426,6 +431,51 @@ export const useDiagramStore = create<DiagramState>()(
       limit: 100,
       // Exclude saveVersion from undo history — only track model changes
       partialize: (state) => ({ model: state.model }),
+      // Record a history entry only when the model actually changed
+      equality: (past, current) => past.model === current.model,
     }
   )
 );
+
+function withoutHistory(fn: () => void) {
+  const temporal = useDiagramStore.temporal.getState();
+  temporal.pause();
+  try {
+    fn();
+  } finally {
+    temporal.resume();
+  }
+}
+
+/** Replace the whole model (file load / external change) and reset undo history. */
+export function loadModel(model: DiagramModel) {
+  withoutHistory(() => useDiagramStore.getState().setModel(model));
+  useDiagramStore.temporal.getState().clear();
+}
+
+/** Update schema versions only. Versions are owned by the extension host, so this is not undoable. */
+export function setSchemaVersions(schemaVersions: DiagramModel['schemaVersions']) {
+  withoutHistory(() =>
+    useDiagramStore.setState((s) => ({ model: { ...s.model, schemaVersions } }))
+  );
+}
+
+/**
+ * Undo / redo, then persist the result.
+ * Viewport and schema versions are kept as-is: neither is part of the undoable history.
+ */
+export function applyHistory(action: 'undo' | 'redo') {
+  const temporal = useDiagramStore.temporal.getState();
+  const stack = action === 'undo' ? temporal.pastStates : temporal.futureStates;
+  if (stack.length === 0) return;
+
+  const { viewport } = useDiagramStore.getState().model.layout;
+  const { schemaVersions } = useDiagramStore.getState().model;
+  temporal[action]();
+  withoutHistory(() =>
+    useDiagramStore.setState((s) => ({
+      model: { ...s.model, schemaVersions, layout: { ...s.model.layout, viewport } },
+      saveVersion: s.saveVersion + 1,
+    }))
+  );
+}

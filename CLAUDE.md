@@ -116,13 +116,21 @@ Defined in `shared/messages.ts`.
 
 | Direction | Message type | Payload |
 |---|---|---|
-| Extension → WebView | `load` | Full `DiagramModel` on file open |
+| Extension → WebView | `load` | Full `DiagramModel` + `fileUri` on file open |
 | Extension → WebView | `fileChanged` | Full `DiagramModel` on external file edit |
 | Extension → WebView | `ddlResult` | Generated DDL string |
 | Extension → WebView | `undo` / `redo` | (empty) relay from extension host |
 | WebView → Extension | `ready` | Triggers initial `load` |
-| WebView → Extension | `save` | Full `DiagramModel` + monotonic `version` number (debounced 300 ms) |
+| WebView → Extension | `save` | Full `DiagramModel` + monotonic `version` number + `fileUri` it was edited for (debounced 300 ms) |
 | WebView → Extension | `requestDdl` | `{ mode: 'full' | 'diff', baselineRef?, insertSeedData?, skipAutoIncrementPk? }` |
+
+### Save / undo invariants
+
+- WebView `saveVersion` only ever increases; `setModel` never resets it. The extension host drops saves with `version <= _saveVersion` and resets its counter only on `ready`.
+- Replace the model only via `loadModel()` (`diagramStore.ts`) — it bypasses and clears undo history.
+- Undo/redo only via `applyHistory()` — it bumps `saveVersion` so the result is saved, and keeps the current viewport and `schemaVersions`.
+- Viewport changes and `schemaVersions` are never recorded in undo history. The extension host owns `schemaVersions` and overrides them on every save.
+- Extension host keeps one pending save (`_pendingSave`); it is flushed before switching files, saving/deleting a version, generating DDL, and on dispose. The watcher ignores a change whose text equals `_lastWrittenText`.
 
 ---
 

@@ -1,5 +1,5 @@
-import { useEffect, useCallback } from 'react';
-import { useDiagramStore } from './store/diagramStore';
+import { useEffect, useCallback, useRef } from 'react';
+import { useDiagramStore, loadModel, setSchemaVersions, applyHistory } from './store/diagramStore';
 import { useUiStore } from './store/uiStore';
 import { sendToExtension, onMessageFromExtension } from './vscodeApi';
 import { Toolbar } from './components/Toolbar';
@@ -11,7 +11,6 @@ import { CsvImportPanel } from './components/CsvImportPanel';
 import { VersionsPanel } from './components/VersionsPanel';
 
 export function App() {
-  const setModel   = useDiagramStore((s) => s.setModel);
   const model      = useDiagramStore((s) => s.model);
   const saveVersion = useDiagramStore((s) => s.saveVersion);
   const openDdl    = useUiStore((s) => s.openDdl);
@@ -19,32 +18,36 @@ export function App() {
   const closeDdl   = useUiStore((s) => s.closeDdl);
   const lastDdl    = useUiStore((s) => s.lastDdl);
   const setDialect = useUiStore((s) => s.setDialect);
+  const fileUriRef   = useRef('');
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   // Listen for messages from the extension host
   useEffect(() => {
     const unlisten = onMessageFromExtension((msg) => {
       switch (msg.type) {
         case 'load':
-          setModel(msg.payload);
-          break;
         case 'fileChanged':
-          // External edit: merge or replace
-          setModel(msg.payload);
+          // An edit still waiting to be sent belongs to the previous file contents
+          clearTimeout(saveTimerRef.current);
+          if (msg.type === 'load') fileUriRef.current = msg.fileUri;
+          // Replace the model and drop undo history so Ctrl+Z can't go back to a different file state
+          loadModel(msg.payload);
           break;
         case 'ddlResult':
           openDdl(msg.payload.ddl);
           break;
         case 'versionSaved':
-          setModel(msg.payload);
+          // Only versions changed; keep any in-flight diagram edits
+          setSchemaVersions(msg.payload.schemaVersions);
           break;
         case 'dialectChanged':
           setDialect(msg.payload.dialect);
           break;
         case 'undo':
-          useDiagramStore.temporal.getState().undo();
+          applyHistory('undo');
           break;
         case 'redo':
-          useDiagramStore.temporal.getState().redo();
+          applyHistory('redo');
           break;
       }
     });
@@ -58,10 +61,12 @@ export function App() {
   // Debounced auto-save: send model to extension on any change
   useEffect(() => {
     if (saveVersion === 0) return; // skip initial load
-    const timer = setTimeout(() => {
-      sendToExtension({ type: 'save', payload: model, version: saveVersion });
+    // Capture the file now: a file switch may happen before the timer fires
+    const fileUri = fileUriRef.current;
+    saveTimerRef.current = setTimeout(() => {
+      sendToExtension({ type: 'save', payload: model, version: saveVersion, fileUri });
     }, 300);
-    return () => clearTimeout(timer);
+    return () => clearTimeout(saveTimerRef.current);
   }, [saveVersion]);
 
   // Keyboard shortcuts: undo/redo + Delete selected
@@ -71,16 +76,19 @@ export function App() {
       const tag = (e.target as HTMLElement)?.tagName;
       const isEditing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
 
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+      // Leave Ctrl+Z / Ctrl+Y to the browser's text undo while typing
+      const key = e.key.toLowerCase();
+      if (!isEditing && (e.ctrlKey || e.metaKey) && key === 'z' && !e.shiftKey) {
         e.preventDefault();
-        useDiagramStore.temporal.getState().undo();
+        applyHistory('undo');
       }
       if (
+        !isEditing &&
         (e.ctrlKey || e.metaKey) &&
-        (e.key === 'y' || (e.key === 'z' && e.shiftKey))
+        (key === 'y' || (key === 'z' && e.shiftKey))
       ) {
         e.preventDefault();
-        useDiagramStore.temporal.getState().redo();
+        applyHistory('redo');
       }
 
       if (!isEditing && e.key === 'Delete') {
