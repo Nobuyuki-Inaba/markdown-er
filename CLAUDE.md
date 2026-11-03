@@ -21,6 +21,8 @@ markdown-er/
 ├── shared/                 # Types shared by both the extension host and the WebView
 │   ├── DiagramModel.ts     # Canonical data model (Table, Column, Relation, DictionaryEntry, DatabaseSettings, …)
 │   ├── databaseOptions.ts  # Per-dialect CREATE DATABASE option fields (labels, defaults, suggestions)
+│   ├── autoIncrement.ts    # Auto-increment column rule + per-dialect integer types (DDL and seed editor)
+│   ├── ddlReplacements.ts  # Find / replace rules applied to the generated DDL
 │   └── messages.ts         # Typed postMessage protocol between extension ↔ WebView
 │
 ├── src/                    # Extension host (Node.js / CommonJS)
@@ -352,6 +354,16 @@ viewport:
 - Passed to the dialect at construction (`createDialect(id, database, style)`); `SqlDialect.quote()` quotes only when
   needed if `quoteIdentifiers` is off (`needsQuoting()`; PostgreSQL also quotes capitals; Oracle ignores the option).
 - Extension sends `ddlStyleChanged` on load / config change; the DDL dialog checkboxes send `setDdlStyle`.
+
+### DDL replacement notes
+
+- `DiagramModel.ddlReplacements` (`ermd-ddl-replacements` block): `{ id, dialect?, find, replace, regex?, enabled?, comment? }`,
+  only non-defaults stored. An escape hatch for output the generator doesn't produce — prefer a `SqlDialect` change
+  when the case is common.
+- `applyDdlReplacements()` (shared, pure) runs in `ErmdPanel._generateDdl()` on every mode's DDL and on `data`;
+  rules apply in order, literal by default, regex with flags `gm`; invalid patterns are skipped (red in the UI).
+- Edited in the DDL dialog (`DdlReplacementsEditor`), undo-able store actions. The dialog re-requests the DDL 400 ms
+  after a rule change; `er:requestDdl` sends the pending WebView save first so the host reads the latest model.
 
 ### Column type notes
 

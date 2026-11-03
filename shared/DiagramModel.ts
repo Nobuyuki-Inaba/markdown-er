@@ -1,3 +1,5 @@
+import type { DdlReplacement } from './ddlReplacements';
+
 export type DdlDialect = 'mysql' | 'postgresql' | 'oracle' | 'sqlserver' | 'sqlite';
 
 export type DbType =
@@ -226,6 +228,8 @@ export interface DiagramModel {
   database?: DatabaseSettings;
   dictionary: DictionaryEntry[];
   columnSets?: ColumnSet[];
+  /** Find / replace applied to the generated DDL */
+  ddlReplacements?: DdlReplacement[];
   tables: Table[];
   relations: Relation[];
   layout: {

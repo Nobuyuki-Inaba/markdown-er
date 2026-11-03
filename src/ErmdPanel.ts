@@ -1,3 +1,4 @@
+import { applyDdlReplacements } from '../shared/ddlReplacements';
 import * as vscode from 'vscode';
 import { fileName, readDiagram, writeDiagram } from './ErmdFiles';
 import { ErmdTexts, versionsFileName } from './format/ErmdCodec';
@@ -413,6 +414,9 @@ export class ErmdPanel {
           `-- Falling back to full DDL\n\n${DdlExporter.export(model, dialect, style)}`;
       }
     }
+    // The diagram's own find / replace rules, for whatever the generator doesn't cover
+    ddl = applyDdlReplacements(ddl, model.ddlReplacements, dialect);
+    data = data && applyDdlReplacements(data, model.ddlReplacements, dialect);
     this._outputChannel.clear();
     this._outputChannel.appendLine(ddl);
     this._outputChannel.show();
