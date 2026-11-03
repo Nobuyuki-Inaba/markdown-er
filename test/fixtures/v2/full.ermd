@@ -1,0 +1,297 @@
+---
+er-diagram: true
+version: 2
+---
+
+# full
+
+## Database
+
+```ermd-database
+name: shop
+schema: app
+user: app_user
+options:
+  mysql:
+    charset: utf8mb4
+```
+
+## Dictionary
+
+```ermd-dictionary
+- id: d_id
+  name: ID
+  dbType: INT
+  length: null
+  notNull: true
+  comment: ''
+- id: d_name
+  name: Name
+  dbType: VARCHAR
+  length: 100
+  notNull: true
+  comment: ''
+- id: d_money
+  name: Amount
+  dbType: DECIMAL
+  length: 10
+  scale: 2
+  notNull: true
+  comment: ''
+- id: d_flag
+  name: Flag
+  dbType: BOOLEAN
+  length: null
+  notNull: true
+  comment: ''
+```
+
+## Column Sets
+
+```ermd-column-sets
+- id: cset_audit
+  name: Audit
+  position: end
+  columns:
+    - id: cs_created
+      physicalName: created_at
+      dictionaryId: d_name
+      logicalName: created_at
+      isPrimaryKey: false
+      isNullable: false
+      defaultValue: null
+      comment: ''
+```
+
+## Tables
+
+```ermd-table
+id: t_users
+logicalName: ユーザー
+physicalName: users
+comment: ''
+columns:
+  - id: u_id
+    physicalName: id
+    dictionaryId: d_id
+    logicalName: id
+    isPrimaryKey: true
+    isNullable: false
+    defaultValue: null
+    comment: ''
+  - id: u_name
+    physicalName: name
+    dictionaryId: d_name
+    logicalName: ユーザー名
+    isPrimaryKey: false
+    isNullable: false
+    defaultValue: null
+    comment: display name, can't be empty
+  - id: u_active
+    physicalName: active
+    dictionaryId: d_flag
+    logicalName: active
+    isPrimaryKey: false
+    isNullable: false
+    defaultValue: 'TRUE'
+    comment: ''
+  - id: u_created
+    physicalName: created_at
+    dictionaryId: d_name
+    logicalName: created_at
+    isPrimaryKey: false
+    isNullable: false
+    defaultValue: null
+    comment: ''
+    columnSet:
+      setId: cset_audit
+      columnId: cs_created
+columnSetIds:
+  - cset_audit
+seedData:
+  - id: '1'
+    name: Alice
+    active: 'TRUE'
+    created_at: '2026-01-01'
+```
+
+```ermd-table
+id: t_profiles
+logicalName: profiles
+physicalName: profiles
+comment: ''
+columns:
+  - id: p_user
+    physicalName: user_id
+    dictionaryId: d_id
+    logicalName: user_id
+    isPrimaryKey: true
+    isNullable: false
+    defaultValue: null
+    comment: ''
+  - id: p_bio
+    physicalName: bio
+    dictionaryId: d_name
+    logicalName: bio
+    isPrimaryKey: false
+    isNullable: true
+    defaultValue: null
+    comment: ''
+```
+
+```ermd-table
+id: t_orders
+logicalName: orders
+physicalName: orders
+comment: ''
+columns:
+  - id: o_id
+    physicalName: id
+    dictionaryId: d_id
+    logicalName: id
+    isPrimaryKey: true
+    isNullable: false
+    defaultValue: null
+    comment: ''
+  - id: o_user
+    physicalName: user_id
+    dictionaryId: d_id
+    logicalName: user_id
+    isPrimaryKey: false
+    isNullable: false
+    defaultValue: null
+    comment: ''
+  - id: o_total
+    physicalName: total
+    dictionaryId: d_money
+    logicalName: total
+    isPrimaryKey: false
+    isNullable: false
+    defaultValue: null
+    comment: ''
+```
+
+```ermd-table
+id: t_items
+logicalName: order_items
+physicalName: order_items
+comment: ''
+indexes:
+  - id: ix1
+    name: ix_items_product
+    columns:
+      - product_id
+    unique: false
+columns:
+  - id: i_order
+    physicalName: order_id
+    dictionaryId: d_id
+    logicalName: order_id
+    isPrimaryKey: true
+    isNullable: false
+    defaultValue: null
+    comment: ''
+  - id: i_product
+    physicalName: product_id
+    dictionaryId: d_id
+    logicalName: product_id
+    isPrimaryKey: true
+    isNullable: false
+    defaultValue: null
+    comment: ''
+```
+
+```ermd-table
+id: t_products
+logicalName: products
+physicalName: products
+comment: ''
+columns:
+  - id: pr_id
+    physicalName: id
+    dictionaryId: d_id
+    logicalName: id
+    isPrimaryKey: true
+    isNullable: false
+    defaultValue: null
+    comment: ''
+```
+
+## Relations
+
+```ermd-relations
+- id: profile_user
+  fromTableId: t_users
+  fromColumnId: u_id
+  toTableId: t_profiles
+  toColumnId: p_user
+  cardinality: ONE_TO_ONE
+  hasForeignKey: true
+  constraintName: fk_profile_user
+  comment: ''
+- id: order_user
+  fromTableId: t_users
+  fromColumnId: u_id
+  toTableId: t_orders
+  toColumnId: o_user
+  cardinality: ONE_TO_MANY
+  hasForeignKey: true
+  constraintName: fk_order_user
+  comment: ''
+- id: item_order
+  fromTableId: t_orders
+  fromColumnId: o_id
+  toTableId: t_items
+  toColumnId: i_order
+  cardinality: ONE_TO_MANY
+  hasForeignKey: true
+  constraintName: fk_item_order
+  comment: ''
+- id: item_product
+  fromTableId: t_products
+  fromColumnId: pr_id
+  toTableId: t_items
+  toColumnId: i_product
+  cardinality: ONE_TO_MANY
+  hasForeignKey: true
+  constraintName: ''
+  comment: ''
+```
+
+## Layout
+
+```ermd-layout
+nameMode: physical
+tables:
+  - tableId: t_users
+    x: 60
+    'y': 60
+    width: 260
+  - tableId: t_profiles
+    x: 360
+    'y': 60
+    width: 260
+  - tableId: t_orders
+    x: 660
+    'y': 60
+    width: 260
+  - tableId: t_items
+    x: 960
+    'y': 60
+    width: 260
+  - tableId: t_products
+    x: 1260
+    'y': 60
+    width: 260
+regions:
+  - id: r1
+    label: Sales
+    x: 0
+    'y': 0
+    width: 800
+    height: 400
+viewport:
+  x: 10
+  'y': 20
+  zoom: 0.8
+```

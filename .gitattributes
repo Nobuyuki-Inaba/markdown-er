@@ -3,3 +3,8 @@
 *.jpg binary
 *.jpeg binary
 *.gif binary
+
+# ER diagrams are Markdown: GitHub highlights them as such
+*.ermd linguist-language=Markdown
+# Schema snapshots (format v2): collapsed in GitHub diffs
+*.ermd.versions.yaml linguist-generated=true

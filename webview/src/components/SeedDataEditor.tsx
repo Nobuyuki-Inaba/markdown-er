@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMessages, getMessages } from '../i18n';
 import { Table } from '@shared/DiagramModel';
 
@@ -33,7 +33,18 @@ export function SeedDataEditor({ table, onUpdate }: Props) {
   const { columns } = table;
   const seedData = table.seedData ?? [];
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  // Set by "Add row": scroll to the new row and focus its first cell once it is rendered
+  const focusNewRowRef = useRef(false);
   const [importError, setImportError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!focusNewRowRef.current || !container) return;
+    focusNewRowRef.current = false;
+    container.scrollTop = container.scrollHeight;
+    container.querySelector<HTMLInputElement>('tbody tr:last-child input')?.focus();
+  }, [seedData.length]);
 
   if (columns.length === 0) {
     return (
@@ -46,6 +57,7 @@ export function SeedDataEditor({ table, onUpdate }: Props) {
   const addRow = () => {
     const newRow: Record<string, string> = {};
     columns.forEach((c) => { newRow[c.physicalName] = ''; });
+    focusNewRowRef.current = true;
     onUpdate([...seedData, newRow]);
   };
 
@@ -102,11 +114,12 @@ export function SeedDataEditor({ table, onUpdate }: Props) {
 
   return (
     <div>
-      <div style={{ overflowX: 'auto', fontSize: 12 }}>
-        <table style={{ borderCollapse: 'collapse', minWidth: '100%', tableLayout: 'auto' }}>
+      {/* Only the table scrolls: the header row and row numbers stay in view, the buttons stay below */}
+      <div ref={scrollRef} data-seed-scroll style={scrollStyle}>
+        <table style={{ borderCollapse: 'separate', borderSpacing: 0, minWidth: '100%', tableLayout: 'auto' }}>
           <thead>
             <tr>
-              <th style={thStyle} />
+              <th style={{ ...thStyle, ...rowNumberStyle, zIndex: 3 }} />
               {columns.map((col) => (
                 <th key={col.id} style={thStyle} title={`physicalName: ${col.physicalName}`}>
                   {col.logicalName}
@@ -121,7 +134,7 @@ export function SeedDataEditor({ table, onUpdate }: Props) {
           <tbody>
             {seedData.map((row, rowIdx) => (
               <tr key={rowIdx}>
-                <td style={{ ...tdStyle, color: '#bbb', textAlign: 'center', fontSize: 11, userSelect: 'none' }}>
+                <td style={{ ...tdStyle, ...rowNumberStyle, background: '#fff', color: '#bbb', textAlign: 'center', fontSize: 11, userSelect: 'none' }}>
                   {rowIdx + 1}
                 </td>
                 {columns.map((col) => (
@@ -171,7 +184,26 @@ export function SeedDataEditor({ table, onUpdate }: Props) {
   );
 }
 
+/** Rows beyond this height scroll inside the table */
+export const SEED_TABLE_MAX_HEIGHT = 'min(50vh, 400px)';
+
+const scrollStyle: React.CSSProperties = {
+  maxHeight: SEED_TABLE_MAX_HEIGHT,
+  overflow: 'auto',
+  fontSize: 12,
+  border: '1px solid #eee',
+};
+
+const rowNumberStyle: React.CSSProperties = {
+  position: 'sticky',
+  left: 0,
+  zIndex: 1,
+};
+
 const thStyle: React.CSSProperties = {
+  position: 'sticky',
+  top: 0,
+  zIndex: 2,
   background: '#f5f5f5',
   border: '1px solid #ddd',
   padding: '4px 8px',

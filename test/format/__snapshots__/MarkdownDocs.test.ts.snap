@@ -1,0 +1,72 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`generateMarkdownDocs > matches the expected output for the shop model 1`] = `
+"## ER Diagram
+
+\`\`\`mermaid
+erDiagram
+  users {
+    INT id PK
+    VARCHAR name "ユーザー名"
+    BOOLEAN active
+  }
+  profiles {
+    INT user_id PK, FK
+    VARCHAR bio
+  }
+  orders {
+    INT id PK
+    INT user_id FK
+    DECIMAL total
+  }
+  order_items {
+    INT order_id PK, FK
+    INT product_id PK, FK
+  }
+  products {
+    INT id PK
+  }
+  users ||--|| profiles : "fk_profile_user"
+  users ||--o{ orders : "fk_order_user"
+  orders ||--o{ order_items : "fk_item_order"
+  products ||--o{ order_items : ""
+\`\`\`
+
+## Table Definitions
+
+### users (ユーザー)
+
+| # | Logical name | Physical name | Type | PK | Not null | Default | Comment |
+|---:|---|---|---|:---:|:---:|---|---|
+| 1 | id | id | INT | ✓ | ✓ |  |  |
+| 2 | ユーザー名 | name | VARCHAR(100) |  | ✓ |  | display name, can't be empty |
+| 3 | active | active | BOOLEAN |  | ✓ | TRUE |  |
+
+### profiles
+
+| # | Logical name | Physical name | Type | PK | Not null | Default | Comment |
+|---:|---|---|---|:---:|:---:|---|---|
+| 1 | user_id | user_id | INT | ✓ | ✓ |  |  |
+| 2 | bio | bio | VARCHAR(100) |  |  |  |  |
+
+### orders
+
+| # | Logical name | Physical name | Type | PK | Not null | Default | Comment |
+|---:|---|---|---|:---:|:---:|---|---|
+| 1 | id | id | INT | ✓ | ✓ |  |  |
+| 2 | user_id | user_id | INT |  | ✓ |  |  |
+| 3 | total | total | DECIMAL(10,2) |  | ✓ |  |  |
+
+### order_items
+
+| # | Logical name | Physical name | Type | PK | Not null | Default | Comment |
+|---:|---|---|---|:---:|:---:|---|---|
+| 1 | order_id | order_id | INT | ✓ | ✓ |  |  |
+| 2 | product_id | product_id | INT | ✓ | ✓ |  |  |
+
+### products
+
+| # | Logical name | Physical name | Type | PK | Not null | Default | Comment |
+|---:|---|---|---|:---:|:---:|---|---|
+| 1 | id | id | INT | ✓ | ✓ |  |  |"
+`;

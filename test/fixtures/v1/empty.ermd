@@ -1,0 +1,18 @@
+---
+er-diagram: true
+version: 1
+---
+
+# empty
+
+## Layout
+
+```ermd-layout
+nameMode: logical
+tables: []
+regions: []
+viewport:
+  x: 0
+  'y': 0
+  zoom: 1
+```

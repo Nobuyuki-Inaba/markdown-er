@@ -5,6 +5,17 @@ import {
 } from '../shared/DiagramModel';
 
 export class ErmdParser {
+  /** Whether the text has `er-diagram: true` front matter */
+  static isErDiagram(text: string): boolean {
+    const fmMatch = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+    if (!fmMatch) return false;
+    try {
+      return (yaml.load(fmMatch[1]) as Record<string, unknown> | null)?.['er-diagram'] === true;
+    } catch {
+      return false;
+    }
+  }
+
   static parse(text: string): DiagramModel {
     const model = createEmptyModel();
 

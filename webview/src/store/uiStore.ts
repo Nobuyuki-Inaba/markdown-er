@@ -28,6 +28,8 @@ interface UiState {
   ddlToVersionId: string | null;
   showMinimap: boolean;
   searchQuery: string;
+  /** From the extension host (`fileStatus`): the file's format is newer than the extension */
+  fileStatus: { readOnly: boolean; formatVersion: number; supportedVersion: number };
 
   selectTable: (id: string | null) => void;
   selectRelation: (id: string | null) => void;
@@ -53,6 +55,7 @@ interface UiState {
   setDdlVersions: (fromVersionId: string | null, toVersionId: string | null) => void;
   toggleMinimap: () => void;
   setSearchQuery: (query: string) => void;
+  setFileStatus: (status: UiState['fileStatus']) => void;
 }
 
 export const useUiStore = create<UiState>()((set) => ({
@@ -79,6 +82,7 @@ export const useUiStore = create<UiState>()((set) => ({
   ddlToVersionId: null,
   showMinimap: true,
   searchQuery: '',
+  fileStatus: { readOnly: false, formatVersion: 0, supportedVersion: 0 },
 
   selectTable: (id) => set({ selectedTableId: id, selectedRelationId: null, selectedRegionId: null }),
   selectRelation: (id) => set({ selectedRelationId: id, selectedTableId: null, selectedRegionId: null }),
@@ -104,4 +108,5 @@ export const useUiStore = create<UiState>()((set) => ({
   setDdlVersions: (fromVersionId, toVersionId) => set({ ddlFromVersionId: fromVersionId, ddlToVersionId: toVersionId }),
   toggleMinimap: () => set((s) => ({ showMinimap: !s.showMinimap })),
   setSearchQuery: (query) => set({ searchQuery: query }),
+  setFileStatus: (fileStatus) => set({ fileStatus }),
 }));

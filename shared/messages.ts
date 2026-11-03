@@ -17,6 +17,8 @@ export type ExtToWebMsg =
   | { type: 'localeChanged'; payload: { locale: Locale; setting: LanguageSetting } }
   | { type: 'ddlStyleChanged'; payload: DdlStyle }
   | { type: 'versionSaved'; payload: DiagramModel }
+  /** Sent with every load / file change. `readOnly`: the file's format is newer than the extension */
+  | { type: 'fileStatus'; payload: { readOnly: boolean; formatVersion: number; supportedVersion: number } }
   | { type: 'undo' }
   | { type: 'redo' };
 

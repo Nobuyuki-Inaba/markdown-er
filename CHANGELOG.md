@@ -11,6 +11,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Text outside the `ermd-*` blocks is kept** — headings, notes and tables written in a `.ermd` file are no longer
+  overwritten when the diagram is saved. The title is no longer replaced by the file name.
+- **Readable Markdown** (off by default) — `markdown-er.markdown.generateMermaid` / `generateTableDocs` write a Mermaid
+  `erDiagram` and a column table per table into the file on save.
+- **File format versions and migration** — a diagram in an older format asks before it is updated (Update / Show changes /
+  Not now / Don't ask for this file; `markdown-er.migration.prompt`), and **ER Diagram: Update File Format (Migrate)** /
+  **… of All Files in Workspace** update files on demand. Files are never updated without asking.
+- A file in a format newer than the extension opens **read-only** instead of being overwritten.
+
+### Changed
+
+- **File format v2: schema versions move to `<file>.ermd.versions.yaml`**, so snapshots no longer grow the `.ermd` file
+  and its diffs. New files use v2; v1 files keep working as before until they are updated. Versions found in both files
+  (e.g. added by an older extension) are merged.
+- The seed data table scrolls on its own, with the header row and row numbers kept in view and the buttons below it.
+
 ---
 
 ## [0.1.0] - 2026-11-03

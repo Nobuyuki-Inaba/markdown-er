@@ -9,7 +9,8 @@ This file gives Claude Code the context needed to work effectively in this repos
 
 `markdown-er` is a VSCode extension that renders interactive ER diagrams backed by `.ermd` files.
 A file becomes an ER diagram by adding `er-diagram: true` to its YAML front matter.
-The diagram state (tables, columns, relations, dictionary, layout) is stored in fenced `ermd-*` YAML blocks inside the file.
+The diagram state (tables, columns, relations, dictionary, layout) is stored in fenced `ermd-*` YAML blocks inside the file;
+text outside the blocks belongs to the user and is kept. Schema versions live in `<file>.ermd.versions.yaml` (format v2).
 
 ---
 
@@ -26,7 +27,14 @@ markdown-er/
 │   ├── extension.ts        # activate() – registers all VSCode commands
 │   ├── ErmdPanel.ts        # WebviewPanel lifecycle, postMessage bridge, debounced save
 │   ├── ErmdParser.ts       # .ermd text → DiagramModel  (uses js-yaml)
-│   ├── ErmdSerializer.ts   # DiagramModel → .ermd text  (uses js-yaml)
+│   ├── ErmdSerializer.ts   # DiagramModel → .ermd text, rewriting only the ermd-* blocks of the current text
+│   ├── ErmdFiles.ts        # vscode file access: read / write the .ermd + versions file (thin, over format/ErmdCodec)
+│   ├── MigrationService.ts # Old-format prompt, diff view, Migrate commands (vscode-dependent)
+│   ├── format/             # Pure, unit-tested
+│   │   ├── formatVersion.ts# CURRENT_FORMAT_VERSION, formatStatus(), NewerFormatError
+│   │   ├── ErmdCodec.ts    # decode / encode a diagram as file texts (.ermd + versions file)
+│   │   ├── migrations.ts   # FormatMigration subclasses, pendingMigrations(), planMigration()
+│   │   └── MarkdownDocs.ts # Generated Mermaid erDiagram / column tables
 │   ├── GitBaseline.ts      # `git show <ref>:<file>` → DiagramModel (only git / vscode-dependent DDL code)
 │   ├── i18n.ts             # Extension-host messages (en / ja) + locale resolution
 │   └── ddl/                # Pure DDL generation — no vscode import, unit-tested
@@ -37,7 +45,9 @@ markdown-er/
 │       ├── DdlExporter.ts  # Full DDL (CREATE DATABASE?, CREATE TABLE, FKs, indexes, seed INSERTs)
 │       └── SchemaDiffer.ts # ALTER script baseline → current (git ref or saved version)
 │
-├── test/                   # vitest: DDL per dialect (snapshots), diff, parser round-trip
+├── test/                   # vitest: DDL per dialect (snapshots), diff, parser, format/ (serializer, codec, migrations),
+│                           #   extension/ (ErmdFiles, MigrationService over mocks/vscode.ts), webview/ (react-dom/server)
+│   └── fixtures/v1, v2     # Files as written by v0.1.0 (v1) and after migration (v2) — compatibility baselines
 │
 ├── webview/                # React WebView (browser / ESM)
 │   ├── src/
@@ -95,7 +105,7 @@ Run from the **repo root** unless noted.
 | `npm run build:ext` | Bundle the extension host with esbuild → `out/extension.js` |
 | `npm run build:webview` | Build React WebView with Vite → `media/` |
 | `npm run build` | `build:ext` + `build:webview` |
-| `npm test` | Run vitest (DDL / diff / parser) |
+| `npm test` | Run vitest (DDL / diff / parser / format / migration / extension / webview) |
 | `npm run icon` | Render `images/icon.svg` → `images/icon.png` (commit both) |
 | `npx tsc --noEmit` | Type-check extension host only |
 | `cd webview && npx tsc --noEmit` | Type-check WebView only |
@@ -155,6 +165,7 @@ Defined in `shared/messages.ts`.
 | Extension → WebView | `undo` / `redo` | (empty) relay from extension host |
 | WebView → Extension | `ready` | Triggers initial `load` |
 | WebView → Extension | `save` | Full `DiagramModel` + monotonic `version` number + `fileUri` it was edited for (debounced 300 ms) |
+| Extension → WebView | `fileStatus` | `{ readOnly, formatVersion, supportedVersion }` on load / file change (read-only banner) |
 | Extension → WebView | `localeChanged` | `{ locale: 'en' \| 'ja', setting: 'auto' \| 'en' \| 'ja' }` |
 | WebView → Extension | `requestDdl` | `{ mode, baselineRef?, fromVersionId?, toVersionId?, insertSeedData?, skipAutoIncrementPk?, includeCreateDatabase? }` |
 | WebView → Extension | `setLanguage` | `{ setting }` — writes `markdown-er.language` |
@@ -165,8 +176,11 @@ Defined in `shared/messages.ts`.
 - WebView `saveVersion` only ever increases; `setModel` never resets it. The extension host drops saves with `version <= _saveVersion` and resets its counter only on `ready`.
 - Replace the model only via `loadModel()` (`diagramStore.ts`) — it bypasses and clears undo history.
 - Undo/redo only via `applyHistory()` — it bumps `saveVersion` so the result is saved, and keeps the current viewport and `schemaVersions`.
-- Viewport changes and `schemaVersions` are never recorded in undo history. The extension host owns `schemaVersions` and overrides them on every save.
-- Extension host keeps one pending save (`_pendingSave`); it is flushed before switching files, saving/deleting a version, generating DDL, and on dispose. The watcher ignores a change whose text equals `_lastWrittenText`.
+- Viewport changes and `schemaVersions` are never recorded in undo history. The extension host owns `schemaVersions` and the
+  format `version` and overrides them on every save (a stale WebView model must not undo a migration).
+- Extension host keeps one pending save (`_pendingSave`); it is flushed before switching files, saving/deleting a version, generating DDL, migrating, and on dispose.
+  The watcher (the .ermd and its versions file) ignores a change whose texts equal `_lastWrittenText` / `_lastWrittenVersions`.
+- A file whose format is newer than `CURRENT_FORMAT_VERSION` is read-only: the host writes nothing (and `encode` throws).
 
 ---
 
@@ -175,7 +189,7 @@ Defined in `shared/messages.ts`.
 ```markdown
 ---
 er-diagram: true
-version: 1
+version: 2
 ---
 
 # Diagram title
@@ -287,6 +301,26 @@ viewport:
 - [x] Column sets — common columns (e.g. audit) defined once, applied per table, kept in sync
 - [x] DDL format options (comments, table options, explicit NULL, quoting) and Save DDL / Save data to files
 - [x] Supply-chain hardening (.npmrc, exact versions, CI audit + signatures, SHA-pinned actions, Dependabot cooldown)
+- [x] Text outside ermd blocks kept on save; optional generated Mermaid / column tables
+- [x] File format versions (v2: versions file), read-only for newer formats, migration prompt and Migrate commands
+
+### File format / migration notes
+
+- **Existing users' files must keep working.** v1 files are read and written in v1 until the user agrees to migrate;
+  `test/fixtures/v1` are files as written by v0.1.0, and tests check they are written back byte for byte.
+- `ErmdSerializer.serialize(model, uri, { original })` tokenizes the current text (same block regex as the parser) and only
+  rewrites / adds / removes `ermd-*` blocks; a new file is the same merge into a skeleton, so its output equals the old
+  serializer's. Blocks it can't read and unknown `ermd-*` langs are left alone. Section headings (`## Tables`, …) are
+  added with a new section and removed with the last block of their section.
+- Generated Markdown sits between `<!-- markdown-er:generated:start -->` / `end` right after the title; the parser ignores it.
+- `ErmdCodec`: versions go to `<file>.ermd.versions.yaml` from v2 (or once that file exists); `decode` merges both places by
+  id (an older extension may append inline). A versions file that can't be read is never overwritten or deleted.
+- **To change the format:** raise `CURRENT_FORMAT_VERSION`, add a `FormatMigration` subclass (`from`, `describe()`,
+  `transform()`), register it in `MIGRATIONS`, let `ErmdCodec` lay files out by `model.version`, and add fixtures + tests.
+  Never branch on the version outside the codec / migrations.
+- `MigrationService` never migrates without a click: prompt once per session on open (`markdown-er.migration.prompt`,
+  "don't ask" per file in `workspaceState`), Migrate commands, diff via the `markdown-er-migrated` content provider.
+  The update is one `WorkspaceEdit` planned again from the current text, then saved; files with unsaved edits are skipped.
 
 ### DDL design (src/ddl)
 
@@ -362,6 +396,7 @@ viewport:
 - WebView: `SeedDataEditor.tsx` — pure React table with `<input>` cells; no external library
 - Store action: `updateSeedData(tableId, rows)` — sets `undefined` when rows become empty so YAML stays clean
 - Tab UI added to `TableEditPanel.tsx` — "Definition" and "Seed Data" tabs with local `activeTab` state
+- The table scrolls inside `SEED_TABLE_MAX_HEIGHT` (sticky header row and row numbers, buttons outside); "Add row" scrolls to and focuses the new row
 
 ### DDL INSERT export notes
 

@@ -24,6 +24,8 @@ export function App() {
   const lastDdl    = useUiStore((s) => s.lastDdl);
   const setDialect = useUiStore((s) => s.setDialect);
   const setLocale  = useUiStore((s) => s.setLocale);
+  const fileStatus = useUiStore((s) => s.fileStatus);
+  const messages   = useMessages();
   const fileUriRef   = useRef('');
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -41,6 +43,9 @@ export function App() {
           break;
         case 'ddlResult':
           openDdl(msg.payload.ddl, msg.payload.data);
+          break;
+        case 'fileStatus':
+          useUiStore.getState().setFileStatus(msg.payload);
           break;
         case 'versionSaved':
           // Only versions changed; keep any in-flight diagram edits
@@ -148,6 +153,11 @@ export function App() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       <Toolbar />
+      {fileStatus.readOnly && (
+        <div role="alert" style={readOnlyBannerStyle}>
+          {messages.file.readOnly(fileStatus.formatVersion, fileStatus.supportedVersion)}
+        </div>
+      )}
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
         <CanvasToolbar />
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden', minWidth: 0 }}>
@@ -376,4 +386,12 @@ const modalBtnStyle: React.CSSProperties = {
 
 const optionLabelStyle: React.CSSProperties = {
   display: 'flex', alignItems: 'center', fontSize: 12, color: '#ccc', cursor: 'pointer', userSelect: 'none',
+};
+
+const readOnlyBannerStyle: React.CSSProperties = {
+  background: '#fff4ce',
+  borderBottom: '1px solid #e0c060',
+  color: '#5c4400',
+  fontSize: 12,
+  padding: '6px 12px',
 };

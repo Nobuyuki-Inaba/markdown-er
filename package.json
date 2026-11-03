@@ -45,6 +45,14 @@
       {
         "command": "markdown-er.exportDdlDiff",
         "title": "%command.exportDdlDiff%"
+      },
+      {
+        "command": "markdown-er.migrateFile",
+        "title": "%command.migrateFile%"
+      },
+      {
+        "command": "markdown-er.migrateWorkspace",
+        "title": "%command.migrateWorkspace%"
       }
     ],
     "menus": {
@@ -60,6 +68,11 @@
           "command": "markdown-er.openDiagram",
           "when": "resourceExtname == .ermd",
           "group": "navigation"
+        },
+        {
+          "command": "markdown-er.migrateFile",
+          "when": "resourceExtname == .ermd",
+          "group": "markdown-er@1"
         }
       ]
     },
@@ -114,6 +127,29 @@
           "type": "string",
           "default": "${fileBasenameNoExtension}_data.sql",
           "markdownDescription": "%config.ddl.dataOutputFile%"
+        },
+        "markdown-er.markdown.generateMermaid": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "%config.markdown.generateMermaid%"
+        },
+        "markdown-er.markdown.generateTableDocs": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "%config.markdown.generateTableDocs%"
+        },
+        "markdown-er.migration.prompt": {
+          "type": "string",
+          "enum": [
+            "ask",
+            "never"
+          ],
+          "enumDescriptions": [
+            "%config.migration.prompt.ask%",
+            "%config.migration.prompt.never%"
+          ],
+          "default": "ask",
+          "markdownDescription": "%config.migration.prompt%"
         },
         "markdown-er.mcp.enabled": {
           "type": "boolean",

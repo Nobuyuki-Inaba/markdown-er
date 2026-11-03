@@ -11,6 +11,12 @@ export const ja: Messages = {
     designNotePlaceholder: '設計判断・理由・トレードオフなどを記録…',
   },
 
+  file: {
+    readOnly: (version: number, supported: number) =>
+      `読み取り専用: このファイルは形式 v${version} ですが、この拡張機能が対応しているのは v${supported} までです。` +
+      '編集するには拡張機能を更新してください。変更は保存されません。',
+  },
+
   toolbar: {
     logicalNames: '論理名表示',
     physicalNames: '物理名表示',
