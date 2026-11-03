@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { useDiagramStore } from '../store/diagramStore';
+import { useDiagramStore, applyHistory } from '../store/diagramStore';
 import { useUiStore } from '../store/uiStore';
 import { sendToExtension } from '../vscodeApi';
 import type { LayoutDirection } from '../util/autoLayout';
@@ -32,8 +32,8 @@ export function Toolbar() {
   const [layoutMenuOpen, setLayoutMenuOpen] = useState(false);
   const layoutBtnRef = useRef<HTMLButtonElement>(null);
 
-  const undo = () => useDiagramStore.temporal.getState().undo();
-  const redo = () => useDiagramStore.temporal.getState().redo();
+  const undo = () => applyHistory('undo');
+  const redo = () => applyHistory('redo');
 
   const handleAddTable = () => {
     // Place at canvas center, stagger each new table by 20px to avoid stacking

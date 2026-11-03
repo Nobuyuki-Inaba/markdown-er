@@ -8,6 +8,7 @@ const en = {
   versionNamePrompt: 'Enter a version name',
   versionNotFound: '-- Version not found',
   loadFailed: (err: unknown) => `Failed to load ER diagram: ${err}`,
+  saveFailed: (err: unknown) => `Failed to save ER diagram: ${err}`,
 };
 
 type ExtensionMessages = typeof en;
@@ -19,6 +20,7 @@ const ja: ExtensionMessages = {
   versionNamePrompt: 'バージョン名を入力してください',
   versionNotFound: '-- バージョンが見つかりません',
   loadFailed: (err: unknown) => `ER 図を読み込めませんでした: ${err}`,
+  saveFailed: (err: unknown) => `ER 図を保存できませんでした: ${err}`,
 };
 
 export function languageSetting(): LanguageSetting {
