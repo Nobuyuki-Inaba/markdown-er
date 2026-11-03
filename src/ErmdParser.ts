@@ -29,7 +29,7 @@ export class ErmdParser {
         switch (lang) {
           case 'ermd-dictionary':
             if (Array.isArray(data)) {
-              model.dictionary = data as DictionaryEntry[];
+              model.dictionary = data.map(normalizeDictionaryEntry);
             }
             break;
           case 'ermd-table':
@@ -45,7 +45,7 @@ export class ErmdParser {
                 indexes: Array.isArray(t['indexes']) ? t['indexes'] as import('../shared/DiagramModel').TableIndex[] : undefined,
                 constraints: Array.isArray(t['constraints']) ? t['constraints'] as import('../shared/DiagramModel').TableConstraint[] : undefined,
                 columns: Array.isArray(t['columns'])
-                  ? (t['columns'] as Column[])
+                  ? t['columns'].map(normalizeColumn)
                   : [],
                 seedData: Array.isArray(t['seedData'])
                   ? (t['seedData'] as Record<string, unknown>[]).map((row) =>
@@ -97,4 +97,35 @@ export class ErmdParser {
 
     return model;
   }
+}
+
+// Fill in fields a hand-edited file may omit, so the rest of the code can rely on the types
+
+function normalizeDictionaryEntry(raw: unknown): DictionaryEntry {
+  const e = (raw ?? {}) as Record<string, unknown>;
+  return {
+    ...(e as object),
+    id: String(e['id'] ?? ''),
+    name: String(e['name'] ?? ''),
+    dbType: (e['dbType'] ?? 'VARCHAR') as DictionaryEntry['dbType'],
+    length: typeof e['length'] === 'number' ? e['length'] : null,
+    scale: typeof e['scale'] === 'number' ? e['scale'] : undefined,
+    notNull: e['notNull'] === true,
+    comment: String(e['comment'] ?? ''),
+  };
+}
+
+function normalizeColumn(raw: unknown): Column {
+  const c = (raw ?? {}) as Record<string, unknown>;
+  return {
+    ...(c as object),
+    id: String(c['id'] ?? ''),
+    logicalName: String(c['logicalName'] ?? ''),
+    physicalName: String(c['physicalName'] ?? ''),
+    dictionaryId: String(c['dictionaryId'] ?? ''),
+    isPrimaryKey: c['isPrimaryKey'] === true,
+    isNullable: c['isNullable'] !== false,
+    defaultValue: c['defaultValue'] == null ? null : String(c['defaultValue']),
+    comment: String(c['comment'] ?? ''),
+  };
 }

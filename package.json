@@ -11,15 +11,24 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Other"],
-  "activationEvents": ["onLanguage:ermd"],
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:ermd"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "languages": [
       {
         "id": "ermd",
-        "extensions": [".ermd"],
-        "aliases": ["ER Diagram", "ermd"]
+        "extensions": [
+          ".ermd"
+        ],
+        "aliases": [
+          "ER Diagram",
+          "ermd"
+        ]
       }
     ],
     "commands": [
@@ -58,7 +67,12 @@
       "properties": {
         "markdown-er.ddl.dialect": {
           "type": "string",
-          "enum": ["mysql", "postgresql", "sqlite", "sqlserver"],
+          "enum": [
+            "mysql",
+            "postgresql",
+            "sqlite",
+            "sqlserver"
+          ],
           "enumDescriptions": [
             "MySQL / MariaDB",
             "PostgreSQL",
@@ -82,15 +96,19 @@
     "build:webview": "cd webview && npm run build",
     "build": "npm run build:ext && npm run build:webview",
     "vscode:prepublish": "npm run build",
-    "package": "vsce package"
+    "package": "vsce package",
+    "test": "vitest run",
+    "icon": "node scripts/make-icon.mjs"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.85.0",
-    "@types/js-yaml": "^4.0.9",
     "@vscode/vsce": "^3.0.0",
     "esbuild": "^0.25.0",
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "vitest": "^3.2.7"
   },
   "dependencies": {
     "js-yaml": "^4.1.0"

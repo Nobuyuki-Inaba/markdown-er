@@ -1,5 +1,5 @@
 import * as yaml from 'js-yaml';
-import * as vscode from 'vscode';
+import type * as vscode from 'vscode';
 import { DiagramModel } from '../shared/DiagramModel';
 
 export class ErmdSerializer {

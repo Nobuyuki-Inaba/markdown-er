@@ -18,9 +18,17 @@ export interface DictionaryEntry {
   name: string;
   dbType: DbType;
   length: number | null;
+  /** Digits after the decimal point (DECIMAL only), e.g. DECIMAL(10,2) */
+  scale?: number | null;
   notNull: boolean;
   comment: string;
   category?: string;
+}
+
+/** "(10,2)", "(255)" or "" */
+export function typeSizeSuffix(entry: Pick<DictionaryEntry, 'length' | 'scale'>): string {
+  if (entry.length == null) return '';
+  return entry.scale != null ? `(${entry.length},${entry.scale})` : `(${entry.length})`;
 }
 
 export interface Column {

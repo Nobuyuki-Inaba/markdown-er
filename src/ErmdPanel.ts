@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import { ErmdParser } from './ErmdParser';
 import { ErmdSerializer } from './ErmdSerializer';
-import { DdlExporter, DdlOptions } from './DdlExporter';
-import { DdlDiffer } from './DdlDiffer';
+import { DdlExporter, DdlOptions, SchemaDiffer } from './ddl';
+import { loadGitBaseline } from './GitBaseline';
 import { DiagramModel, SchemaVersion } from '../shared/DiagramModel';
 import { DdlDialect, ExtToWebMsg, WebToExtMsg } from '../shared/messages';
 
@@ -251,10 +251,17 @@ export class ErmdPanel {
         const toModel: DiagramModel = toVer
           ? { ...model, tables: toVer.tables, relations: toVer.relations, dictionary: toVer.dictionary }
           : model;
-        ddl = DdlDiffer.diffModels(fromModel, toModel, dialect);
+        ddl = SchemaDiffer.diff(fromModel, toModel, dialect);
       }
     } else {
-      ddl = await DdlDiffer.diff(model, this._fileUri, baselineRef ?? 'HEAD~1', dialect);
+      const ref = baselineRef ?? 'HEAD~1';
+      try {
+        const baseline = await loadGitBaseline(this._fileUri, ref);
+        ddl = SchemaDiffer.diff(baseline, model, dialect);
+      } catch (err) {
+        ddl = `-- Could not load baseline (${ref}): ${err instanceof Error ? err.message : err}\n` +
+          `-- Falling back to full DDL\n\n${DdlExporter.export(model, dialect)}`;
+      }
     }
     this._outputChannel.clear();
     this._outputChannel.appendLine(ddl);

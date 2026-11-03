@@ -1,0 +1,101 @@
+import { describe, expect, it } from 'vitest';
+import { DdlExporter } from '../../src/ddl';
+import { DdlDialect } from '../../shared/messages';
+import { shopModel, tableOf } from '../fixtures';
+
+const DIALECTS: DdlDialect[] = ['mysql', 'postgresql', 'sqlite', 'sqlserver'];
+
+/** The CREATE TABLE statement for one table */
+function createOf(ddl: string, name: string): string {
+  const start = ddl.search(new RegExp(`CREATE TABLE [\`"\\[]${name}[\`"\\]]`));
+  return ddl.slice(start, ddl.indexOf(';', start) + 1);
+}
+
+describe('DdlExporter', () => {
+  it.each(DIALECTS)('%s: full DDL snapshot', (dialect) => {
+    expect(DdlExporter.export(shopModel(), dialect, { insertSeedData: true })).toMatchSnapshot();
+  });
+
+  describe('auto-increment', () => {
+    it('applies only to a single integer PK that is not a foreign key', () => {
+      const ddl = DdlExporter.export(shopModel(), 'mysql');
+      expect(createOf(ddl, 'users')).toContain('`id` INT AUTO_INCREMENT NOT NULL');
+      expect(createOf(ddl, 'orders')).toContain('AUTO_INCREMENT');
+      // composite PK of a junction table
+      expect(createOf(ddl, 'order_items')).not.toContain('AUTO_INCREMENT');
+      // 1:1 child whose PK is the FK
+      expect(createOf(ddl, 'profiles')).not.toContain('AUTO_INCREMENT');
+    });
+
+    it.each([
+      ['postgresql', 'SERIAL', 'INT'],
+      ['sqlserver', 'INT IDENTITY(1,1)', 'INT NOT NULL'],
+    ] as const)('%s', (dialect, auto, plain) => {
+      const ddl = DdlExporter.export(shopModel(), dialect);
+      expect(createOf(ddl, 'users')).toContain(auto);
+      expect(createOf(ddl, 'order_items')).not.toContain(auto);
+      expect(createOf(ddl, 'order_items')).toContain(plain);
+    });
+  });
+
+  it('declares PRIMARY KEY on every dialect, including SQLite', () => {
+    for (const dialect of DIALECTS) {
+      expect(createOf(DdlExporter.export(shopModel(), dialect), 'order_items')).toMatch(/PRIMARY KEY \(.order_id.?, .product_id.?\)/);
+    }
+  });
+
+  it('makes primary key columns NOT NULL even when marked nullable', () => {
+    const model = shopModel();
+    tableOf(model, 't_products').columns[0].isNullable = true;
+    expect(createOf(DdlExporter.export(model, 'mysql'), 'products')).toContain('NOT NULL');
+  });
+
+  it('SQLite: foreign keys are inline, there is no ALTER TABLE', () => {
+    const ddl = DdlExporter.export(shopModel(), 'sqlite');
+    expect(ddl).not.toContain('ALTER TABLE');
+    expect(createOf(ddl, 'orders')).toContain('CONSTRAINT "fk_order_user" FOREIGN KEY ("user_id") REFERENCES "users" ("id")');
+  });
+
+  it('names an unnamed FK after its table and column', () => {
+    expect(DdlExporter.export(shopModel(), 'mysql')).toContain('ADD CONSTRAINT `fk_order_items_product_id`');
+  });
+
+  it('keeps DECIMAL scale', () => {
+    expect(createOf(DdlExporter.export(shopModel(), 'postgresql'), 'orders')).toContain('"total" DECIMAL(10,2)');
+  });
+
+  it('writes logical names and comments as column comments', () => {
+    const mysql = DdlExporter.export(shopModel(), 'mysql');
+    expect(mysql).toContain("COMMENT 'ユーザー名: display name, can''t be empty'");
+    expect(mysql).toContain("COMMENT='ユーザー'");
+    const pg = DdlExporter.export(shopModel(), 'postgresql');
+    expect(pg).toContain(`COMMENT ON COLUMN "users"."name" IS 'ユーザー名: display name, can''t be empty';`);
+    expect(pg).toContain(`COMMENT ON TABLE "users" IS 'ユーザー';`);
+  });
+
+  describe('seed data', () => {
+    function withSeeds() {
+      const model = shopModel();
+      tableOf(model, 't_orders').seedData = [{ id: '1', user_id: '1', total: '9.99' }];
+      tableOf(model, 't_users').seedData = [{ id: '1', name: "O'Brien", active: 'true' }];
+      return model;
+    }
+
+    it('inserts parent tables before children', () => {
+      const ddl = DdlExporter.export(withSeeds(), 'mysql', { insertSeedData: true });
+      expect(ddl.indexOf('INSERT INTO `users`')).toBeLessThan(ddl.indexOf('INSERT INTO `orders`'));
+    });
+
+    it('escapes strings and maps booleans per dialect', () => {
+      expect(DdlExporter.export(withSeeds(), 'postgresql', { insertSeedData: true })).toContain(`(1, 'O''Brien', TRUE)`);
+      expect(DdlExporter.export(withSeeds(), 'mysql', { insertSeedData: true })).toContain(`(1, 'O''Brien', 1)`);
+    });
+
+    it('SQL Server wraps explicit identity values, unless the PK is skipped', () => {
+      expect(DdlExporter.export(withSeeds(), 'sqlserver', { insertSeedData: true })).toContain('SET IDENTITY_INSERT [users] ON;');
+      const skipped = DdlExporter.export(withSeeds(), 'sqlserver', { insertSeedData: true, skipAutoIncrementPk: true });
+      expect(skipped).not.toContain('IDENTITY_INSERT');
+      expect(skipped).toContain('INSERT INTO [users] ([name], [active])');
+    });
+  });
+});
