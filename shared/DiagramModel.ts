@@ -55,9 +55,32 @@ export function columnTypeSpec(col: Column, dictionary: ReadonlyMap<string, Dict
   return entry ?? col.type;
 }
 
+/**
+ * Types that take a size: length or precision (DECIMAL). Integers have none — MySQL's display width
+ * (INT(11)) is deprecated and doesn't change the range; an existing one stays editable so it can be cleared.
+ */
+const SIZED_DB_TYPES: DbType[] = ['VARCHAR', 'CHAR', 'DECIMAL'];
+
+export function typeTakesSize(dbType: DbType): boolean {
+  return SIZED_DB_TYPES.includes(dbType);
+}
+
 /** "VARCHAR(100)" */
 export function formatTypeSpec(spec: TypeSpec): string {
   return `${spec.dbType}${typeSizeSuffix(spec)}`;
+}
+
+/** "10,2", "255" or "" */
+export function formatTypeSize(entry: Pick<TypeSpec, 'length' | 'scale'>): string {
+  if (entry.length == null) return '';
+  return entry.scale != null ? `${entry.length},${entry.scale}` : `${entry.length}`;
+}
+
+/** "10,2" → { length: 10, scale: 2 }, "" → no size, null when not a size */
+export function parseTypeSize(text: string): Pick<TypeSpec, 'length' | 'scale'> | null {
+  const m = text.trim().match(/^(?:(\d+)\s*(?:,\s*(\d+))?)?$/);
+  if (!m) return null;
+  return { length: m[1] ? parseInt(m[1], 10) : null, scale: m[2] ? parseInt(m[2], 10) : null };
 }
 
 /** "(10,2)", "(255)" or "" */

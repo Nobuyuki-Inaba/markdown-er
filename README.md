@@ -113,11 +113,17 @@ Click the type field of a column to open the picker:
 | Workflow | How |
 |---|---|
 | **Dictionary type** | Click a button; entries are grouped by category (entries without one fall under String / Number / Date-time / Other) |
-| **Basic type** | Click e.g. `VARCHAR` — for types with a size the picker stays open with the length selected; type it and press Enter |
+| **Basic type** | Click e.g. `VARCHAR` — for types with a size the cursor moves to the column's **Size** cell; type it (`50`, or `10,2` for DECIMAL) |
 | **Type directly** | Type `varchar(50)` or `decimal(10,2)` in the search box and press Enter |
 | **Register a new type** | **+ Register a new dictionary type…** — name, category, type, size, NOT NULL; registers and assigns in one step |
 
 Search matches names, types and categories. Columns may use a type without a dictionary entry.
+The **Size** column shows every column's length in the list. It is editable for basic types that take a size
+(VARCHAR, CHAR, DECIMAL); a dictionary type's size comes from the dictionary and is shown read-only.
+To turn a basic type with its size into a dictionary type, open the picker and choose **+ Register a new dictionary type…** — the form starts from the column's current type and size.
+
+The **Details** button at the end of a column row opens its comment (output to DDL comments and generated docs),
+default value (an SQL expression such as `0`, `'draft'` or `CURRENT_TIMESTAMP`) and design note (never output).
 
 ### Import tables from CSV
 

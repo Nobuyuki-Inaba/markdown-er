@@ -179,7 +179,7 @@ export function TableEditPanel() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '28px 1fr 1fr 1.2fr 50px 28px 36px',
+            gridTemplateColumns: '28px 1fr 1fr 1.2fr 48px 50px 28px 36px',
             gap: 4,
             fontSize: 11,
             color: '#888',
@@ -190,6 +190,7 @@ export function TableEditPanel() {
           <span>{t.colLogical}</span>
           <span>{t.colPhysical}</span>
           <span>{t.colType}</span>
+          <span title={t.colSizeTitle}>{t.colSize}</span>
           <span>{t.colNull}</span>
           <span title={t.colNoteTitle} style={{ textAlign: 'center' }}>{t.colNote}</span>
           <span />

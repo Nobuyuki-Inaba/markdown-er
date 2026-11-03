@@ -356,7 +356,9 @@ viewport:
 - A column's type is its dictionary entry when `dictionaryId` resolves, else `Column.type` (`TypeSpec`, given directly).
   Always resolve with `columnTypeSpec()` (shared) / `Schema.typeOf()` — never read `dictionaryId` alone.
 - `TypePicker.tsx`: search; dictionary and basic types as chips in rows by category (`DB_TYPE_KINDS`: string / number / datetime / other; uncategorised dictionary entries fall into their type kind), sticky section headers, `varchar(50)`-style direct input,
-  inline registration (with category). Fixed-position popover so panel scrolling doesn't clip it.
+  inline registration (with category). Fixed-position popover so panel scrolling doesn't clip it. The picker chooses only the type;
+  the size is the row's own **Size** cell (`ColumnRow` `SizeInput`, `10,2` for DECIMAL): editable for direct types that
+  `typeTakesSize()` (shared), read-only for dictionary types (the dictionary owns their size), disabled otherwise.
 - Choosing a dictionary type applies its `notNull` to the column (`withDictionaryType` in diagramStore).
 
 ### Database / schema / user notes
