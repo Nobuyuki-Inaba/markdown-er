@@ -24,8 +24,9 @@ The diagram is stored in a `.ermd` file (with `er-diagram: true` in the front ma
 | **Region group boxes** | Group related tables with a labeled background rectangle |
 | **Undo / Redo** | Full history via `Ctrl+Z` / `Ctrl+Y` |
 | **Persistent layout** | Positions and viewport are saved back to the `.ermd` file automatically |
-| **DDL export** | Export full `CREATE TABLE` DDL, or diff-only `ALTER TABLE` statements against a git baseline. Plain `CREATE TABLE` by default; comments, table options, explicit `NULL` and identifier quoting are switchable. **Save DDL…** / **Save data…** write `.sql` files |
-| **Seed data editor** | Enter initial rows for each table in a spreadsheet-like editor. Data is saved in the `.ermd` file and is git-diffable |
+| **DDL export** | Export full `CREATE TABLE` DDL, or diff-only `ALTER TABLE` statements against a git baseline. Plain `CREATE TABLE` by default; comments, table options, explicit `NULL` and identifier quoting are switchable. **Save DDL…** / **Save data…** write `.sql` files. **Replacements** adjust the output with your own find / replace rules |
+| **Column list** | Type, size, PK, auto-increment and NULL side by side; comment, default value and design note under **Details** |
+| **Seed data editor** | Enter initial rows for each table in a spreadsheet-like editor. Leave the auto-increment key empty to let the database generate it. Data is saved in the `.ermd` file and is git-diffable |
 | **INSERT export** | Optionally include seed data as `INSERT INTO` statements in the DDL output |
 | **Auto Layout** | Arrange all tables automatically — Vertical, Horizontal, or Auto. Undo-able with `Ctrl+Z` |
 | **Database dialect** | Choose MySQL, PostgreSQL, Oracle, SQL Server, or SQLite in Settings |
