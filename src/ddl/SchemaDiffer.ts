@@ -17,7 +17,7 @@ export class SchemaDiffer {
   private readonly stmts: string[] = [];
 
   static diff(baseline: DiagramModel, current: DiagramModel, dialect: DdlDialect = 'mysql'): string {
-    return new SchemaDiffer(baseline, current, createDialect(dialect)).build();
+    return new SchemaDiffer(baseline, current, createDialect(dialect, current.database)).build();
   }
 
   constructor(baseline: DiagramModel, current: DiagramModel, private readonly dialect: SqlDialect) {
@@ -123,6 +123,7 @@ export class SchemaDiffer {
     const notNull = cur.isNotNull(after);
     const change: ColumnChange = {
       table, before, after, newType, notNull,
+      newDefault:           dialect.defaultValue(after, cur),
       typeChanged:          oldType !== newType,
       nullChanged:          base.isNotNull(before) !== notNull,
       defaultChanged:       (before.defaultValue || null) !== (after.defaultValue || null),

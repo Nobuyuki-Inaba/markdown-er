@@ -30,13 +30,48 @@ export class PostgresDialect extends SqlDialect {
     }
   }
 
+  /**
+   * Role → database (owned by the role) → schema in that database.
+   * Tables are created unqualified and land in the schema through search_path.
+   */
+  createDatabase(): string[] {
+    const q = (n: string) => this.quote(n);
+    const owner = this.userName;
+    const stmts: string[] = [];
+
+    if (owner) {
+      stmts.push(this.changePasswordNote(), `CREATE ROLE ${q(owner)} WITH LOGIN PASSWORD ${this.string(this.passwordPlaceholder)};`);
+    }
+    if (this.databaseName) {
+      const { charset, collation, ctype } = this.databaseOptions();
+      const options = [
+        owner && `OWNER ${q(owner)}`,
+        charset && `ENCODING ${this.string(charset)}`,
+        collation && `LC_COLLATE ${this.string(collation)}`,
+        ctype && `LC_CTYPE ${this.string(ctype)}`,
+        // template1 may have a different encoding / locale; template0 accepts any
+        'TEMPLATE template0',
+      ].filter(Boolean);
+      stmts.push(
+        `CREATE DATABASE ${q(this.databaseName)}\n  WITH ${options.join('\n  ')};`,
+        this.note(`connect to ${q(this.databaseName)} before running the rest (psql: \\c ${this.databaseName})`),
+      );
+    }
+    if (this.schemaName) {
+      stmts.push(
+        `CREATE SCHEMA IF NOT EXISTS ${q(this.schemaName)}${owner ? ` AUTHORIZATION ${q(owner)}` : ''};`,
+        `SET search_path TO ${q(this.schemaName)};`,
+      );
+    }
+    return stmts.length > 0 ? stmts : [this.note('set a database, schema or user name to generate them')];
+  }
+
   /** Explicit ids don't advance the identity sequence; move it past them so later INSERTs don't collide */
   wrapExplicitIdentityInsert(table: Table, identity: Column, insert: string): string {
-    const t = this.quote(table.physicalName);
+    const t = this.table(table.physicalName);
     const c = this.quote(identity.physicalName);
     return (
-      `${insert}
-` +
+      `${insert}\n` +
       `SELECT setval(pg_get_serial_sequence(${this.string(t)}, ${this.string(identity.physicalName)}), ` +
       `(SELECT MAX(${c}) FROM ${t}));`
     );
@@ -44,28 +79,16 @@ export class PostgresDialect extends SqlDialect {
 
   /** PostgreSQL has no inline comments; use COMMENT ON */
   commentStatements(table: Table, columns: Column[], includeTable: boolean): string[] {
-    const t = this.quote(table.physicalName);
-    const stmts: string[] = [];
-    const tableComment = commentText(table);
-    if (includeTable && tableComment) {
-      stmts.push(`COMMENT ON TABLE ${t} IS ${this.string(tableComment)};`);
-    }
-    for (const col of columns) {
-      const comment = commentText(col);
-      if (comment) {
-        stmts.push(`COMMENT ON COLUMN ${t}.${this.quote(col.physicalName)} IS ${this.string(comment)};`);
-      }
-    }
-    return stmts;
+    return this.commentOnStatements(table, columns, includeTable);
   }
 
   changeTableComment(table: Table, comment: string): string[] {
-    return [`COMMENT ON TABLE ${this.quote(table.physicalName)} IS ${comment ? this.string(comment) : 'NULL'};`];
+    return [this.commentOnTable(table, comment)];
   }
 
   /** One ALTER COLUMN per changed aspect */
   alterColumn(ch: ColumnChange): string[] {
-    const t = this.quote(ch.table.physicalName);
+    const t = this.table(ch.table.physicalName);
     const c = this.quote(ch.after.physicalName);
     const stmts: string[] = [];
     if (ch.typeChanged) {
@@ -75,13 +98,12 @@ export class PostgresDialect extends SqlDialect {
       stmts.push(`ALTER TABLE ${t} ALTER COLUMN ${c} ${ch.notNull ? 'SET' : 'DROP'} NOT NULL;`);
     }
     if (ch.defaultChanged) {
-      stmts.push(ch.after.defaultValue
-        ? `ALTER TABLE ${t} ALTER COLUMN ${c} SET DEFAULT ${ch.after.defaultValue};`
+      stmts.push(ch.newDefault
+        ? `ALTER TABLE ${t} ALTER COLUMN ${c} SET DEFAULT ${ch.newDefault};`
         : `ALTER TABLE ${t} ALTER COLUMN ${c} DROP DEFAULT;`);
     }
     if (ch.commentChanged) {
-      const comment = commentText(ch.after);
-      stmts.push(`COMMENT ON COLUMN ${t}.${c} IS ${comment ? this.string(comment) : 'NULL'};`);
+      stmts.push(this.commentOnColumn(ch.table, ch.after, commentText(ch.after)));
     }
     if (ch.autoIncrementChanged) {
       stmts.push(ch.isAutoIncrement
@@ -92,7 +114,7 @@ export class PostgresDialect extends SqlDialect {
   }
 
   changePrimaryKey(before: Table, after: Table): string[] {
-    const t = this.quote(after.physicalName);
+    const t = this.table(after.physicalName);
     const stmts: string[] = [];
     if (before.columns.some((c) => c.isPrimaryKey)) {
       // Default name given by the original CREATE TABLE

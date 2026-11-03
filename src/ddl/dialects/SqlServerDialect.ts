@@ -10,6 +10,11 @@ export class SqlServerDialect extends SqlDialect {
     return `[${name.replace(/]/g, ']]')}]`;
   }
 
+  /** The script's own default schema (dbo for admins) can't be switched, so tables are qualified */
+  table(name: string): string {
+    return this.schemaName ? `${this.quote(this.schemaName)}.${this.quote(name)}` : this.quote(name);
+  }
+
   protected defaultType(): string {
     return 'NVARCHAR(255)';
   }
@@ -34,25 +39,60 @@ export class SqlServerDialect extends SqlDialect {
     }
   }
 
+  /** Login (server level) → database → user and schema in that database. GO separates batches. */
+  createDatabase(): string[] {
+    const q = (n: string) => this.quote(n);
+    const user = this.userName;
+    const schema = this.schemaName;
+    const stmts: string[] = [];
+
+    if (user) {
+      stmts.push(this.changePasswordNote(), `CREATE LOGIN ${q(user)} WITH PASSWORD = ${this.string(this.passwordPlaceholder)};`, 'GO');
+    }
+    if (this.databaseName) {
+      const { collation } = this.databaseOptions();
+      stmts.push(
+        `CREATE DATABASE ${q(this.databaseName)}${collation ? ` COLLATE ${collation}` : ''};`, 'GO',
+        `USE ${q(this.databaseName)};`, 'GO',
+      );
+    }
+    if (user) {
+      stmts.push(`CREATE USER ${q(user)} FOR LOGIN ${q(user)};`);
+      if (this.databaseName) { stmts.push(`ALTER ROLE db_owner ADD MEMBER ${q(user)};`); }
+      stmts.push('GO');
+    }
+    if (schema) {
+      // CREATE SCHEMA must be alone in its batch
+      stmts.push(`CREATE SCHEMA ${q(schema)}${user ? ` AUTHORIZATION ${q(user)}` : ''};`, 'GO');
+      if (user) { stmts.push(`ALTER USER ${q(user)} WITH DEFAULT_SCHEMA = ${q(schema)};`, 'GO'); }
+    }
+    return stmts.length > 0 ? stmts : [this.note('set a database, schema or user name to generate them')];
+  }
+
   wrapExplicitIdentityInsert(table: Table, _identity: Column, insert: string): string {
-    const t = this.quote(table.physicalName);
+    const t = this.table(table.physicalName);
     return `SET IDENTITY_INSERT ${t} ON;\n${insert}\nSET IDENTITY_INSERT ${t} OFF;`;
   }
 
+  /** sp_rename takes plain (unquoted) names, qualified by schema */
+  private plain(name: string): string {
+    return this.schemaName ? `${this.schemaName}.${name}` : name;
+  }
+
   renameTable(from: string, to: string): string {
-    return `EXEC sp_rename ${this.string(from)}, ${this.string(to)};`;
+    return `EXEC sp_rename ${this.string(this.plain(from))}, ${this.string(to)};`;
   }
 
   renameColumn(table: Table, from: string, to: string): string {
-    return `EXEC sp_rename ${this.string(`${table.physicalName}.${from}`)}, ${this.string(to)}, 'COLUMN';`;
+    return `EXEC sp_rename ${this.string(`${this.plain(table.physicalName)}.${from}`)}, ${this.string(to)}, 'COLUMN';`;
   }
 
   addColumn(table: Table, col: Column, schema: Schema): string[] {
-    return [`ALTER TABLE ${this.quote(table.physicalName)} ADD ${this.columnDefinition(col, schema)};`];
+    return [`ALTER TABLE ${this.table(table.physicalName)} ADD ${this.columnDefinition(col, schema)};`];
   }
 
   dropIndex(table: Table, idx: TableIndex): string {
-    return `DROP INDEX ${this.quote(idx.name)} ON ${this.quote(table.physicalName)};`;
+    return `DROP INDEX ${this.quote(idx.name)} ON ${this.table(table.physicalName)};`;
   }
 
   alterColumn(ch: ColumnChange): string[] {
@@ -60,7 +100,7 @@ export class SqlServerDialect extends SqlDialect {
     const stmts: string[] = [];
     if (ch.typeChanged || ch.nullChanged) {
       stmts.push(
-        `ALTER TABLE ${this.quote(ch.table.physicalName)} ALTER COLUMN ${this.quote(ch.after.physicalName)} ` +
+        `ALTER TABLE ${this.table(ch.table.physicalName)} ALTER COLUMN ${this.quote(ch.after.physicalName)} ` +
         `${ch.newType} ${ch.notNull ? 'NOT NULL' : 'NULL'};`
       );
     }
@@ -76,7 +116,7 @@ export class SqlServerDialect extends SqlDialect {
       stmts.push(this.note(`drop the existing PRIMARY KEY constraint of ${after.physicalName} manually`));
     }
     const add = this.primaryKeyClause(after);
-    if (add) { stmts.push(`ALTER TABLE ${this.quote(after.physicalName)} ADD ${add};`); }
+    if (add) { stmts.push(`ALTER TABLE ${this.table(after.physicalName)} ADD ${add};`); }
     return stmts;
   }
 }

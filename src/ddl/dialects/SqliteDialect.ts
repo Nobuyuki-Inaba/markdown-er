@@ -25,6 +25,11 @@ export class SqliteDialect extends SqlDialect {
     return 'TEXT';
   }
 
+  /** A SQLite database is a file; only the encoding can be set, before the first table */
+  createDatabase(): string[] {
+    return [`PRAGMA encoding = ${this.string(this.databaseOptions().charset ?? 'UTF-8')};`];
+  }
+
   private recreate(what: string, table: string): string {
     return this.note(`cannot ${what} on ${table}; recreate the table`);
   }

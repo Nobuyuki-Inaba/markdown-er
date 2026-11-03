@@ -164,6 +164,7 @@ export class ErmdPanel {
             {
               insertSeedData: msg.payload.insertSeedData,
               skipAutoIncrementPk: msg.payload.skipAutoIncrementPk,
+              includeCreateDatabase: msg.payload.includeCreateDatabase,
               fromVersionId: msg.payload.fromVersionId,
               toVersionId: msg.payload.toVersionId,
             }

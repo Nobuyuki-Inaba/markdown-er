@@ -16,6 +16,27 @@ describe('SchemaDiffer', () => {
     expect(SchemaDiffer.diff(shopModel(), shopModel(), 'mysql')).toBe('-- No changes detected');
   });
 
+  describe('oracle', () => {
+    it('modifies only what changed (re-stating NOT NULL is an error)', () => {
+      const ddl = diff((m) => { m.dictionary.find((d) => d.id === 'd_name')!.length = 200; }, 'oracle');
+      // users.name is NOT NULL, profiles.bio is nullable; neither restates its nullability
+      expect(ddl).toBe(
+        'ALTER TABLE users MODIFY (name VARCHAR2(200 CHAR));\n\n' +
+        'ALTER TABLE profiles MODIFY (bio VARCHAR2(200 CHAR));'
+      );
+    });
+
+    it('adds columns in parentheses and drops tables with their constraints', () => {
+      const ddl = diff((m) => {
+        tableOf(m, 't_orders').columns.push(col('o_note', 'note', 'd_name', { isNullable: true, defaultValue: "'-'" }));
+        m.tables = m.tables.filter((t) => t.id !== 't_products');
+        m.relations = m.relations.filter((r) => r.fromTableId !== 't_products');
+      }, 'oracle');
+      expect(ddl).toContain(`ALTER TABLE orders ADD (note VARCHAR2(100 CHAR) DEFAULT '-' NULL);`);
+      expect(ddl).toContain('DROP TABLE products CASCADE CONSTRAINTS;');
+    });
+  });
+
   describe('rename column', () => {
     const rename = (m: DiagramModel) => { tableOf(m, 't_users').columns[1].physicalName = 'full_name'; };
 
@@ -60,7 +81,7 @@ describe('SchemaDiffer', () => {
 
     it('MySQL MODIFY keeps AUTO_INCREMENT', () => {
       const ddl = diff((m) => { tableOf(m, 't_users').columns[0].defaultValue = '0'; }, 'mysql');
-      expect(ddl).toContain('MODIFY COLUMN `id` INT AUTO_INCREMENT NOT NULL DEFAULT 0');
+      expect(ddl).toContain('MODIFY COLUMN `id` INT AUTO_INCREMENT DEFAULT 0 NOT NULL');
     });
   });
 

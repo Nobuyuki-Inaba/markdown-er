@@ -1,7 +1,7 @@
 import * as yaml from 'js-yaml';
 import {
   DiagramModel, DictionaryEntry, Table, Column, Relation,
-  TableLayout, RegionLayout, SchemaVersion, createEmptyModel,
+  TableLayout, RegionLayout, SchemaVersion, DatabaseSettings, createEmptyModel,
 } from '../shared/DiagramModel';
 
 export class ErmdParser {
@@ -60,6 +60,15 @@ export class ErmdParser {
           case 'ermd-relations':
             if (Array.isArray(data)) {
               model.relations = data as Relation[];
+            }
+            break;
+          case 'ermd-database':
+            if (data && typeof data === 'object') {
+              const d = data as Record<string, unknown>;
+              model.database = {
+                name: String(d['name'] ?? ''),
+                options: (d['options'] && typeof d['options'] === 'object' ? d['options'] : {}) as DatabaseSettings['options'],
+              };
             }
             break;
           case 'ermd-versions':

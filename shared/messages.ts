@@ -1,12 +1,18 @@
-import { DiagramModel } from './DiagramModel';
+import { DiagramModel, DdlDialect } from './DiagramModel';
 
-export type DdlDialect = 'mysql' | 'postgresql' | 'sqlite' | 'sqlserver';
+export type { DdlDialect };
+
+/** Resolved UI language */
+export type Locale = 'en' | 'ja';
+/** Value of the `markdown-er.language` setting; `auto` follows the VSCode display language */
+export type LanguageSetting = 'auto' | Locale;
 
 export type ExtToWebMsg =
   | { type: 'load'; payload: DiagramModel }
   | { type: 'fileChanged'; payload: DiagramModel }
   | { type: 'ddlResult'; payload: { ddl: string; mode: 'full' | 'diff' | 'version-diff' } }
   | { type: 'dialectChanged'; payload: { dialect: DdlDialect } }
+  | { type: 'localeChanged'; payload: { locale: Locale; setting: LanguageSetting } }
   | { type: 'versionSaved'; payload: DiagramModel }
   | { type: 'undo' }
   | { type: 'redo' };
@@ -21,7 +27,9 @@ export type WebToExtMsg =
       toVersionId?: string | null;
       insertSeedData?: boolean;
       skipAutoIncrementPk?: boolean;
+      includeCreateDatabase?: boolean;
     } }
   | { type: 'saveVersion'; payload: { model: DiagramModel } }
   | { type: 'deleteVersion'; payload: { versionId: string } }
+  | { type: 'setLanguage'; payload: { setting: LanguageSetting } }
   | { type: 'openSettings' };

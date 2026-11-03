@@ -16,6 +16,15 @@ export class ErmdSerializer {
     lines.push('');
     lines.push(`# ${title}`);
 
+    if (model.database) {
+      lines.push('');
+      lines.push('## Database');
+      lines.push('');
+      lines.push('```ermd-database');
+      lines.push(yaml.dump(model.database, { indent: 2, lineWidth: -1 }).trimEnd());
+      lines.push('```');
+    }
+
     if (model.dictionary.length > 0) {
       lines.push('');
       lines.push('## Dictionary');

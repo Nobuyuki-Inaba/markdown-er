@@ -1,7 +1,8 @@
 import {
-  Column, DbType, DictionaryEntry, Table, TableConstraint, TableIndex, typeSizeSuffix,
+  Column, DatabaseOptions, DatabaseSettings, DbType, DdlDialect, DictionaryEntry, Table, TableConstraint, TableIndex,
+  typeSizeSuffix,
 } from '../../shared/DiagramModel';
-import type { DdlDialect } from '../../shared/messages';
+import { resolveDatabaseOptions } from '../../shared/databaseOptions';
 import type { ResolvedForeignKey, Schema } from './Schema';
 
 export const INTEGER_TYPES: readonly DbType[] = ['INT', 'BIGINT', 'SMALLINT', 'TINYINT'];
@@ -20,6 +21,8 @@ export interface ColumnChange {
   table: Table;
   before: Column;
   after: Column;
+  /** Current DEFAULT expression in this dialect, or null */
+  newDefault: string | null;
   /** Current type without auto-increment, e.g. for ALTER COLUMN ... TYPE */
   newType: string;
   notNull: boolean;
@@ -39,20 +42,31 @@ export interface ColumnChange {
  *
  * The base class holds the standard SQL shared by most databases; each subclass overrides
  * only what differs. Callers (DdlExporter, SchemaDiffer) never branch on the dialect.
+ * An instance is bound to the target database settings (name, schema, user, charset…).
  */
 export abstract class SqlDialect {
   abstract readonly id: DdlDialect;
   /** Used in comments for statements the database cannot run */
   abstract readonly label: string;
-  /** Integer types eligible for AUTO_INCREMENT / SERIAL / IDENTITY */
+  /** Integer types eligible for AUTO_INCREMENT / IDENTITY */
   readonly autoIncrementTypes: readonly DbType[] = ['INT', 'BIGINT'];
   /** FKs are declared inside CREATE TABLE (cannot be added later) */
   readonly inlineForeignKeys: boolean = false;
+
+  /** Passwords are never stored in the diagram; generated DDL uses this placeholder */
+  protected readonly passwordPlaceholder = 'change_me';
+
+  constructor(protected readonly database?: DatabaseSettings) {}
 
   abstract quote(name: string): string;
 
   /** Database type for a dictionary entry */
   protected abstract mapType(entry: DictionaryEntry, autoIncrement: boolean): string;
+
+  /** Table reference; dialects that need a schema prefix override this */
+  table(name: string): string {
+    return this.quote(name);
+  }
 
   string(s: string): string {
     return `'${s.replace(/'/g, "''")}'`;
@@ -79,13 +93,46 @@ export abstract class SqlDialect {
     return `-- ${this.label}: ${message}`;
   }
 
+  // ── DATABASE / USER / SCHEMA ─────────────────────────────────────────
+
+  /**
+   * DEFAULT expression as written by the user, except that true/false/1/0 on a BOOLEAN
+   * column become this dialect's boolean literal (TRUE is invalid for BIT / NUMBER(1)).
+   */
+  defaultValue(col: Column, schema: Schema): string | null {
+    const raw = col.defaultValue?.trim();
+    if (!raw) { return null; }
+    if (schema.entryOf(col)?.dbType === 'BOOLEAN' && /^(true|false|1|0)$/i.test(raw)) {
+      return this.booleanLiteral(/^(true|1)$/i.test(raw));
+    }
+    return raw;
+  }
+
+  /** Statements that create the database, user and schema and switch to them */
+  abstract createDatabase(): string[];
+
+  /** This dialect's CREATE DATABASE options with defaults applied */
+  databaseOptions(): DatabaseOptions {
+    return resolveDatabaseOptions(this.id, this.database?.options[this.id]);
+  }
+
+  protected get databaseName(): string { return this.database?.name?.trim() ?? ''; }
+  protected get schemaName(): string { return this.database?.schema?.trim() ?? ''; }
+  protected get userName(): string { return this.database?.user?.trim() ?? ''; }
+
+  protected changePasswordNote(): string {
+    return this.note(`replace the password '${this.passwordPlaceholder}' before running`);
+  }
+
   // ── CREATE ───────────────────────────────────────────────────────────
 
+  /** `name TYPE [DEFAULT x] NULL|NOT NULL` — DEFAULT first, as Oracle requires and the others accept */
   columnDefinition(col: Column, schema: Schema): string {
     const type = this.formatType(schema.entryOf(col), schema.isAutoIncrement(col));
+    const defaultSql = this.defaultValue(col, schema);
+    const defaultPart = defaultSql ? ` DEFAULT ${defaultSql}` : '';
     const nullPart = schema.isNotNull(col) ? 'NOT NULL' : 'NULL';
-    const defaultPart = col.defaultValue ? ` DEFAULT ${col.defaultValue}` : '';
-    return `${this.quote(col.physicalName)} ${type} ${nullPart}${defaultPart}${this.columnCommentClause(commentText(col))}`;
+    return `${this.quote(col.physicalName)} ${type}${defaultPart} ${nullPart}${this.columnCommentClause(commentText(col))}`;
   }
 
   /** CREATE TABLE plus the statements that belong to it (comments, custom DDL). */
@@ -106,7 +153,7 @@ export abstract class SqlDialect {
       }
     }
 
-    const create = `CREATE TABLE ${this.quote(table.physicalName)} (\n${lines.join(',\n')}\n)${this.tableOptions(table)};`;
+    const create = `CREATE TABLE ${this.table(table.physicalName)} (\n${lines.join(',\n')}\n)${this.tableOptions(table)};`;
     return [create, ...this.commentStatements(table, table.columns, true), ...this.customStatements(table.constraints ?? [])];
   }
 
@@ -136,25 +183,30 @@ export abstract class SqlDialect {
   createIndex(table: Table, idx: TableIndex): string {
     const unique = idx.unique ? 'UNIQUE ' : '';
     const cols = idx.columns.map((c) => this.quote(c)).join(', ');
-    return `CREATE ${unique}INDEX ${this.quote(idx.name)} ON ${this.quote(table.physicalName)} (${cols});`;
+    return `CREATE ${unique}INDEX ${this.quote(idx.name)} ON ${this.table(table.physicalName)} (${cols});`;
   }
 
   addForeignKey(fk: ResolvedForeignKey): string {
-    const q = (n: string) => this.quote(n);
     return (
-      `ALTER TABLE ${q(fk.child.physicalName)}\n` +
-      `  ADD CONSTRAINT ${q(fk.name)}\n` +
-      `  FOREIGN KEY (${q(fk.childColumn.physicalName)})\n` +
-      `  REFERENCES ${q(fk.parent.physicalName)} (${q(fk.parentColumn.physicalName)});`
+      `ALTER TABLE ${this.table(fk.child.physicalName)}\n` +
+      `  ADD CONSTRAINT ${this.quote(fk.name)}\n` +
+      `  FOREIGN KEY (${this.quote(fk.childColumn.physicalName)})\n` +
+      `  REFERENCES ${this.table(fk.parent.physicalName)} (${this.quote(fk.parentColumn.physicalName)});`
     );
   }
 
-  /** Comment statements for databases without inline comments (see PostgresDialect) */
+  /** Comment statements for databases without inline comments (see commentOnStatements) */
   commentStatements(_table: Table, _columns: Column[], _includeTable: boolean): string[] {
     return [];
   }
 
-  /** Hook for INSERTs that set an auto-increment column explicitly (see SqlServerDialect, PostgresDialect) */
+  /** A multi-row INSERT; `rows` are ready-made `(v1, v2)` tuples */
+  insertStatement(table: Table, columns: Column[], rows: string[]): string {
+    const cols = columns.map((c) => this.quote(c.physicalName)).join(', ');
+    return `INSERT INTO ${this.table(table.physicalName)} (${cols})\nVALUES\n${rows.map((r) => `  ${r}`).join(',\n')};`;
+  }
+
+  /** Hook for INSERTs that set an auto-increment column explicitly */
   wrapExplicitIdentityInsert(_table: Table, _identity: Column, insert: string): string {
     return insert;
   }
@@ -167,7 +219,7 @@ export abstract class SqlDialect {
   protected foreignKeyClause(fk: ResolvedForeignKey): string {
     return (
       `CONSTRAINT ${this.quote(fk.name)} FOREIGN KEY (${this.quote(fk.childColumn.physicalName)}) ` +
-      `REFERENCES ${this.quote(fk.parent.physicalName)} (${this.quote(fk.parentColumn.physicalName)})`
+      `REFERENCES ${this.table(fk.parent.physicalName)} (${this.quote(fk.parentColumn.physicalName)})`
     );
   }
 
@@ -179,33 +231,61 @@ export abstract class SqlDialect {
     return '';
   }
 
+  /** Standard `COMMENT ON TABLE / COLUMN` (PostgreSQL, Oracle) */
+  protected commentOnStatements(table: Table, columns: Column[], includeTable: boolean): string[] {
+    const stmts: string[] = [];
+    const tableComment = commentText(table);
+    if (includeTable && tableComment) {
+      stmts.push(this.commentOnTable(table, tableComment));
+    }
+    for (const col of columns) {
+      const comment = commentText(col);
+      if (comment) { stmts.push(this.commentOnColumn(table, col, comment)); }
+    }
+    return stmts;
+  }
+
+  /** An empty comment removes it */
+  protected commentOnTable(table: Table, comment: string): string {
+    return `COMMENT ON TABLE ${this.table(table.physicalName)} IS ${this.commentLiteral(comment)};`;
+  }
+
+  protected commentOnColumn(table: Table, col: Column, comment: string): string {
+    return `COMMENT ON COLUMN ${this.table(table.physicalName)}.${this.quote(col.physicalName)} IS ${this.commentLiteral(comment)};`;
+  }
+
+  private commentLiteral(comment: string): string {
+    return comment ? this.string(comment) : 'NULL';
+  }
+
   // ── ALTER ────────────────────────────────────────────────────────────
 
+  /** The new name is never schema-qualified */
   renameTable(from: string, to: string): string {
-    return `ALTER TABLE ${this.quote(from)} RENAME TO ${this.quote(to)};`;
+    return `ALTER TABLE ${this.table(from)} RENAME TO ${this.quote(to)};`;
   }
 
   renameColumn(table: Table, from: string, to: string): string {
-    return `ALTER TABLE ${this.quote(table.physicalName)} RENAME COLUMN ${this.quote(from)} TO ${this.quote(to)};`;
+    return `ALTER TABLE ${this.table(table.physicalName)} RENAME COLUMN ${this.quote(from)} TO ${this.quote(to)};`;
   }
 
   addColumn(table: Table, col: Column, schema: Schema): string[] {
     return [
-      `ALTER TABLE ${this.quote(table.physicalName)} ADD COLUMN ${this.columnDefinition(col, schema)};`,
+      `ALTER TABLE ${this.table(table.physicalName)} ADD COLUMN ${this.columnDefinition(col, schema)};`,
       ...this.commentStatements(table, [col], false),
     ];
   }
 
   dropColumn(table: Table, col: Column): string {
-    return `ALTER TABLE ${this.quote(table.physicalName)} DROP COLUMN ${this.quote(col.physicalName)};`;
+    return `ALTER TABLE ${this.table(table.physicalName)} DROP COLUMN ${this.quote(col.physicalName)};`;
   }
 
   dropTable(table: Table): string {
-    return `DROP TABLE IF EXISTS ${this.quote(table.physicalName)};`;
+    return `DROP TABLE IF EXISTS ${this.table(table.physicalName)};`;
   }
 
   dropForeignKey(fk: ResolvedForeignKey): string {
-    return `ALTER TABLE ${this.quote(fk.child.physicalName)} DROP CONSTRAINT ${this.quote(fk.name)};`;
+    return `ALTER TABLE ${this.table(fk.child.physicalName)} DROP CONSTRAINT ${this.quote(fk.name)};`;
   }
 
   dropIndex(_table: Table, idx: TableIndex): string {
@@ -214,11 +294,11 @@ export abstract class SqlDialect {
 
   addConstraint(table: Table, c: TableConstraint): string | null {
     const clause = this.constraintClause(c);
-    return clause ? `ALTER TABLE ${this.quote(table.physicalName)} ADD ${clause};` : null;
+    return clause ? `ALTER TABLE ${this.table(table.physicalName)} ADD ${clause};` : null;
   }
 
   dropConstraint(table: Table, c: TableConstraint): string {
-    return `ALTER TABLE ${this.quote(table.physicalName)} DROP CONSTRAINT ${this.quote(c.name)};`;
+    return `ALTER TABLE ${this.table(table.physicalName)} DROP CONSTRAINT ${this.quote(c.name)};`;
   }
 
   changeTableComment(_table: Table, _comment: string): string[] {

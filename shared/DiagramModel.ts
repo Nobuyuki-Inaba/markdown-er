@@ -1,3 +1,5 @@
+export type DdlDialect = 'mysql' | 'postgresql' | 'oracle' | 'sqlserver' | 'sqlite';
+
 export type DbType =
   | 'INT' | 'BIGINT' | 'SMALLINT' | 'TINYINT'
   | 'VARCHAR' | 'CHAR' | 'TEXT' | 'LONGTEXT'
@@ -119,8 +121,30 @@ export interface SchemaVersion {
   };
 }
 
+/** CREATE DATABASE options; each dialect reads the fields it supports (see shared/databaseOptions.ts) */
+export interface DatabaseOptions {
+  /** MySQL CHARACTER SET / PostgreSQL ENCODING / SQLite PRAGMA encoding */
+  charset?: string;
+  /** MySQL COLLATE / PostgreSQL LC_COLLATE / SQL Server COLLATE */
+  collation?: string;
+  /** PostgreSQL LC_CTYPE */
+  ctype?: string;
+}
+
+export interface DatabaseSettings {
+  /** Database name (Oracle: unused, the schema is a user) */
+  name: string;
+  /** PostgreSQL / SQL Server schema; Oracle schema user. MySQL treats schema = database. */
+  schema?: string;
+  /** Application user (login role) to create and grant. Passwords are never stored. */
+  user?: string;
+  /** Kept per dialect, so switching the target DB never yields e.g. utf8mb4 on PostgreSQL */
+  options: Partial<Record<DdlDialect, DatabaseOptions>>;
+}
+
 export interface DiagramModel {
   version: number;
+  database?: DatabaseSettings;
   dictionary: DictionaryEntry[];
   tables: Table[];
   relations: Relation[];

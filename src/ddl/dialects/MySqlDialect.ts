@@ -21,13 +21,37 @@ export class MySqlDialect extends SqlDialect {
     return this.sized(entry);
   }
 
+  /** In MySQL a schema is a database */
+  createDatabase(): string[] {
+    const name = this.databaseName || this.schemaName;
+    if (!name) { return [this.note('set a database name to generate CREATE DATABASE')]; }
+    const db = this.quote(name);
+    const { charset, collation } = this.databaseOptions();
+    const stmts = [
+      `CREATE DATABASE IF NOT EXISTS ${db}${charset ? ` CHARACTER SET ${charset}` : ''}${collation ? ` COLLATE ${collation}` : ''};`,
+    ];
+    if (this.userName) {
+      const user = `${this.string(this.userName)}@'%'`;
+      stmts.push(
+        this.changePasswordNote(),
+        `CREATE USER IF NOT EXISTS ${user} IDENTIFIED BY ${this.string(this.passwordPlaceholder)};`,
+        `GRANT ALL PRIVILEGES ON ${db}.* TO ${user};`,
+      );
+    }
+    stmts.push(`USE ${db};`);
+    return stmts;
+  }
+
   protected columnCommentClause(comment: string): string {
     return comment ? ` COMMENT ${this.string(comment)}` : '';
   }
 
+  /** Tables follow the database character set / collation */
   protected tableOptions(table: Table): string {
+    const { charset, collation } = this.databaseOptions();
     const comment = commentText(table);
-    return ` ENGINE=InnoDB DEFAULT CHARSET=utf8mb4${comment ? ` COMMENT=${this.string(comment)}` : ''}`;
+    return ` ENGINE=InnoDB DEFAULT CHARSET=${charset}${collation ? ` COLLATE=${collation}` : ''}` +
+      `${comment ? ` COMMENT=${this.string(comment)}` : ''}`;
   }
 
   renameTable(from: string, to: string): string {

@@ -7,6 +7,8 @@ import { createDialect } from './createDialect';
 export interface DdlOptions {
   insertSeedData?: boolean;
   skipAutoIncrementPk?: boolean;
+  /** Prepend CREATE DATABASE / USER / SCHEMA */
+  includeCreateDatabase?: boolean;
 }
 
 export function isCompleteIndex(idx: TableIndex): boolean {
@@ -20,7 +22,7 @@ export class DdlExporter {
   private readonly schema: Schema;
 
   static export(model: DiagramModel, dialect: DdlDialect = 'mysql', options: DdlOptions = {}): string {
-    return new DdlExporter(model, createDialect(dialect)).build(options);
+    return new DdlExporter(model, createDialect(dialect, model.database)).build(options);
   }
 
   constructor(model: DiagramModel, private readonly dialect: SqlDialect) {
@@ -39,7 +41,8 @@ export class DdlExporter {
       .flatMap((t) => (t.indexes ?? []).filter(isCompleteIndex).map((idx) => dialect.createIndex(t, idx)))
       .join('\n');
 
-    const schemaPart = [creates, foreignKeys, indexes].filter(Boolean).join('\n\n');
+    const database = options.includeCreateDatabase ? dialect.createDatabase().join('\n') : '';
+    const schemaPart = [database, creates, foreignKeys, indexes].filter(Boolean).join('\n\n');
     if (!options.insertSeedData) {
       return schemaPart;
     }
@@ -74,11 +77,10 @@ export class DdlExporter {
         if (dbType === 'BOOLEAN') { return dialect.booleanLiteral(raw === '1' || raw.toLowerCase() === 'true'); }
         return dialect.string(String(raw));
       });
-      return `  (${values.join(', ')})`;
+      return `(${values.join(', ')})`;
     });
 
-    const t = dialect.quote(table.physicalName);
-    const insert = `INSERT INTO ${t} (${cols.map((c) => dialect.quote(c.physicalName)).join(', ')})\nVALUES\n${rows.join(',\n')};`;
+    const insert = dialect.insertStatement(table, cols, rows);
     const identity = cols.find((c) => schema.isAutoIncrement(c));
     return identity ? dialect.wrapExplicitIdentityInsert(table, identity, insert) : insert;
   }
