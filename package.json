@@ -4,6 +4,7 @@
   "description": "Interactive ER diagram editor stored as Markdown",
   "version": "0.0.4",
   "publisher": "nobuyuki-inaba",
+  "icon": "images/icon.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/Nobuyuki-Inaba/markdown-er.git"
