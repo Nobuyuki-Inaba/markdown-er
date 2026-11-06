@@ -3,6 +3,8 @@ import type { DdlDialect, LanguageSetting, Locale } from '@shared/messages';
 import { DdlStyle, DEFAULT_DDL_STYLE } from '@shared/ddlStyle';
 import type { ValidationError } from '@shared/validation';
 
+export type SaveState = 'saved' | 'saving' | 'failed';
+
 interface UiState {
   selectedTableId: string | null;
   selectedRelationId: string | null;
@@ -31,6 +33,8 @@ interface UiState {
   ddlToVersionId: string | null;
   showMinimap: boolean;
   searchQuery: string;
+  /** Whether the latest edit is on disk */
+  saveState: SaveState;
   /** From the extension host (`fileStatus`): the file's format is newer than the extension */
   fileStatus: { readOnly: boolean; formatVersion: number; supportedVersion: number };
 
@@ -58,6 +62,7 @@ interface UiState {
   setDdlVersions: (fromVersionId: string | null, toVersionId: string | null) => void;
   toggleMinimap: () => void;
   setSearchQuery: (query: string) => void;
+  setSaveState: (saveState: SaveState) => void;
   setFileStatus: (status: UiState['fileStatus']) => void;
 }
 
@@ -86,6 +91,7 @@ export const useUiStore = create<UiState>()((set) => ({
   ddlToVersionId: null,
   showMinimap: true,
   searchQuery: '',
+  saveState: 'saved',
   fileStatus: { readOnly: false, formatVersion: 0, supportedVersion: 0 },
 
   selectTable: (id) => set({ selectedTableId: id, selectedRelationId: null, selectedRegionId: null }),
@@ -112,5 +118,6 @@ export const useUiStore = create<UiState>()((set) => ({
   setDdlVersions: (fromVersionId, toVersionId) => set({ ddlFromVersionId: fromVersionId, ddlToVersionId: toVersionId }),
   toggleMinimap: () => set((s) => ({ showMinimap: !s.showMinimap })),
   setSearchQuery: (query) => set({ searchQuery: query }),
+  setSaveState: (saveState) => set({ saveState }),
   setFileStatus: (fileStatus) => set({ fileStatus }),
 }));

@@ -18,6 +18,8 @@ export const ja: Messages = {
   },
 
   toolbar: {
+    saveStates: { saved: '保存済み', saving: '保存中…', failed: '保存失敗', readOnly: '読み取り専用' },
+    saveStateTitle: '変更は自動でファイルに保存されます。Ctrl+S ですぐに保存できます。',
     logicalNames: '論理名表示',
     physicalNames: '物理名表示',
     nameModeTitle: '論理名／物理名の表示を切り替え',

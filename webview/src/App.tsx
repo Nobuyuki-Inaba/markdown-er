@@ -38,9 +38,16 @@ export function App() {
         case 'fileChanged':
           // An edit still waiting to be sent belongs to the previous file contents
           clearTimeout(saveTimerRef.current);
+          useUiStore.getState().setSaveState('saved');
           if (msg.type === 'load') fileUriRef.current = msg.fileUri;
           // Replace the model and drop undo history so Ctrl+Z can't go back to a different file state
           loadModel(msg.payload);
+          break;
+        case 'saveStatus':
+          // An older version's result says nothing about the latest edit
+          if (msg.payload.version >= useDiagramStore.getState().saveVersion) {
+            useUiStore.getState().setSaveState(msg.payload.ok ? 'saved' : 'failed');
+          }
           break;
         case 'ddlResult':
           openDdl(msg.payload.ddl, msg.payload.data, msg.payload.errors);
@@ -91,6 +98,7 @@ export function App() {
       sendToExtension({ type: 'save', payload: model, version: saveVersion, fileUri });
     };
     pendingSaveRef.current = send;
+    useUiStore.getState().setSaveState('saving');
     saveTimerRef.current = setTimeout(send, 300);
     return () => { clearTimeout(saveTimerRef.current); pendingSaveRef.current = null; };
   }, [saveVersion]);
@@ -98,6 +106,14 @@ export function App() {
   const flushSave = () => {
     clearTimeout(saveTimerRef.current);
     pendingSaveRef.current?.();
+  };
+  // Ctrl+S: skip the debounce on both sides. Nothing to do once saved, so an untouched file keeps its bytes.
+  const saveNow = () => {
+    if (useUiStore.getState().saveState === 'saved') return;
+    clearTimeout(saveTimerRef.current);
+    pendingSaveRef.current = null;
+    const { model, saveVersion } = useDiagramStore.getState();
+    sendToExtension({ type: 'save', payload: model, version: saveVersion, fileUri: fileUriRef.current, immediate: true });
   };
 
   // Keyboard shortcuts: undo/redo + Delete selected
@@ -109,6 +125,11 @@ export function App() {
 
       // Leave Ctrl+Z / Ctrl+Y to the browser's text undo while typing
       const key = e.key.toLowerCase();
+      // Works while typing too: inputs update the model on every keystroke
+      if ((e.ctrlKey || e.metaKey) && key === 's' && !e.shiftKey) {
+        e.preventDefault();
+        saveNow();
+      }
       if (!isEditing && (e.ctrlKey || e.metaKey) && key === 'z' && !e.shiftKey) {
         e.preventDefault();
         applyHistory('undo');

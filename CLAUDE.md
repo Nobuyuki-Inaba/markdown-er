@@ -167,7 +167,8 @@ Defined in `shared/messages.ts`.
 | Extension → WebView | `ddlResult` | Generated DDL string + `data` (seed INSERTs alone, full mode), or `errors` (empty `ddl`) when validation fails |
 | Extension → WebView | `undo` / `redo` | (empty) relay from extension host |
 | WebView → Extension | `ready` | Triggers initial `load` |
-| WebView → Extension | `save` | Full `DiagramModel` + monotonic `version` number + `fileUri` it was edited for (debounced 300 ms) |
+| WebView → Extension | `save` | Full `DiagramModel` + monotonic `version` number + `fileUri` it was edited for (debounced 300 ms); `immediate` (Ctrl+S) writes at once |
+| Extension → WebView | `saveStatus` | `{ version, ok }` after a save is written or fails; drives `uiStore.saveState` (toolbar `SaveStatus`) |
 | Extension → WebView | `fileStatus` | `{ readOnly, formatVersion, supportedVersion }` on load / file change (read-only banner) |
 | Extension → WebView | `localeChanged` | `{ locale: 'en' \| 'ja', setting: 'auto' \| 'en' \| 'ja' }` |
 | WebView → Extension | `requestDdl` | `{ mode, baselineRef?, fromVersionId?, toVersionId?, insertSeedData?, skipAutoIncrementPk?, includeCreateDatabase? }` |
@@ -176,7 +177,8 @@ Defined in `shared/messages.ts`.
 
 ### Save / undo invariants
 
-- WebView `saveVersion` only ever increases; `setModel` never resets it. The extension host drops saves with `version <= _saveVersion` and resets its counter only on `ready`.
+- WebView `saveVersion` only ever increases; `setModel` never resets it. The extension host drops saves with `version <= _saveVersion` (an `immediate` save of the same version passes, so Ctrl+S can retry) and resets its counter only on `ready`.
+- `saveState` goes to `saving` on each edit and leaves it only on a `saveStatus` for the latest version, or on `load` / `fileChanged`. Ctrl+S does nothing when already `saved`, so an untouched file keeps its bytes.
 - Replace the model only via `loadModel()` (`diagramStore.ts`) — it bypasses and clears undo history.
 - Undo/redo only via `applyHistory()` — it bumps `saveVersion` so the result is saved, and keeps the current viewport and `schemaVersions`.
 - Viewport changes and `schemaVersions` are never recorded in undo history. The extension host owns `schemaVersions` and the
@@ -265,6 +267,7 @@ viewport:
 
 | Key | Action |
 |---|---|
+| `Ctrl+S` | Save now (skips the debounce; retries a failed write) |
 | `Ctrl+Z` | Undo |
 | `Ctrl+Y` / `Ctrl+Shift+Z` | Redo |
 | `Delete` | Delete selected table or relation (not fired when an input has focus) |

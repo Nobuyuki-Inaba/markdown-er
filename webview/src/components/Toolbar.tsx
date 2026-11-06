@@ -1,5 +1,5 @@
 import { useDiagramStore } from '../store/diagramStore';
-import { useUiStore } from '../store/uiStore';
+import { SaveState, useUiStore } from '../store/uiStore';
 import { sendToExtension } from '../vscodeApi';
 import type { DiagramModel } from '@shared/DiagramModel';
 import type { LanguageSetting } from '@shared/messages';
@@ -69,6 +69,8 @@ export function Toolbar() {
 
       <div style={{ flex: 1 }} />
 
+      <SaveStatus />
+
       {/* Versions and output */}
       <button
         onClick={() => sendToExtension({ type: 'saveVersion', payload: { model: model as DiagramModel } })}
@@ -118,6 +120,28 @@ export function Toolbar() {
     </div>
   );
 }
+
+/** Edits are saved automatically; this shows whether the latest one is on disk */
+function SaveStatus() {
+  const saveState = useUiStore((s) => s.saveState);
+  const readOnly  = useUiStore((s) => s.fileStatus.readOnly);
+  return <SaveStatusLabel state={readOnly ? 'readOnly' : saveState} />;
+}
+
+export function SaveStatusLabel({ state }: { state: SaveState | 'readOnly' }) {
+  const t = useMessages().toolbar;
+  return (
+    <span role="status" title={t.saveStateTitle} style={{ ...saveStatusStyle, color: SAVE_STATE_COLORS[state] }}>
+      {t.saveStates[state]}
+    </span>
+  );
+}
+
+const SAVE_STATE_COLORS = { saved: '#9a9a9a', saving: '#d7ba7d', failed: '#f48771', readOnly: '#d7ba7d' };
+
+const saveStatusStyle: React.CSSProperties = {
+  fontSize: 12, padding: '0 8px', whiteSpace: 'nowrap', userSelect: 'none',
+};
 
 const toolbarStyle: React.CSSProperties = {
   display: 'flex',

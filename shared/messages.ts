@@ -18,6 +18,8 @@ export type ExtToWebMsg =
   | { type: 'localeChanged'; payload: { locale: Locale; setting: LanguageSetting } }
   | { type: 'ddlStyleChanged'; payload: DdlStyle }
   | { type: 'versionSaved'; payload: DiagramModel }
+  /** A `save` of this version was written to disk, or failed */
+  | { type: 'saveStatus'; payload: { version: number; ok: boolean } }
   /** Sent with every load / file change. `readOnly`: the file's format is newer than the extension */
   | { type: 'fileStatus'; payload: { readOnly: boolean; formatVersion: number; supportedVersion: number } }
   | { type: 'undo' }
@@ -25,7 +27,8 @@ export type ExtToWebMsg =
 
 export type WebToExtMsg =
   | { type: 'ready' }
-  | { type: 'save'; payload: DiagramModel; version: number; fileUri: string }
+  /** `immediate`: Ctrl+S — write now, even a version already tried (retries a failed write) */
+  | { type: 'save'; payload: DiagramModel; version: number; fileUri: string; immediate?: boolean }
   | { type: 'requestDdl'; payload: {
       mode: 'full' | 'diff' | 'version-diff';
       baselineRef?: string;

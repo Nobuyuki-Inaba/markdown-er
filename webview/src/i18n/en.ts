@@ -22,6 +22,8 @@ export const en = {
 
   /** Top bar: diagram-wide settings and output */
   toolbar: {
+    saveStates: { saved: 'Saved', saving: 'Saving…', failed: 'Save failed', readOnly: 'Read-only' },
+    saveStateTitle: 'Changes are saved to the file automatically. Ctrl+S saves right away.',
     logicalNames: 'Logical names',
     physicalNames: 'Physical names',
     nameModeTitle: 'Toggle logical/physical name display',
