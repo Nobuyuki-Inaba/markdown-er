@@ -106,10 +106,15 @@ function withoutSet(t: Table, setId: string): Table {
   return { ...t, columnSetIds: ids.length > 0 ? ids : undefined };
 }
 
-/** Use a dictionary type; its NOT NULL default applies (primary keys are NOT NULL anyway) */
+/**
+ * Use a dictionary type; its NOT NULL default applies (primary keys are NOT NULL anyway)
+ * and its name fills whichever column names are still empty.
+ */
 function withDictionaryType(c: Column, entry: DictionaryEntry): Column {
   return {
     ...c,
+    logicalName: c.logicalName || entry.name,
+    physicalName: c.physicalName || entry.name,
     dictionaryId: entry.id,
     type: undefined,
     isNullable: c.isPrimaryKey ? c.isNullable : !entry.notNull,
@@ -195,8 +200,8 @@ export const useDiagramStore = create<DiagramState>()(
         updateModel(set, (m) => {
           const newCol: Column = {
             id: genId('col'),
-            logicalName: 'Column',
-            physicalName: 'column',
+            logicalName: '',
+            physicalName: '',
             dictionaryId: m.dictionary[0]?.id ?? '',
             isPrimaryKey: false,
             isNullable: true,

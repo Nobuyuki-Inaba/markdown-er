@@ -92,7 +92,8 @@ Double-click any table to open the **Table Edit Panel** on the right.
 
 - Set the logical name (display) and physical name (database)
 - Add columns with the **+ Add Column** button
-- For each column: choose a type, toggle PK, set nullable
+- For each column: choose a type, toggle PK, set nullable. New columns have no name; choosing a dictionary type fills
+  the names still empty with the type's name (names already entered are kept)
 
 ### Common columns (Column Sets)
 

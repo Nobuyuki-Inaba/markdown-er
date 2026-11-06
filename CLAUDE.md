@@ -376,7 +376,8 @@ viewport:
   inline registration (with category). Fixed-position popover so panel scrolling doesn't clip it. The picker chooses only the type;
   the size is the row's own **Size** cell (`ColumnRow` `SizeInput`, `10,2` for DECIMAL): editable for direct types that
   `typeTakesSize()` (shared), read-only for dictionary types (the dictionary owns their size), disabled otherwise.
-- Choosing a dictionary type applies its `notNull` to the column (`withDictionaryType` in diagramStore).
+- New columns start with empty names. Choosing a dictionary type applies its `notNull` to the column and fills whichever of
+  the logical / physical names is still empty with the entry's name, never overwriting one (`withDictionaryType` in diagramStore).
 
 ### Database / schema / user notes
 
