@@ -241,7 +241,11 @@ export const ja: Messages = {
     validationFailed: 'DDL を生成できません。次の項目を修正してください:',
     validationErrors: {
       tableNameMissing: (table: string, _column: string) => `テーブル「${table}」: 物理名が未入力です`,
+      tableNameDuplicate: (table: string, _column: string) => `テーブル「${table}」: 物理名が複数のテーブルで重複しています`,
       columnNameMissing: (table: string, column: string) => `テーブル「${table}」のカラム「${column}」: 物理名が未入力です`,
+      columnNameDuplicate: (table: string, column: string) => `テーブル「${table}」のカラム「${column}」: 物理名が複数のカラムで重複しています`,
+      columnTypeMissing: (table: string, column: string) => `テーブル「${table}」のカラム「${column}」: 型が未選択です`,
+      relationColumnMissing: (relation: string, _column: string) => `リレーション「${relation}」: 両方の列を選択するか、FK 制約をオフにしてください`,
     },
     full: '全体 DDL',
     versionDiff: 'バージョン差分',

@@ -24,6 +24,9 @@ export function RelationEditPanel() {
 
   const fromTable = tables.find((t) => t.id === relation.fromTableId);
   const toTable   = tables.find((t) => t.id === relation.toTableId);
+  // Required with or without an FK constraint; only the constraint blocks the DDL (shared/validation.ts)
+  const columnStyle = (table: typeof fromTable, columnId: string): React.CSSProperties =>
+    table?.columns.some((c) => c.id === columnId) ? inputStyle : { ...inputStyle, borderColor: '#e55' };
 
   return (
     <div style={panelStyle}>
@@ -59,7 +62,7 @@ export function RelationEditPanel() {
         <div style={rowStyle}>
           <label style={labelStyle}>{t.fromColumn}</label>
           <select
-            style={inputStyle}
+            style={columnStyle(fromTable, relation.fromColumnId)}
             value={relation.fromColumnId}
             onChange={(e) => updateRelation(selectedRelationId, { fromColumnId: e.target.value })}
           >
@@ -74,7 +77,7 @@ export function RelationEditPanel() {
         <div style={rowStyle}>
           <label style={labelStyle}>{t.toColumn}</label>
           <select
-            style={inputStyle}
+            style={columnStyle(toTable, relation.toColumnId)}
             value={relation.toColumnId}
             onChange={(e) => updateRelation(selectedRelationId, { toColumnId: e.target.value })}
           >

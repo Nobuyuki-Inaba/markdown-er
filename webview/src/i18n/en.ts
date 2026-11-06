@@ -247,7 +247,11 @@ export const en = {
     validationFailed: 'The DDL could not be generated. Fix the following:',
     validationErrors: {
       tableNameMissing: (table: string, _column: string) => `Table "${table}": physical name is required`,
+      tableNameDuplicate: (table: string, _column: string) => `Table "${table}": physical name is used by more than one table`,
       columnNameMissing: (table: string, column: string) => `Table "${table}", column "${column}": physical name is required`,
+      columnNameDuplicate: (table: string, column: string) => `Table "${table}", column "${column}": physical name is used by more than one column`,
+      columnTypeMissing: (table: string, column: string) => `Table "${table}", column "${column}": type is not set`,
+      relationColumnMissing: (relation: string, _column: string) => `Relation "${relation}": choose both columns, or turn off the FK constraint`,
     },
     full: 'Full DDL',
     versionDiff: 'Version Diff',

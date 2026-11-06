@@ -94,7 +94,9 @@ Double-click any table to open the **Table Edit Panel** on the right.
 - Add columns with the **+ Add Column** button
 - For each column: choose a type, toggle PK, set nullable. New columns start with no name and no type; choosing a dictionary
   type sets the logical name to the type's name if it is still empty
-- A table or column without a physical name is outlined in red, and the DDL can't be generated until it has one
+- A table or column without a physical name is outlined in red. The DDL can't be generated until every name is set and
+  unique, every column has a type, and every relation with an FK constraint has both columns; the DDL dialog lists what to fix
+- A relation needs no FK constraint (a logical FK), but its columns should still be chosen: an unset one is outlined in red
 
 ### Common columns (Column Sets)
 

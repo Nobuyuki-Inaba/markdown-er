@@ -23,7 +23,7 @@ markdown-er/
 │   ├── databaseOptions.ts  # Per-dialect CREATE DATABASE option fields (labels, defaults, suggestions)
 │   ├── autoIncrement.ts    # Auto-increment column rule + per-dialect integer types (DDL and seed editor)
 │   ├── ddlReplacements.ts  # Find / replace rules applied to the generated DDL
-│   ├── validation.ts       # validateModel(): errors that block DDL generation (empty physical names)
+│   ├── validation.ts       # validateModel(): errors that block DDL generation (names, types, FK columns)
 │   └── messages.ts         # Typed postMessage protocol between extension ↔ WebView
 │
 ├── src/                    # Extension host (Node.js / CommonJS)
@@ -364,6 +364,8 @@ viewport:
 - `validateModel()` (`shared/validation.ts`, pure) runs on the target model at the start of `ErmdPanel._generateDdl()`. On errors the
   host sends them in `ddlResult` and generates nothing; the DDL dialog lists them (`ddl.validationErrors`, one message per `code`).
 - It blocks only DDL generation, never saving, and lives outside `DdlExporter` so the generator stays usable on any model.
+- Checks: physical names set and unique (tables; columns per table; ignoring case), every column has a type, and a relation with
+  an FK constraint has both columns. Logical relations (`hasForeignKey: false`) never block; `RelationEditPanel` outlines their unset columns in red.
 - The physical name inputs are outlined in red while empty.
 
 ### DDL replacement notes
