@@ -100,7 +100,7 @@ export function TableEditPanel() {
         <div style={rowStyle}>
           <label style={labelStyle}>{messages.common.physicalName}</label>
           <input
-            style={inputStyle}
+            style={{ ...inputStyle, ...(table.physicalName.trim() ? {} : { borderColor: '#e55' }) }}
             value={table.physicalName}
             onChange={(e) => updateTable(selectedTableId, { physicalName: e.target.value })}
           />

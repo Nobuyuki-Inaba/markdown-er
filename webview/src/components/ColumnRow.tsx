@@ -88,7 +88,7 @@ export function ColumnRow({ ownerId, column, dictionary, onDelete, lockedBy, aut
         />
 
         <input
-          style={inputStyle}
+          style={{ ...inputStyle, ...(column.physicalName.trim() ? {} : { borderColor: '#e55' }) }}
           value={column.physicalName}
           placeholder={messages.common.physicalName}
           onChange={(e) => updateColumn(ownerId, column.id, { physicalName: e.target.value })}

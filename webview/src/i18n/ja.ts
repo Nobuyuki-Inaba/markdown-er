@@ -238,6 +238,11 @@ export const ja: Messages = {
     saveData: 'データを保存…',
     saveDataTitle: '初期データの INSERT 文だけをファイルに保存（既定のファイル名: markdown-er.ddl.dataOutputFile）',
     saveDataNone: '初期データがありません（全体 DDL のみ）',
+    validationFailed: 'DDL を生成できません。次の項目を修正してください:',
+    validationErrors: {
+      tableNameMissing: (table: string, _column: string) => `テーブル「${table}」: 物理名が未入力です`,
+      columnNameMissing: (table: string, column: string) => `テーブル「${table}」のカラム「${column}」: 物理名が未入力です`,
+    },
     full: '全体 DDL',
     versionDiff: 'バージョン差分',
     versionDiffHint: '（バージョンを保存すると比較できます）',

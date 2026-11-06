@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { DdlDialect, LanguageSetting, Locale } from '@shared/messages';
 import { DdlStyle, DEFAULT_DDL_STYLE } from '@shared/ddlStyle';
+import type { ValidationError } from '@shared/validation';
 
 interface UiState {
   selectedTableId: string | null;
@@ -14,6 +15,8 @@ interface UiState {
   lastDdl: string;
   /** Seed-data INSERTs alone (full mode), for "Save data…" */
   lastDdlData: string;
+  /** Why the DDL could not be generated */
+  lastDdlErrors: ValidationError[];
   dialect: DdlDialect;
   locale: Locale;
   languageSetting: LanguageSetting;
@@ -42,7 +45,7 @@ interface UiState {
   closeCsvImport: () => void;
   openVersions: () => void;
   closeVersions: () => void;
-  openDdl: (ddl: string, data?: string) => void;
+  openDdl: (ddl: string, data?: string, errors?: ValidationError[]) => void;
   closeDdl: () => void;
   setDialect: (dialect: DdlDialect) => void;
   setLocale: (locale: Locale, setting: LanguageSetting) => void;
@@ -69,6 +72,7 @@ export const useUiStore = create<UiState>()((set) => ({
   isDdlOpen: false,
   lastDdl: '',
   lastDdlData: '',
+  lastDdlErrors: [],
   dialect: 'mysql',
   locale: 'en',
   languageSetting: 'auto',
@@ -95,7 +99,7 @@ export const useUiStore = create<UiState>()((set) => ({
   closeCsvImport: () => set({ isCsvImportOpen: false }),
   openVersions: () => set({ isVersionsOpen: true }),
   closeVersions: () => set({ isVersionsOpen: false }),
-  openDdl: (ddl, data = '') => set({ isDdlOpen: true, lastDdl: ddl, lastDdlData: data }),
+  openDdl: (ddl, data = '', errors = []) => set({ isDdlOpen: true, lastDdl: ddl, lastDdlData: data, lastDdlErrors: errors }),
   closeDdl: () => set({ isDdlOpen: false }),
   setDialect: (dialect) => set({ dialect }),
   setLocale: (locale, languageSetting) => set({ locale, languageSetting }),

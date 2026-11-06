@@ -244,6 +244,11 @@ export const en = {
     saveData: 'Save data…',
     saveDataTitle: 'Save only the seed-data INSERTs to a file (default name: markdown-er.ddl.dataOutputFile)',
     saveDataNone: 'No seed data (full DDL only)',
+    validationFailed: 'The DDL could not be generated. Fix the following:',
+    validationErrors: {
+      tableNameMissing: (table: string, _column: string) => `Table "${table}": physical name is required`,
+      columnNameMissing: (table: string, column: string) => `Table "${table}", column "${column}": physical name is required`,
+    },
     full: 'Full DDL',
     versionDiff: 'Version Diff',
     versionDiffHint: '(save a version to compare)',

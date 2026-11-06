@@ -108,13 +108,12 @@ function withoutSet(t: Table, setId: string): Table {
 
 /**
  * Use a dictionary type; its NOT NULL default applies (primary keys are NOT NULL anyway)
- * and its name fills whichever column names are still empty.
+ * and its name becomes the logical name if that is still empty.
  */
 function withDictionaryType(c: Column, entry: DictionaryEntry): Column {
   return {
     ...c,
     logicalName: c.logicalName || entry.name,
-    physicalName: c.physicalName || entry.name,
     dictionaryId: entry.id,
     type: undefined,
     isNullable: c.isPrimaryKey ? c.isNullable : !entry.notNull,
@@ -202,7 +201,7 @@ export const useDiagramStore = create<DiagramState>()(
             id: genId('col'),
             logicalName: '',
             physicalName: '',
-            dictionaryId: m.dictionary[0]?.id ?? '',
+            dictionaryId: '',
             isPrimaryKey: false,
             isNullable: true,
             defaultValue: null,

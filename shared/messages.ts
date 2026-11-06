@@ -1,5 +1,6 @@
 import { DiagramModel, DdlDialect } from './DiagramModel';
 import type { DdlStyle } from './ddlStyle';
+import type { ValidationError } from './validation';
 
 export type { DdlDialect };
 
@@ -12,7 +13,7 @@ export type ExtToWebMsg =
   | { type: 'load'; payload: DiagramModel; fileUri: string }
   | { type: 'fileChanged'; payload: DiagramModel }
   /** `data`: seed-data INSERTs alone (full mode), for saving to a separate file */
-  | { type: 'ddlResult'; payload: { ddl: string; data?: string; mode: 'full' | 'diff' | 'version-diff' } }
+  | { type: 'ddlResult'; payload: { ddl: string; data?: string; mode: 'full' | 'diff' | 'version-diff'; errors?: ValidationError[] } }
   | { type: 'dialectChanged'; payload: { dialect: DdlDialect } }
   | { type: 'localeChanged'; payload: { locale: Locale; setting: LanguageSetting } }
   | { type: 'ddlStyleChanged'; payload: DdlStyle }

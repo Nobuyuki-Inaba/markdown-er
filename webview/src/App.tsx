@@ -43,7 +43,7 @@ export function App() {
           loadModel(msg.payload);
           break;
         case 'ddlResult':
-          openDdl(msg.payload.ddl, msg.payload.data);
+          openDdl(msg.payload.ddl, msg.payload.data, msg.payload.errors);
           break;
         case 'fileStatus':
           useUiStore.getState().setFileStatus(msg.payload);
@@ -248,6 +248,8 @@ function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
   };
 
   const data = useUiStore((s) => s.lastDdlData);
+  const errors = useUiStore((s) => s.lastDdlErrors);
+  const blocked = errors.length > 0;
   const saveFile = (kind: 'ddl' | 'data') =>
     sendToExtension({ type: 'saveSqlFile', payload: { kind, text: kind === 'ddl' ? ddl : data } });
 
@@ -281,7 +283,7 @@ function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderBottom: '1px solid #333' }}>
           <span style={{ fontWeight: 700, fontSize: 14 }}>{t.title}</span>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => saveFile('ddl')} style={{ ...modalBtnStyle, background: '#4a7c9e' }} title={t.saveDdlTitle}>{t.saveDdl}</button>
+            <button onClick={() => saveFile('ddl')} disabled={blocked} style={{ ...modalBtnStyle, background: '#4a7c9e', opacity: blocked ? 0.4 : 1 }} title={t.saveDdlTitle}>{t.saveDdl}</button>
             <button
               onClick={() => saveFile('data')}
               disabled={!data}
@@ -290,7 +292,7 @@ function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
             >
               {t.saveData}
             </button>
-            <button onClick={copyToClipboard} style={{ ...modalBtnStyle, background: '#4a7c9e' }}>{t.copy}</button>
+            <button onClick={copyToClipboard} disabled={blocked} style={{ ...modalBtnStyle, background: '#4a7c9e', opacity: blocked ? 0.4 : 1 }}>{t.copy}</button>
             <button onClick={onClose} style={{ ...modalBtnStyle, background: '#555' }}>{messages.common.close}</button>
           </div>
         </div>
@@ -388,9 +390,18 @@ function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
 
         <DdlReplacementsEditor />
 
-        <pre style={{ flex: 1, overflowY: 'auto', margin: 0, padding: 14, fontSize: 12, fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-          {ddl}
-        </pre>
+        {blocked ? (
+          <div style={{ flex: 1, overflowY: 'auto', padding: 14, fontSize: 12 }}>
+            <div style={{ color: '#f48771', fontWeight: 700, marginBottom: 6 }}>{t.validationFailed}</div>
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              {errors.map((e, i) => <li key={i}>{t.validationErrors[e.code](e.table, e.column ?? '')}</li>)}
+            </ul>
+          </div>
+        ) : (
+          <pre style={{ flex: 1, overflowY: 'auto', margin: 0, padding: 14, fontSize: 12, fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+            {ddl}
+          </pre>
+        )}
       </div>
     </div>
   );

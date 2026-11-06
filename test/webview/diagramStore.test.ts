@@ -23,16 +23,22 @@ describe('column names', () => {
     expect([c.logicalName, c.physicalName]).toEqual(['', '']);
   });
 
-  it('names an empty column after the chosen dictionary entry', () => {
-    const id = addColumn();
-    store().setColumnType('t_users', id, { entry });
-    expect(column(id)).toMatchObject({ logicalName: 'Price', physicalName: 'Price', dictionaryId: 'd_price' });
+  it('starts a new column without a type', () => {
+    const c = column(addColumn());
+    expect(c.dictionaryId).toBe('');
+    expect(c.type).toBeUndefined();
   });
 
-  it('names an empty column after a dictionary entry registered from the picker', () => {
+  it('sets only the logical name from the chosen dictionary entry', () => {
+    const id = addColumn();
+    store().setColumnType('t_users', id, { entry });
+    expect(column(id)).toMatchObject({ logicalName: 'Price', physicalName: '', dictionaryId: 'd_price' });
+  });
+
+  it('sets the logical name from a dictionary entry registered in the picker', () => {
     const id = addColumn();
     store().addColumnType('t_users', id, { ...entry, name: 'Registered' });
-    expect(column(id)).toMatchObject({ logicalName: 'Registered', physicalName: 'Registered' });
+    expect(column(id)).toMatchObject({ logicalName: 'Registered', physicalName: '' });
   });
 
   it('never overwrites a name already entered', () => {
@@ -40,13 +46,6 @@ describe('column names', () => {
     store().updateColumn('t_users', id, { logicalName: '価格', physicalName: 'unit_price' });
     store().setColumnType('t_users', id, { entry });
     expect(column(id)).toMatchObject({ logicalName: '価格', physicalName: 'unit_price', dictionaryId: 'd_price' });
-  });
-
-  it('fills only the name left empty', () => {
-    const id = addColumn();
-    store().updateColumn('t_users', id, { logicalName: '価格' });
-    store().setColumnType('t_users', id, { entry });
-    expect(column(id)).toMatchObject({ logicalName: '価格', physicalName: 'Price' });
   });
 
   it('leaves names empty for a basic type', () => {

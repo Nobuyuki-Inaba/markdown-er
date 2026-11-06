@@ -10,6 +10,7 @@ import { languageSetting, resolveLocale, t } from './i18n';
 import { DiagramModel, SchemaVersion } from '../shared/DiagramModel';
 import { DdlDialect, ExtToWebMsg, SqlFileKind, WebToExtMsg } from '../shared/messages';
 import { DdlStyle, DEFAULT_DDL_STYLE, DDL_STYLE_KEYS } from '../shared/ddlStyle';
+import { validateModel } from '../shared/validation';
 
 export class ErmdPanel {
   public static currentPanel: ErmdPanel | undefined;
@@ -384,6 +385,17 @@ export class ErmdPanel {
   ) {
     const dialect = this._getDialect();
     const style = this._getDdlStyle();
+    const toVer = mode === 'version-diff' && options.toVersionId
+      ? model.schemaVersions?.find((v) => v.id === options.toVersionId)
+      : undefined;
+    const toModel: DiagramModel = toVer
+      ? { ...model, tables: toVer.tables, relations: toVer.relations, dictionary: toVer.dictionary }
+      : model;
+    const errors = validateModel(toModel);
+    if (errors.length > 0) {
+      this._send({ type: 'ddlResult', payload: { ddl: '', mode, errors } });
+      return;
+    }
     let ddl: string;
     let data: string | undefined;
     if (mode === 'full') {
@@ -395,13 +407,7 @@ export class ErmdPanel {
       if (!fromVer) {
         ddl = t().versionNotFound;
       } else {
-        const toVer = options.toVersionId
-          ? versions.find((v) => v.id === options.toVersionId)
-          : undefined;
         const fromModel: DiagramModel = { ...model, tables: fromVer.tables, relations: fromVer.relations, dictionary: fromVer.dictionary };
-        const toModel: DiagramModel = toVer
-          ? { ...model, tables: toVer.tables, relations: toVer.relations, dictionary: toVer.dictionary }
-          : model;
         ddl = SchemaDiffer.diff(fromModel, toModel, dialect, style);
       }
     } else {

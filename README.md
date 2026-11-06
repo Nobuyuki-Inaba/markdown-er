@@ -92,8 +92,9 @@ Double-click any table to open the **Table Edit Panel** on the right.
 
 - Set the logical name (display) and physical name (database)
 - Add columns with the **+ Add Column** button
-- For each column: choose a type, toggle PK, set nullable. New columns have no name; choosing a dictionary type fills
-  the names still empty with the type's name (names already entered are kept)
+- For each column: choose a type, toggle PK, set nullable. New columns start with no name and no type; choosing a dictionary
+  type sets the logical name to the type's name if it is still empty
+- A table or column without a physical name is outlined in red, and the DDL can't be generated until it has one
 
 ### Common columns (Column Sets)
 

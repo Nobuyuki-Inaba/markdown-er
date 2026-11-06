@@ -23,6 +23,7 @@ markdown-er/
 │   ├── databaseOptions.ts  # Per-dialect CREATE DATABASE option fields (labels, defaults, suggestions)
 │   ├── autoIncrement.ts    # Auto-increment column rule + per-dialect integer types (DDL and seed editor)
 │   ├── ddlReplacements.ts  # Find / replace rules applied to the generated DDL
+│   ├── validation.ts       # validateModel(): errors that block DDL generation (empty physical names)
 │   └── messages.ts         # Typed postMessage protocol between extension ↔ WebView
 │
 ├── src/                    # Extension host (Node.js / CommonJS)
@@ -163,7 +164,7 @@ Defined in `shared/messages.ts`.
 |---|---|---|
 | Extension → WebView | `load` | Full `DiagramModel` + `fileUri` on file open |
 | Extension → WebView | `fileChanged` | Full `DiagramModel` on external file edit |
-| Extension → WebView | `ddlResult` | Generated DDL string + `data` (seed INSERTs alone, full mode) |
+| Extension → WebView | `ddlResult` | Generated DDL string + `data` (seed INSERTs alone, full mode), or `errors` (empty `ddl`) when validation fails |
 | Extension → WebView | `undo` / `redo` | (empty) relay from extension host |
 | WebView → Extension | `ready` | Triggers initial `load` |
 | WebView → Extension | `save` | Full `DiagramModel` + monotonic `version` number + `fileUri` it was edited for (debounced 300 ms) |
@@ -358,6 +359,13 @@ viewport:
   needed if `quoteIdentifiers` is off (`needsQuoting()`; PostgreSQL also quotes capitals; Oracle ignores the option).
 - Extension sends `ddlStyleChanged` on load / config change; the DDL dialog checkboxes send `setDdlStyle`.
 
+### Validation notes
+
+- `validateModel()` (`shared/validation.ts`, pure) runs on the target model at the start of `ErmdPanel._generateDdl()`. On errors the
+  host sends them in `ddlResult` and generates nothing; the DDL dialog lists them (`ddl.validationErrors`, one message per `code`).
+- It blocks only DDL generation, never saving, and lives outside `DdlExporter` so the generator stays usable on any model.
+- The physical name inputs are outlined in red while empty.
+
 ### DDL replacement notes
 
 - `DiagramModel.ddlReplacements` (`ermd-ddl-replacements` block): `{ id, dialect?, find, replace, regex?, enabled?, comment? }`,
@@ -376,8 +384,8 @@ viewport:
   inline registration (with category). Fixed-position popover so panel scrolling doesn't clip it. The picker chooses only the type;
   the size is the row's own **Size** cell (`ColumnRow` `SizeInput`, `10,2` for DECIMAL): editable for direct types that
   `typeTakesSize()` (shared), read-only for dictionary types (the dictionary owns their size), disabled otherwise.
-- New columns start with empty names. Choosing a dictionary type applies its `notNull` to the column and fills whichever of
-  the logical / physical names is still empty with the entry's name, never overwriting one (`withDictionaryType` in diagramStore).
+- New columns start with empty names and no type. Choosing a dictionary type applies its `notNull` to the column and, if the
+  logical name is empty, sets it to the entry's name; an entered name is never overwritten (`withDictionaryType` in diagramStore).
 
 ### Database / schema / user notes
 
