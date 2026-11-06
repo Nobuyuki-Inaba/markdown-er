@@ -110,6 +110,7 @@ Run from the **repo root** unless noted.
 | `npm run build` | `build:ext` + `build:webview` |
 | `npm test` | Run vitest (DDL / diff / parser / format / migration / extension / webview) |
 | `npm run icon` | Render `images/icon.svg` → `images/icon.png` (commit both) |
+| `npm run notices` | Generate `THIRD_PARTY_NOTICES.md` (gitignored, runs in `vscode:prepublish`) |
 | `npx tsc --noEmit` | Type-check extension host only |
 | `cd webview && npx tsc --noEmit` | Type-check WebView only |
 
@@ -125,7 +126,10 @@ DDL output changes show up in `test/ddl/__snapshots__`; review them and update w
 - `package.json` versions are exact; lockfiles resolve only from registry.npmjs.org with integrity hashes. Use `npm ci`
   to install; add or update with `npm install -D <pkg>@<version>` and review the lockfile diff.
 - Keep runtime dependencies few (they ship in the bundle): js-yaml, React, @xyflow/react, zustand, zundo, dagre.
-  Prefer a few lines of own code over a new package.
+  Prefer a few lines of own code over a new package. Anything bundled belongs in `dependencies`, not `devDependencies`:
+  CI audits shipped code by `--omit=dev`.
+- `scripts/make-notices.mjs` writes the licenses of everything in the import graph to `THIRD_PARTY_NOTICES.md` when packaging, and
+  fails if a bundled package has no license file. Check the license of a new dependency: all are MIT / ISC / BSD-3-Clause today.
 - CI (`.github/workflows/ci.yml`) runs `npm audit signatures` and `npm audit` (high for shipped deps, critical for
   tooling). Actions are pinned to commit SHAs; tokens are read-only except the release job.
 - Dependabot (`.github/dependabot.yml`) proposes grouped weekly updates after a 7-day cooldown.

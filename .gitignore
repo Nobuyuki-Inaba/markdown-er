@@ -1,6 +1,7 @@
 node_modules/
 out/
 media/
+THIRD_PARTY_NOTICES.md
 webview/node_modules/
 webview/dist/
 *.vsix

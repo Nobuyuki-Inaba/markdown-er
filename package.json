@@ -179,7 +179,8 @@
     "build:ext": "esbuild src/extension.ts --bundle --outfile=out/extension.js --format=cjs --platform=node --external:vscode --target=node20",
     "build:webview": "cd webview && npm run build",
     "build": "npm run build:ext && npm run build:webview",
-    "vscode:prepublish": "npm run build",
+    "notices": "node scripts/make-notices.mjs",
+    "vscode:prepublish": "npm run build && npm run notices",
     "package": "vsce package",
     "test": "vitest run",
     "icon": "node scripts/make-icon.mjs"
