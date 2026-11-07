@@ -318,6 +318,14 @@ Click **Versions** in the toolbar to open the Versions panel.
 Each row shows the version name, save date, table count, and relation count.  
 Click **Delete** and confirm to remove a version from the file.
 
+#### Compare versions
+
+Click **Compare** on a version. Choose any two: saved versions, or the current state. The list shows added, removed and changed tables, columns, indexes, constraints and relations, with each value before and after. **Show ALTER DDL** opens the statements for the same pair when the first is a saved version.
+
+#### Restore a version
+
+Click **Restore** on a version and confirm. The tables, relations, dictionary and layout go back to that version as one edit, so `Ctrl+Z` undoes it. Other versions are untouched, as are test tables, test data, column sets, database settings and DDL replacement rules.
+
 #### Generate Version Diff DDL
 
 Click **Export DDL** → select the **Version Diff** radio button.  

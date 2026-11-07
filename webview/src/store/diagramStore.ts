@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { temporal } from 'zundo';
 import {
-  DiagramModel, Table, Column, ColumnSet, Relation, DictionaryEntry,
+  DiagramModel, Table, Column, ColumnSet, Relation, DictionaryEntry, SchemaVersion,
   createEmptyModel, TableLayout, RegionLayout,
   TableIndex, TableConstraint, ConstraintType, DatabaseSettings, DatabaseOptions, DdlDialect, TypeSpec,
 } from '@shared/DiagramModel';
@@ -9,6 +9,7 @@ import { genId } from '../util/idgen';
 import { computeAutoLayout, LayoutDirection, TablePosition } from '../util/autoLayout';
 import type { ParsedTableImport, ParsedDictionaryImport } from '../util/csvImport';
 import type { SqlImport } from '../util/sqlImport/buildSqlImport';
+import { restoreVersion } from '@shared/schemaCompare';
 import type { DdlReplacement } from '@shared/ddlReplacements';
 import { syncColumnSets } from '../util/columnSets';
 
@@ -70,6 +71,8 @@ interface DiagramState {
   importTables: (parsed: ParsedTableImport) => void;
   importDictionaryEntries: (parsed: ParsedDictionaryImport) => void;
   importSql: (parsed: SqlImport, options: SqlImportOptions) => void;
+  /** Puts the production schema back to a saved version, as one undo step */
+  restoreVersion: (version: SchemaVersion) => void;
   /** Create a dictionary entry and assign it to the column (one undo step) */
   addColumnType: (ownerId: string, columnId: string, entry: Omit<DictionaryEntry, 'id'>) => void;
   /** Assign a dictionary type, or a type given directly */
@@ -457,6 +460,8 @@ export const useDiagramStore = create<DiagramState>()(
             tables: [...m.layout.tables, ...gridLayouts(tables, m.layout.tables.length)],
           },
         })),
+
+      restoreVersion: (version) => updateModel(set, (m) => restoreVersion(m, version)),
 
       importSql: ({ tables, relations, existingSeedRows }, { replaceSeedData, asTest }) =>
         updateModel(set, (m) => ({

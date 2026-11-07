@@ -118,3 +118,20 @@ describe('test data', () => {
     expect(modelToEdges(model, false).map((e) => e.id)).toEqual(['profile_user', 'item_product']);
   });
 });
+
+describe('restoreVersion', () => {
+  beforeEach(() => loadModel(shopModel()));
+
+  it('is one undo step and is saved', () => {
+    const { tables, relations, dictionary, layout } = store().model;
+    const version = { id: 'v1', name: 'v1', date: '', tables: tables.slice(0, 1), relations: [], dictionary, layout };
+    const saveVersion = store().saveVersion;
+    store().restoreVersion(version);
+    expect(store().model.tables).toHaveLength(1);
+    expect(store().saveVersion).toBeGreaterThan(saveVersion);
+    expect(relations.length).toBeGreaterThan(0);
+    applyHistory('undo');
+    expect(store().model.tables).toHaveLength(tables.length);
+    expect(store().model.relations).toHaveLength(relations.length);
+  });
+});

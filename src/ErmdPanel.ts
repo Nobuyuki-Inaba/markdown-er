@@ -10,6 +10,7 @@ import { languageSetting, resolveLocale, t } from './i18n';
 import { DiagramModel, SchemaVersion } from '../shared/DiagramModel';
 import { DdlDialect, DdlMode, ExtToWebMsg, SqlFileKind, WebToExtMsg } from '../shared/messages';
 import { DdlStyle, DEFAULT_DDL_STYLE, DDL_STYLE_KEYS } from '../shared/ddlStyle';
+import { versionModel } from '../shared/schemaCompare';
 import { productionModel } from '../shared/testData';
 import { validateModel } from '../shared/validation';
 
@@ -416,9 +417,7 @@ export class ErmdPanel {
     const toVer = mode === 'version-diff' && options.toVersionId
       ? model.schemaVersions?.find((v) => v.id === options.toVersionId)
       : undefined;
-    const toModel: DiagramModel = toVer
-      ? { ...model, tables: toVer.tables, relations: toVer.relations, dictionary: toVer.dictionary }
-      : model;
+    const toModel = toVer ? versionModel(model, toVer) : model;
     // Test DDL runs on top of production, so it needs both to be right
     const errors = validateModel(mode === 'test' ? toModel : productionModel(toModel));
     if (errors.length > 0) {
@@ -439,8 +438,7 @@ export class ErmdPanel {
       if (!fromVer) {
         ddl = t().versionNotFound;
       } else {
-        const fromModel: DiagramModel = { ...model, tables: fromVer.tables, relations: fromVer.relations, dictionary: fromVer.dictionary };
-        ddl = SchemaDiffer.diff(fromModel, toModel, dialect, style);
+        ddl = SchemaDiffer.diff(versionModel(model, fromVer), toModel, dialect, style);
       }
     } else {
       const ref = baselineRef ?? 'HEAD~1';
