@@ -13,6 +13,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.3] - 2026-11-07
+
+### Added
+
+- **SQL import** — paste or open DDL and `INSERT` statements, including `mysqldump` and `pg_dump` output, in any of the
+  five dialects. Tables, relations, indexes, constraints, comments and seed data come in after a preview, which also
+  warns about what the diagram can't hold. Undo with `Ctrl+Z`.
+- **Test tables and test data** — mark a table as test-only and give production tables test rows. They are kept in
+  `<file>.ermd.test.yaml`, stay out of production DDL, schema diffs and versions, and get their own **Test DDL** with
+  separate output files (`markdown-er.ddl.testOutputFile`, `testDataOutputFile`). Test tables can be hidden on the canvas.
+  Without test data no file is created and the `.ermd` file doesn't change.
+- **Restore a version** — put the production schema back to a saved version, as one undoable edit. Test tables and test
+  data stay.
+- **Compare versions** — any two saved versions, or a version and the current state, item by item: tables, columns,
+  indexes, constraints and relations, with each value before and after.
+- **Save status** in the toolbar (Saving… / Saved / Save failed) and **`Ctrl+S`** to save right away. Changes are still
+  saved automatically.
+- **DDL validation** — the DDL is not generated, and the dialog lists what to fix, when a physical name is missing or
+  duplicated, a column has no type, or a relation with an FK constraint has no column. Saving the diagram is never blocked.
+- **Third-party notices** in the extension package (`THIRD_PARTY_NOTICES.md`).
+
+### Changed
+
+- New columns start with no name and no type, instead of `Column` / `column` and the first dictionary entry. Choosing a
+  dictionary type sets the logical name if it is empty.
+- **Index and constraint names are optional.** Left empty, they come from the table and columns (`ix_orders_user_id`,
+  `ux_…`, `uq_…`, `ck_orders_1`). The name box shows the name it will get.
+- A diagram that hits a validation rule now shows errors instead of DDL. That includes columns without a type, which
+  used to fall back to `VARCHAR(255)`.
+
+### Fixed
+
+- A UNIQUE or CHECK constraint without a name was left out of the DDL with no warning.
+- Labels in panels were hard to read on a dark theme and looked disabled.
+- **Export DDL** in the toolbar always opens the full DDL, even if the dialog was last left on another mode.
+- `dagre` is now a runtime dependency, so the CI audit of shipped code covers it and `lodash`.
+
+---
+
 ## [0.1.2] - 2026-11-03
 
 ### Added
@@ -153,7 +192,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Indexes and constraints — define indexes (UNIQUE / INDEX) and check/unique constraints per table; exported in DDL
 - CSV import for seed data — import rows from a CSV file; download a column-header template CSV
 
-[Unreleased]: https://github.com/Nobuyuki-Inaba/markdown-er/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/Nobuyuki-Inaba/markdown-er/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/Nobuyuki-Inaba/markdown-er/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/Nobuyuki-Inaba/markdown-er/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/Nobuyuki-Inaba/markdown-er/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/Nobuyuki-Inaba/markdown-er/compare/v0.0.4...v0.1.0
