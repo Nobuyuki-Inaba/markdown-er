@@ -14,6 +14,7 @@ export function Toolbar() {
   const openDictionary  = useUiStore((s) => s.openDictionary);
   const openColumnSets  = useUiStore((s) => s.openColumnSets);
   const openCsvImport   = useUiStore((s) => s.openCsvImport);
+  const openSqlImport   = useUiStore((s) => s.openSqlImport);
   const openVersions    = useUiStore((s) => s.openVersions);
   const openDatabase    = useUiStore((s) => s.openDatabase);
   const languageSetting = useUiStore((s) => s.languageSetting);
@@ -62,6 +63,9 @@ export function Toolbar() {
       </button>
       <button onClick={openCsvImport} style={btnStyle} title={t.importCsvTitle}>
         {t.importCsv}
+      </button>
+      <button onClick={openSqlImport} style={btnStyle} title={t.importSqlTitle}>
+        {t.importSql}
       </button>
       <button onClick={openDatabase} style={btnStyle} title={t.databaseTitle}>
         {t.database}

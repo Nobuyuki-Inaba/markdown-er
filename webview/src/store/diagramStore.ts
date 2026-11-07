@@ -8,6 +8,7 @@ import {
 import { genId } from '../util/idgen';
 import { computeAutoLayout, LayoutDirection, TablePosition } from '../util/autoLayout';
 import type { ParsedTableImport, ParsedDictionaryImport } from '../util/csvImport';
+import type { SqlImport } from '../util/sqlImport/buildSqlImport';
 import type { DdlReplacement } from '@shared/ddlReplacements';
 import { syncColumnSets } from '../util/columnSets';
 
@@ -64,6 +65,8 @@ interface DiagramState {
 
   importTables: (parsed: ParsedTableImport) => void;
   importDictionaryEntries: (parsed: ParsedDictionaryImport) => void;
+  /** `replaceSeedData`: rows for a table already in the diagram replace its rows instead of being added to them */
+  importSql: (parsed: SqlImport, replaceSeedData: boolean) => void;
   /** Create a dictionary entry and assign it to the column (one undo step) */
   addColumnType: (ownerId: string, columnId: string, entry: Omit<DictionaryEntry, 'id'>) => void;
   /** Assign a dictionary type, or a type given directly */
@@ -118,6 +121,21 @@ function withDictionaryType(c: Column, entry: DictionaryEntry): Column {
     type: undefined,
     isNullable: c.isPrimaryKey ? c.isNullable : !entry.notNull,
   };
+}
+
+/** Imported tables in a grid below the top-left corner */
+function gridLayouts(tables: Table[], existingCount: number): TableLayout[] {
+  const GRID_COLS = 4;
+  const STEP_X = 280;
+  const STEP_Y = 200;
+  const startX = 60;
+  const startY = 60 + existingCount * 10;
+  return tables.map((t, i) => ({
+    tableId: t.id,
+    x: startX + (i % GRID_COLS) * STEP_X,
+    y: startY + Math.floor(i / GRID_COLS) * STEP_Y,
+    width: 260,
+  }));
 }
 
 function nextVersion(state: DiagramState): number {
@@ -408,28 +426,32 @@ export const useDiagramStore = create<DiagramState>()(
         })),
 
       importTables: ({ tables, autoCreatedDictEntries }) =>
-        updateModel(set, (m) => {
-          const GRID_COLS = 4;
-          const STEP_X = 280;
-          const STEP_Y = 200;
-          const startX = 60;
-          const startY = 60 + m.layout.tables.length * 10;
-          const newLayouts: TableLayout[] = tables.map((t, i) => ({
-            tableId: t.id,
-            x: startX + (i % GRID_COLS) * STEP_X,
-            y: startY + Math.floor(i / GRID_COLS) * STEP_Y,
-            width: 260,
-          }));
-          return {
-            ...m,
-            dictionary: [...m.dictionary, ...autoCreatedDictEntries],
-            tables: [...m.tables, ...tables],
-            layout: {
-              ...m.layout,
-              tables: [...m.layout.tables, ...newLayouts],
-            },
-          };
-        }),
+        updateModel(set, (m) => ({
+          ...m,
+          dictionary: [...m.dictionary, ...autoCreatedDictEntries],
+          tables: [...m.tables, ...tables],
+          layout: {
+            ...m.layout,
+            tables: [...m.layout.tables, ...gridLayouts(tables, m.layout.tables.length)],
+          },
+        })),
+
+      importSql: ({ tables, relations, existingSeedRows }, replaceSeedData) =>
+        updateModel(set, (m) => ({
+          ...m,
+          tables: [
+            ...m.tables.map((t) => {
+              const rows = existingSeedRows.find((r) => r.tableId === t.id)?.rows;
+              return rows ? { ...t, seedData: [...(replaceSeedData ? [] : t.seedData ?? []), ...rows] } : t;
+            }),
+            ...tables,
+          ],
+          relations: [...m.relations, ...relations],
+          layout: {
+            ...m.layout,
+            tables: [...m.layout.tables, ...gridLayouts(tables, m.layout.tables.length)],
+          },
+        })),
 
       importDictionaryEntries: ({ entries }) =>
         updateModel(set, (m) => ({

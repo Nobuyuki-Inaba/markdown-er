@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DictionaryEntry } from '../../shared/DiagramModel';
-import { loadModel, useDiagramStore } from '../../webview/src/store/diagramStore';
+import { applyHistory, loadModel, useDiagramStore } from '../../webview/src/store/diagramStore';
+import { buildSqlImport } from '../../webview/src/util/sqlImport/buildSqlImport';
 import { shopModel, tableOf } from '../fixtures';
 
 const entry: DictionaryEntry = { id: 'd_price', name: 'Price', dbType: 'INT', length: null, notNull: true, comment: '' };
@@ -52,5 +53,32 @@ describe('column names', () => {
     const id = addColumn();
     store().setColumnType('t_users', id, { type: { dbType: 'INT', length: null } });
     expect(column(id)).toMatchObject({ logicalName: '', physicalName: '' });
+  });
+});
+
+describe('importSql', () => {
+  beforeEach(() => loadModel(shopModel()));
+
+  const importing = (sql: string, replaceSeedData = false) =>
+    store().importSql(buildSqlImport(sql, store().model, 'mysql'), replaceSeedData);
+  const seed = (id: string) => tableOf(store().model, id).seedData;
+
+  it('adds tables, their layout and relations as one undo step', () => {
+    const before = store().model.tables.length;
+    importing('CREATE TABLE tags (id INT PRIMARY KEY, user_id INT REFERENCES users (id));');
+    const added = store().model.tables[before];
+    expect(added.physicalName).toBe('tags');
+    expect(store().model.layout.tables.some((l) => l.tableId === added.id)).toBe(true);
+    expect(store().model.relations.some((r) => r.toTableId === added.id)).toBe(true);
+    applyHistory('undo');
+    expect(store().model.tables).toHaveLength(before);
+  });
+
+  it('adds rows to an existing table, or replaces them', () => {
+    importing("INSERT INTO users (id) VALUES (1);");
+    importing("INSERT INTO users (id) VALUES (2);");
+    expect(seed('t_users')?.map((r) => r.id)).toEqual(['1', '2']);
+    importing("INSERT INTO users (id) VALUES (3);", true);
+    expect(seed('t_users')?.map((r) => r.id)).toEqual(['3']);
   });
 });

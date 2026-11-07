@@ -11,6 +11,7 @@ import { RelationEditPanel } from './components/RelationEditPanel';
 import { DictionaryPanel } from './components/DictionaryPanel';
 import { ColumnSetPanel } from './components/ColumnSetPanel';
 import { CsvImportPanel } from './components/CsvImportPanel';
+import { SqlImportPanel } from './components/SqlImportPanel';
 import { VersionsPanel } from './components/VersionsPanel';
 import { DatabasePanel } from './components/DatabasePanel';
 import { useMessages, formatDateTime } from './i18n';
@@ -199,6 +200,7 @@ export function App() {
           <DictionaryPanel />
           <ColumnSetPanel />
           <CsvImportPanel />
+          <SqlImportPanel />
           <VersionsPanel />
           <DatabasePanel />
           {isDdlOpen && (

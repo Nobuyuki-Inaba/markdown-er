@@ -23,6 +23,7 @@ The diagram is stored in a `.ermd` file (with `er-diagram: true` in the front ma
 | **Relations** | Drag from one table to another to create a relation. Click the relation to set cardinality (1:1 / 1:N / N:N) and optionally add a FK constraint. |
 | **Region group boxes** | Group related tables with a labeled background rectangle |
 | **Undo / Redo** | Full history via `Ctrl+Z` / `Ctrl+Y` |
+| **SQL import** | Paste or open DDL and `INSERT` statements (also `mysqldump` / `pg_dump` output) to add tables, relations, indexes and seed data. A preview lists what will be imported and anything that can't be |
 | **Auto-save** | Every change, including positions and viewport, is written to the `.ermd` file within about a second. The toolbar shows **Saving… / Saved / Save failed**; `Ctrl+S` saves right away |
 | **DDL export** | Export full `CREATE TABLE` DDL, or diff-only `ALTER TABLE` statements against a git baseline. Plain `CREATE TABLE` by default; comments, table options, explicit `NULL` and identifier quoting are switchable. **Save DDL…** / **Save data…** write `.sql` files. **Replacements** adjust the output with your own find / replace rules |
 | **Column list** | Type, size, PK, auto-increment and NULL side by side; comment, default value and design note under **Details** |

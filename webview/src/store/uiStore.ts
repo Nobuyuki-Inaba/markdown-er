@@ -12,6 +12,7 @@ interface UiState {
   isDictionaryOpen: boolean;
   isColumnSetsOpen: boolean;
   isCsvImportOpen: boolean;
+  isSqlImportOpen: boolean;
   isVersionsOpen: boolean;
   isDdlOpen: boolean;
   lastDdl: string;
@@ -47,6 +48,8 @@ interface UiState {
   closeColumnSets: () => void;
   openCsvImport: () => void;
   closeCsvImport: () => void;
+  openSqlImport: () => void;
+  closeSqlImport: () => void;
   openVersions: () => void;
   closeVersions: () => void;
   openDdl: (ddl: string, data?: string, errors?: ValidationError[]) => void;
@@ -73,6 +76,7 @@ export const useUiStore = create<UiState>()((set) => ({
   isDictionaryOpen: false,
   isColumnSetsOpen: false,
   isCsvImportOpen: false,
+  isSqlImportOpen: false,
   isVersionsOpen: false,
   isDdlOpen: false,
   lastDdl: '',
@@ -103,6 +107,8 @@ export const useUiStore = create<UiState>()((set) => ({
   closeColumnSets: () => set({ isColumnSetsOpen: false }),
   openCsvImport: () => set({ isCsvImportOpen: true }),
   closeCsvImport: () => set({ isCsvImportOpen: false }),
+  openSqlImport: () => set({ isSqlImportOpen: true }),
+  closeSqlImport: () => set({ isSqlImportOpen: false }),
   openVersions: () => set({ isVersionsOpen: true }),
   closeVersions: () => set({ isVersionsOpen: false }),
   openDdl: (ddl, data = '', errors = []) => set({ isDdlOpen: true, lastDdl: ddl, lastDdlData: data, lastDdlErrors: errors }),
