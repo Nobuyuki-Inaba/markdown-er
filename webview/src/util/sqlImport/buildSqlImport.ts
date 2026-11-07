@@ -97,7 +97,7 @@ class SqlImportBuilder {
       .filter((i) => i.columns.every(known))
       .map((i) => ({
         id: genId('idx'),
-        name: i.name || `ix_${parsed.name}_${i.columns.join('_')}`,
+        name: i.name,
         columns: i.columns,
         unique: i.unique,
       }));

@@ -100,6 +100,10 @@ Double-click any table to open the **Table Edit Panel** on the right.
   unique, every column has a type, and every relation with an FK constraint has both columns; the DDL dialog lists what to fix
 - A relation needs no FK constraint (a logical FK), but its columns should still be chosen: an unset one is outlined in red
 
+### Indexes
+
+In the **Indexes** tab, pick the columns; the name is optional. Left empty, the index is named after the table and columns: `ix_orders_user_id`, or `ux_…` when unique. The box shows the name it will get.
+
 ### Test tables and test data
 
 Test-only definitions and data are kept apart from production, in `<file>.ermd.test.yaml` next to the diagram:

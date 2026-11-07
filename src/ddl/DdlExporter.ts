@@ -16,7 +16,7 @@ export interface DdlOptions extends Partial<DdlStyle> {
 }
 
 export function isCompleteIndex(idx: TableIndex): boolean {
-  return !!idx.name && idx.columns.length > 0;
+  return idx.columns.length > 0;
 }
 
 const NUMERIC_TYPES = ['INT', 'BIGINT', 'SMALLINT', 'TINYINT', 'DECIMAL', 'FLOAT', 'DOUBLE'];

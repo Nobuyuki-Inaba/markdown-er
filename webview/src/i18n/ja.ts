@@ -103,6 +103,7 @@ export const ja: Messages = {
     deleteTable: 'テーブルを削除',
     indexes: 'インデックス',
     indexName: 'インデックス名',
+    indexNameTitle: '省略できます。空の場合はテーブル名とカラム名から付けます（ix_テーブル_カラム、UNIQUE は ux_）。',
     indexColumns: '対象カラム（チェックで追加）',
     addIndex: '+ インデックス追加',
     constraints: '制約',

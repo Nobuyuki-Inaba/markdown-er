@@ -108,6 +108,7 @@ export const en = {
     deleteTable: 'Delete Table',
     indexes: 'Indexes',
     indexName: 'Index name',
+    indexNameTitle: 'Optional. Empty: named after the table and columns (ix_table_column, ux_ when unique).',
     indexColumns: 'Columns (check to include)',
     addIndex: '+ Add Index',
     constraints: 'Constraints',

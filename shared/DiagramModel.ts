@@ -132,6 +132,20 @@ export interface TableIndex {
   comment?: string;
 }
 
+/** Fits every database (PostgreSQL silently cuts names at 63) */
+const MAX_INDEX_NAME_LENGTH = 63;
+
+/** The index's own name, else `ix_<table>_<columns>` (`ux_` when unique) */
+export function indexName(table: Pick<Table, 'physicalName'>, index: Pick<TableIndex, 'name' | 'columns' | 'unique'>): string {
+  if (index.name.trim()) { return index.name; }
+  const name = `${index.unique ? 'ux' : 'ix'}_${table.physicalName}_${index.columns.join('_')}`;
+  if (name.length <= MAX_INDEX_NAME_LENGTH) { return name; }
+  // A hash keeps two long names apart when only their ends differ
+  let hash = 0;
+  for (const ch of name) { hash = (hash * 31 + ch.charCodeAt(0)) >>> 0; }
+  return `${name.slice(0, MAX_INDEX_NAME_LENGTH - 9)}_${hash.toString(16).padStart(8, '0')}`;
+}
+
 export type ConstraintType = 'UNIQUE' | 'CHECK' | 'CUSTOM';
 
 export interface TableConstraint {

@@ -1,6 +1,6 @@
 import {
   Column, DatabaseOptions, DatabaseSettings, DbType, DdlDialect, TypeSpec, Table, TableConstraint, TableIndex,
-  typeSizeSuffix,
+  indexName, typeSizeSuffix,
 } from '../../shared/DiagramModel';
 import { AUTO_INCREMENT_TYPES } from '../../shared/autoIncrement';
 import { resolveDatabaseOptions } from '../../shared/databaseOptions';
@@ -213,7 +213,7 @@ export abstract class SqlDialect {
   createIndex(table: Table, idx: TableIndex): string {
     const unique = idx.unique ? 'UNIQUE ' : '';
     const cols = idx.columns.map((c) => this.quote(c)).join(', ');
-    return `CREATE ${unique}INDEX ${this.quote(idx.name)} ON ${this.table(table.physicalName)} (${cols});`;
+    return `CREATE ${unique}INDEX ${this.quote(indexName(table, idx))} ON ${this.table(table.physicalName)} (${cols});`;
   }
 
   addForeignKey(fk: ResolvedForeignKey): string {
@@ -319,8 +319,8 @@ export abstract class SqlDialect {
     return `ALTER TABLE ${this.table(fk.child.physicalName)} DROP CONSTRAINT ${this.quote(fk.name)};`;
   }
 
-  dropIndex(_table: Table, idx: TableIndex): string {
-    return `DROP INDEX ${this.quote(idx.name)};`;
+  dropIndex(table: Table, idx: TableIndex): string {
+    return `DROP INDEX ${this.quote(indexName(table, idx))};`;
   }
 
   addConstraint(table: Table, c: TableConstraint): string | null {

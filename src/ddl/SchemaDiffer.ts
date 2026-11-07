@@ -1,4 +1,4 @@
-import { Column, DiagramModel, Table, TableConstraint, TableIndex } from '../../shared/DiagramModel';
+import { Column, DiagramModel, Table, TableConstraint, TableIndex, indexName } from '../../shared/DiagramModel';
 import type { DdlDialect } from '../../shared/messages';
 import { SqlDialect, ColumnChange, commentText } from './SqlDialect';
 import { Schema, ResolvedForeignKey } from './Schema';
@@ -63,7 +63,7 @@ export class SchemaDiffer {
       const curIdx = new Map((ct.indexes ?? []).map((i) => [i.id, i]));
       for (const bi of (bt.indexes ?? []).filter(isCompleteIndex)) {
         const ci = curIdx.get(bi.id);
-        if (!ci || !sameIndex(bi, ci)) { this.push(this.dialect.dropIndex(bt, bi)); }
+        if (!ci || !sameIndex(bt, bi, ct, ci)) { this.push(this.dialect.dropIndex(bt, bi)); }
       }
 
       const curCst = new Map((ct.constraints ?? []).map((c) => [c.id, c]));
@@ -152,7 +152,7 @@ export class SchemaDiffer {
       const baseIdx = new Map((bt.indexes ?? []).filter(isCompleteIndex).map((i) => [i.id, i]));
       for (const ci of (ct.indexes ?? []).filter(isCompleteIndex)) {
         const bi = baseIdx.get(ci.id);
-        if (!bi || !sameIndex(bi, ci)) { this.push(this.dialect.createIndex(ct, ci)); }
+        if (!bi || !sameIndex(bt, bi, ct, ci)) { this.push(this.dialect.createIndex(ct, ci)); }
       }
 
       const baseCst = new Map((bt.constraints ?? []).map((c) => [c.id, c]));
@@ -192,8 +192,8 @@ function foreignKeyChanged(a: ResolvedForeignKey, b: ResolvedForeignKey): boolea
     || a.child.id !== b.child.id   || a.childColumn.id !== b.childColumn.id;
 }
 
-function sameIndex(a: TableIndex, b: TableIndex): boolean {
-  return a.name === b.name && a.unique === b.unique && a.columns.join('\0') === b.columns.join('\0');
+function sameIndex(aTable: Table, a: TableIndex, bTable: Table, b: TableIndex): boolean {
+  return indexName(aTable, a) === indexName(bTable, b) && a.unique === b.unique && a.columns.join('\0') === b.columns.join('\0');
 }
 
 function sameConstraint(a: TableConstraint, b: TableConstraint): boolean {
