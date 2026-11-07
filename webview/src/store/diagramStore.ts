@@ -22,6 +22,10 @@ interface DiagramState {
   addTable: (x: number, y: number) => void;
   updateTable: (tableId: string, patch: Partial<Pick<Table, 'logicalName' | 'physicalName' | 'comment' | 'designNote' | 'headerColor'>>) => void;
   updateSeedData: (tableId: string, seedData: Record<string, string>[]) => void;
+  /** Rows of a production table used only in tests */
+  updateTestSeedData: (tableId: string, rows: Record<string, string>[]) => void;
+  /** Moves the table to the test side or back; rows on the test side never become production rows */
+  setTableTestOnly: (tableId: string, testOnly: boolean) => void;
   deleteTable: (tableId: string) => void;
 
   // Column actions take an owner: a table id or a column set id (set changes reach every table using it)
@@ -65,8 +69,7 @@ interface DiagramState {
 
   importTables: (parsed: ParsedTableImport) => void;
   importDictionaryEntries: (parsed: ParsedDictionaryImport) => void;
-  /** `replaceSeedData`: rows for a table already in the diagram replace its rows instead of being added to them */
-  importSql: (parsed: SqlImport, replaceSeedData: boolean) => void;
+  importSql: (parsed: SqlImport, options: SqlImportOptions) => void;
   /** Create a dictionary entry and assign it to the column (one undo step) */
   addColumnType: (ownerId: string, columnId: string, entry: Omit<DictionaryEntry, 'id'>) => void;
   /** Assign a dictionary type, or a type given directly */
@@ -121,6 +124,13 @@ function withDictionaryType(c: Column, entry: DictionaryEntry): Column {
     type: undefined,
     isNullable: c.isPrimaryKey ? c.isNullable : !entry.notNull,
   };
+}
+
+export interface SqlImportOptions {
+  /** Rows for a table already in the diagram replace its rows instead of being added to them */
+  replaceSeedData: boolean;
+  /** New tables are test-only, and rows are test rows */
+  asTest: boolean;
 }
 
 /** Imported tables in a grid below the top-left corner */
@@ -188,6 +198,18 @@ export const useDiagramStore = create<DiagramState>()(
           tables: m.tables.map((t) =>
             t.id === tableId ? { ...t, ...patch } : t
           ),
+        })),
+
+      updateTestSeedData: (tableId, rows) =>
+        updateModel(set, (m) => mapTable(m, tableId, (t) => ({ ...t, testSeedData: rows.length > 0 ? rows : undefined }))),
+
+      setTableTestOnly: (tableId, testOnly) =>
+        updateModel(set, (m) => mapTable(m, tableId, (t) => {
+          if (testOnly) {
+            const rows = [...(t.seedData ?? []), ...(t.testSeedData ?? [])];
+            return { ...t, testOnly: true, seedData: rows.length > 0 ? rows : undefined, testSeedData: undefined };
+          }
+          return { ...t, testOnly: undefined, seedData: undefined, testSeedData: t.seedData };
         })),
 
       updateSeedData: (tableId, seedData) =>
@@ -436,15 +458,17 @@ export const useDiagramStore = create<DiagramState>()(
           },
         })),
 
-      importSql: ({ tables, relations, existingSeedRows }, replaceSeedData) =>
+      importSql: ({ tables, relations, existingSeedRows }, { replaceSeedData, asTest }) =>
         updateModel(set, (m) => ({
           ...m,
           tables: [
             ...m.tables.map((t) => {
               const rows = existingSeedRows.find((r) => r.tableId === t.id)?.rows;
-              return rows ? { ...t, seedData: [...(replaceSeedData ? [] : t.seedData ?? []), ...rows] } : t;
+              if (!rows) { return t; }
+              const key = asTest && !t.testOnly ? 'testSeedData' : 'seedData';
+              return { ...t, [key]: [...(replaceSeedData ? [] : t[key] ?? []), ...rows] };
             }),
-            ...tables,
+            ...tables.map((t) => (asTest ? { ...t, testOnly: true } : t)),
           ],
           relations: [...m.relations, ...relations],
           layout: {

@@ -1,8 +1,9 @@
 import { Column, DiagramModel, Table, TableIndex } from '../../shared/DiagramModel';
 import { isEmptySeedValue } from '../../shared/autoIncrement';
+import { productionModel, testModel } from '../../shared/testData';
 import type { DdlDialect } from '../../shared/messages';
 import { SqlDialect } from './SqlDialect';
-import { Schema } from './Schema';
+import { ResolvedForeignKey, Schema } from './Schema';
 import { createDialect } from './createDialect';
 import type { DdlStyle } from '../../shared/ddlStyle';
 
@@ -20,17 +21,28 @@ export function isCompleteIndex(idx: TableIndex): boolean {
 
 const NUMERIC_TYPES = ['INT', 'BIGINT', 'SMALLINT', 'TINYINT', 'DECIMAL', 'FLOAT', 'DOUBLE'];
 
-/** Full schema DDL (CREATE TABLE, FKs, indexes) and optional seed-data INSERTs. */
+/** Full schema DDL (CREATE TABLE, FKs, indexes) and optional seed-data INSERTs: production, or what tests add to it. */
 export class DdlExporter {
   private readonly schema: Schema;
 
   static export(model: DiagramModel, dialect: DdlDialect = 'mysql', options: DdlOptions = {}): string {
-    return new DdlExporter(model, createDialect(dialect, model.database, options)).build(options);
+    return new DdlExporter(productionModel(model), createDialect(dialect, model.database, options)).build(options);
   }
 
   /** Seed-data INSERTs only (for a separate data file); '' when no table has seed data */
   static exportData(model: DiagramModel, dialect: DdlDialect = 'mysql', options: DdlOptions = {}): string {
-    return new DdlExporter(model, createDialect(dialect, model.database, options))
+    return new DdlExporter(productionModel(model), createDialect(dialect, model.database, options))
+      .seedInserts(options.skipAutoIncrementPk ?? false);
+  }
+
+  /** What tests add, to run after the production DDL: test-only tables, FKs that touch them, test rows */
+  static exportTest(model: DiagramModel, dialect: DdlDialect = 'mysql', options: DdlOptions = {}): string {
+    return new DdlExporter(testModel(model), createDialect(dialect, model.database, options)).buildTest(options);
+  }
+
+  /** Test-row INSERTs only; '' when there are none */
+  static exportTestData(model: DiagramModel, dialect: DdlDialect = 'mysql', options: DdlOptions = {}): string {
+    return new DdlExporter(testModel(model), createDialect(dialect, model.database, options))
       .seedInserts(options.skipAutoIncrementPk ?? false);
   }
 
@@ -40,12 +52,22 @@ export class DdlExporter {
 
   build(options: DdlOptions = {}): string {
     const { dialect, schema } = this;
-    const tables = schema.model.tables;
+    return this.compose(schema.model.tables, dialect.inlineForeignKeys ? [] : schema.foreignKeys, options);
+  }
+
+  private buildTest(options: DdlOptions): string {
+    const { dialect, schema } = this;
+    const foreignKeys = schema.foreignKeys.filter((fk) => fk.parent.testOnly || fk.child.testOnly);
+    // A test table created here has its FKs inline; a production table already exists
+    const added = dialect.inlineForeignKeys ? foreignKeys.filter((fk) => !fk.child.testOnly) : foreignKeys;
+    return this.compose(schema.model.tables.filter((t) => t.testOnly), added, { ...options, includeCreateDatabase: false });
+  }
+
+  private compose(tables: Table[], addedForeignKeys: readonly ResolvedForeignKey[], options: DdlOptions): string {
+    const { dialect, schema } = this;
 
     const creates = tables.map((t) => dialect.createTable(t, schema).join('\n')).join('\n\n');
-    const foreignKeys = dialect.inlineForeignKeys
-      ? ''
-      : schema.foreignKeys.map((fk) => dialect.addForeignKey(fk)).join('\n\n');
+    const foreignKeys = addedForeignKeys.map((fk) => dialect.addForeignKey(fk)).join('\n\n');
     const indexes = tables
       .flatMap((t) => (t.indexes ?? []).filter(isCompleteIndex).map((idx) => dialect.createIndex(t, idx)))
       .join('\n');

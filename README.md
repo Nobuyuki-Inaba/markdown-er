@@ -24,6 +24,7 @@ The diagram is stored in a `.ermd` file (with `er-diagram: true` in the front ma
 | **Region group boxes** | Group related tables with a labeled background rectangle |
 | **Undo / Redo** | Full history via `Ctrl+Z` / `Ctrl+Y` |
 | **SQL import** | Paste or open DDL and `INSERT` statements (also `mysqldump` / `pg_dump` output) to add tables, relations, indexes and seed data. A preview lists what will be imported and anything that can't be |
+| **Test tables and data** | Mark a table as test-only and give production tables test rows. They are kept in `<file>.ermd.test.yaml`, stay out of the production DDL, and get their own **Test DDL** |
 | **Auto-save** | Every change, including positions and viewport, is written to the `.ermd` file within about a second. The toolbar shows **Saving… / Saved / Save failed**; `Ctrl+S` saves right away |
 | **DDL export** | Export full `CREATE TABLE` DDL, or diff-only `ALTER TABLE` statements against a git baseline. Plain `CREATE TABLE` by default; comments, table options, explicit `NULL` and identifier quoting are switchable. **Save DDL…** / **Save data…** write `.sql` files. **Replacements** adjust the output with your own find / replace rules |
 | **Column list** | Type, size, PK, auto-increment and NULL side by side; comment, default value and design note under **Details** |
@@ -98,6 +99,18 @@ Double-click any table to open the **Table Edit Panel** on the right.
 - A table or column without a physical name is outlined in red. The DDL can't be generated until every name is set and
   unique, every column has a type, and every relation with an FK constraint has both columns; the DDL dialog lists what to fix
 - A relation needs no FK constraint (a logical FK), but its columns should still be chosen: an unset one is outlined in red
+
+### Test tables and test data
+
+Test-only definitions and data are kept apart from production, in `<file>.ermd.test.yaml` next to the diagram:
+
+- Tick **Test-only table** in the Table Edit Panel. The table gets a dashed outline and a **TEST** badge, and a relation that touches it moves to the test side too. **Hide test tables** in the toolbar takes them off the canvas.
+- In the **Seed Data** tab of a production table, **Test data** holds rows used only in tests, e.g. test users.
+- **Test DDL** in the DDL dialog is what tests add: run it after the production DDL. **Save DDL…** / **Save data…** default to `<name>_test.sql` / `<name>_test_data.sql`.
+- Production DDL, schema diffs, schema versions and generated Markdown never include any of this.
+- **Import SQL** can bring in an existing test script: tick **Import for tests only**.
+
+Commit the test file with the diagram. Without any test data it doesn't exist, and the `.ermd` file is the same as before.
 
 ### Common columns (Column Sets)
 
@@ -259,6 +272,8 @@ Click the **⚙** gear button in the toolbar to open VSCode Settings filtered to
 | `markdown-er.ddl.quoteIdentifiers` | Quote every identifier (off: only names that need it) | `true` |
 | `markdown-er.ddl.outputFile` | Default file for **Save DDL…** (relative to the diagram) | `${fileBasenameNoExtension}.sql` |
 | `markdown-er.ddl.dataOutputFile` | Default file for **Save data…** | `${fileBasenameNoExtension}_data.sql` |
+| `markdown-er.ddl.testOutputFile` | Default file for **Save DDL…** on the test DDL | `${fileBasenameNoExtension}_test.sql` |
+| `markdown-er.ddl.testDataOutputFile` | Default file for **Save data…** on the test DDL | `${fileBasenameNoExtension}_test_data.sql` |
 | `markdown-er.markdown.generateMermaid` | Write a Mermaid `erDiagram` into the `.ermd` file on save (see [Readable Markdown](#readable-markdown)) | `false` |
 | `markdown-er.markdown.generateTableDocs` | Write a Markdown table of each table's columns into the `.ermd` file on save | `false` |
 | `markdown-er.migration.prompt` | `ask` / `never` — ask whether to update a file in an older format when it is opened | `ask` |

@@ -4,6 +4,9 @@ import type { ValidationError } from './validation';
 
 export type { DdlDialect };
 
+/** Production DDL, what tests add to it, or an ALTER script from a git ref / saved version */
+export type DdlMode = 'full' | 'test' | 'diff' | 'version-diff';
+
 /** Resolved UI language */
 export type Locale = 'en' | 'ja';
 /** Value of the `markdown-er.language` setting; `auto` follows the VSCode display language */
@@ -13,7 +16,7 @@ export type ExtToWebMsg =
   | { type: 'load'; payload: DiagramModel; fileUri: string }
   | { type: 'fileChanged'; payload: DiagramModel }
   /** `data`: seed-data INSERTs alone (full mode), for saving to a separate file */
-  | { type: 'ddlResult'; payload: { ddl: string; data?: string; mode: 'full' | 'diff' | 'version-diff'; errors?: ValidationError[] } }
+  | { type: 'ddlResult'; payload: { ddl: string; data?: string; mode: DdlMode; errors?: ValidationError[] } }
   | { type: 'dialectChanged'; payload: { dialect: DdlDialect } }
   | { type: 'localeChanged'; payload: { locale: Locale; setting: LanguageSetting } }
   | { type: 'ddlStyleChanged'; payload: DdlStyle }
@@ -30,7 +33,7 @@ export type WebToExtMsg =
   /** `immediate`: Ctrl+S — write now, even a version already tried (retries a failed write) */
   | { type: 'save'; payload: DiagramModel; version: number; fileUri: string; immediate?: boolean }
   | { type: 'requestDdl'; payload: {
-      mode: 'full' | 'diff' | 'version-diff';
+      mode: DdlMode;
       baselineRef?: string;
       fromVersionId?: string;
       toVersionId?: string | null;
@@ -46,4 +49,4 @@ export type WebToExtMsg =
   | { type: 'saveSqlFile'; payload: { kind: SqlFileKind; text: string } }
   | { type: 'openSettings' };
 
-export type SqlFileKind = 'ddl' | 'data';
+export type SqlFileKind = 'ddl' | 'data' | 'testDdl' | 'testData';

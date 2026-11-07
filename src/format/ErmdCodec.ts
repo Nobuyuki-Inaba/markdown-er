@@ -1,5 +1,6 @@
 import * as yaml from 'js-yaml';
 import { DiagramModel, SchemaVersion } from '../../shared/DiagramModel';
+import { TestFileData, mergeTestFileData, productionModel, testFileData } from '../../shared/testData';
 import { ErmdParser } from '../ErmdParser';
 import { ErmdSerializer } from '../ErmdSerializer';
 import { CURRENT_FORMAT_VERSION, NewerFormatError, formatStatus } from './formatVersion';
@@ -7,7 +8,9 @@ import { MarkdownDocsOptions, generateMarkdownDocs } from './MarkdownDocs';
 
 /**
  * Reads and writes a diagram as its files' texts (no file system access, so it is unit-tested):
- * the .ermd file, and from format version 2 on the schema versions file next to it.
+ * the .ermd file, from format version 2 on the schema versions file next to it, and a test file
+ * holding test-only tables and test rows. The test file is optional and added on top of any format:
+ * an older extension ignores it, and the .ermd file reads the same without it.
  */
 
 /** `sample.ermd` → `sample.ermd.versions.yaml` */
@@ -15,17 +18,26 @@ export function versionsFileName(fileName: string): string {
   return `${fileName}.versions.yaml`;
 }
 
+/** `sample.ermd` → `sample.ermd.test.yaml` */
+export function testFileName(fileName: string): string {
+  return `${fileName}.test.yaml`;
+}
+
 export interface ErmdTexts {
   /** The .ermd file; undefined when it doesn't exist yet */
   main: string | undefined;
   /** The schema versions file; undefined when it doesn't exist */
   versions: string | undefined;
+  /** The test file; undefined when it doesn't exist */
+  test?: string;
 }
 
 export interface EncodedTexts {
   main: string;
   /** null: the versions file should not exist; undefined: leave it as it is (it could not be read) */
   versions: string | null | undefined;
+  /** null: the test file should not exist; undefined: leave it as it is (it could not be read) */
+  test: string | null | undefined;
 }
 
 /**
@@ -43,7 +55,8 @@ export function decode(texts: ErmdTexts): DiagramModel {
     const inline = (model.schemaVersions ?? []).filter((v) => !ids.has(v.id));
     model.schemaVersions = [...fromFile, ...inline];
   }
-  return model;
+  const test = parseTestFile(texts.test);
+  return test ? mergeTestFileData(model, test) : model;
 }
 
 export interface EncodeOptions {
@@ -63,16 +76,23 @@ export function encode(model: DiagramModel, original: ErmdTexts, options: Encode
   // A versions file that can't be read is never overwritten or deleted; versions then stay in the .ermd file
   const unreadable = original.versions !== undefined && !isVersionsFile(original.versions);
   const separate = !unreadable && (model.version >= 2 || original.versions !== undefined);
-  const main = ErmdSerializer.serialize(model, { path: options.fileName }, {
+  const production = productionModel(model);
+  const main = ErmdSerializer.serialize(production, { path: options.fileName }, {
     original: original.main,
     inlineVersions: !separate,
-    generated: options.docs && generateMarkdownDocs(model, options.docs),
+    generated: options.docs && generateMarkdownDocs(production, options.docs),
   });
   const versions = model.schemaVersions ?? [];
-  if (unreadable) { return { main, versions: undefined }; }
+  const testData = testFileData(model);
   return {
     main,
-    versions: separate && versions.length > 0 ? serializeVersionsFile(versions, options.fileName) : null,
+    versions: unreadable
+      ? undefined
+      : separate && versions.length > 0 ? serializeVersionsFile(versions, options.fileName) : null,
+    // Like the versions file, a test file that can't be read is never overwritten or deleted
+    test: !isTestFileReadable(original.test)
+      ? undefined
+      : testData ? serializeTestFile(testData, options.fileName) : null,
   };
 }
 
@@ -94,4 +114,25 @@ function isVersionsFile(text: string): boolean {
 export function serializeVersionsFile(versions: SchemaVersion[], fileName: string): string {
   return `# Schema versions of ${fileName} (markdown-er). Edit them in the ER diagram.\n` +
     yaml.dump(versions, { indent: 2, lineWidth: -1 });
+}
+
+/** A YAML mapping (an empty or missing file counts as empty) */
+export function isTestFileReadable(text: string | undefined): boolean {
+  if (text === undefined) { return true; }
+  try {
+    const data = yaml.load(text);
+    return data == null || (typeof data === 'object' && !Array.isArray(data));
+  } catch {
+    return false;
+  }
+}
+
+function parseTestFile(text: string | undefined): TestFileData | null {
+  if (text === undefined || !isTestFileReadable(text)) { return null; }
+  return (yaml.load(text) as TestFileData | null) ?? null;
+}
+
+function serializeTestFile(data: TestFileData, fileName: string): string {
+  return `# Test-only tables and test data of ${fileName} (markdown-er). Edit them in the ER diagram.\n` +
+    yaml.dump(data, { indent: 2, lineWidth: -1 });
 }

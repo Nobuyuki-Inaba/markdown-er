@@ -13,6 +13,8 @@ interface UiState {
   isColumnSetsOpen: boolean;
   isCsvImportOpen: boolean;
   isSqlImportOpen: boolean;
+  /** Test-only tables and their relations on the canvas */
+  showTestData: boolean;
   isVersionsOpen: boolean;
   isDdlOpen: boolean;
   lastDdl: string;
@@ -29,7 +31,7 @@ interface UiState {
   /** Mirror of the markdown-er.ddl.* settings (owned by the extension host) */
   ddlStyle: DdlStyle;
   ddlSkipAutoIncrementPk: boolean;
-  ddlMode: 'full' | 'version-diff';
+  ddlMode: 'full' | 'test' | 'version-diff';
   ddlFromVersionId: string | null;
   ddlToVersionId: string | null;
   showMinimap: boolean;
@@ -50,6 +52,7 @@ interface UiState {
   closeCsvImport: () => void;
   openSqlImport: () => void;
   closeSqlImport: () => void;
+  toggleTestData: () => void;
   openVersions: () => void;
   closeVersions: () => void;
   openDdl: (ddl: string, data?: string, errors?: ValidationError[]) => void;
@@ -61,7 +64,7 @@ interface UiState {
   setIncludeCreateDatabase: (include: boolean) => void;
   setDdlStyle: (style: DdlStyle) => void;
   setDdlOptions: (insertSeedData: boolean, skipAutoIncrementPk: boolean) => void;
-  setDdlMode: (mode: 'full' | 'version-diff') => void;
+  setDdlMode: (mode: UiState['ddlMode']) => void;
   setDdlVersions: (fromVersionId: string | null, toVersionId: string | null) => void;
   toggleMinimap: () => void;
   setSearchQuery: (query: string) => void;
@@ -77,6 +80,7 @@ export const useUiStore = create<UiState>()((set) => ({
   isColumnSetsOpen: false,
   isCsvImportOpen: false,
   isSqlImportOpen: false,
+  showTestData: true,
   isVersionsOpen: false,
   isDdlOpen: false,
   lastDdl: '',
@@ -109,6 +113,7 @@ export const useUiStore = create<UiState>()((set) => ({
   closeCsvImport: () => set({ isCsvImportOpen: false }),
   openSqlImport: () => set({ isSqlImportOpen: true }),
   closeSqlImport: () => set({ isSqlImportOpen: false }),
+  toggleTestData: () => set((s) => ({ showTestData: !s.showTestData })),
   openVersions: () => set({ isVersionsOpen: true }),
   closeVersions: () => set({ isVersionsOpen: false }),
   openDdl: (ddl, data = '', errors = []) => set({ isDdlOpen: true, lastDdl: ddl, lastDdlData: data, lastDdlErrors: errors }),

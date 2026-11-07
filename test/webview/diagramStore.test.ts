@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { DictionaryEntry } from '../../shared/DiagramModel';
 import { applyHistory, loadModel, useDiagramStore } from '../../webview/src/store/diagramStore';
 import { buildSqlImport } from '../../webview/src/util/sqlImport/buildSqlImport';
+import { modelToEdges, modelToNodes } from '../../webview/src/util/xyflowAdapters';
 import { shopModel, tableOf } from '../fixtures';
 
 const entry: DictionaryEntry = { id: 'd_price', name: 'Price', dbType: 'INT', length: null, notNull: true, comment: '' };
@@ -59,8 +60,8 @@ describe('column names', () => {
 describe('importSql', () => {
   beforeEach(() => loadModel(shopModel()));
 
-  const importing = (sql: string, replaceSeedData = false) =>
-    store().importSql(buildSqlImport(sql, store().model, 'mysql'), replaceSeedData);
+  const importing = (sql: string, replaceSeedData = false, asTest = false) =>
+    store().importSql(buildSqlImport(sql, store().model, 'mysql'), { replaceSeedData, asTest });
   const seed = (id: string) => tableOf(store().model, id).seedData;
 
   it('adds tables, their layout and relations as one undo step', () => {
@@ -80,5 +81,40 @@ describe('importSql', () => {
     expect(seed('t_users')?.map((r) => r.id)).toEqual(['1', '2']);
     importing("INSERT INTO users (id) VALUES (3);", true);
     expect(seed('t_users')?.map((r) => r.id)).toEqual(['3']);
+  });
+});
+
+describe('test data', () => {
+  beforeEach(() => loadModel(shopModel()));
+
+  const users = () => tableOf(store().model, 't_users');
+
+  it('imports for tests: new tables are test-only, rows are test rows', () => {
+    store().importSql(buildSqlImport("CREATE TABLE tags (id INT); INSERT INTO users (id) VALUES (1);", store().model, 'mysql'), { replaceSeedData: false, asTest: true });
+    expect(store().model.tables.find((t) => t.physicalName === 'tags')?.testOnly).toBe(true);
+    expect(users().testSeedData?.map((r) => r.id)).toEqual(['1']);
+    expect(users().seedData).toBeUndefined();
+  });
+
+  it('keeps rows on the test side when a table leaves it', () => {
+    store().updateSeedData('t_users', [{ id: '1' }]);
+    store().updateTestSeedData('t_users', [{ id: '2' }]);
+    store().setTableTestOnly('t_users', true);
+    expect(users()).toMatchObject({ testOnly: true, seedData: [{ id: '1' }, { id: '2' }] });
+    expect(users().testSeedData).toBeUndefined();
+
+    store().setTableTestOnly('t_users', false);
+    expect(users().testOnly).toBeUndefined();
+    expect(users().seedData).toBeUndefined();
+    expect(users().testSeedData).toEqual([{ id: '1' }, { id: '2' }]);
+  });
+
+  it('hides test tables and their relations on the canvas only', () => {
+    store().setTableTestOnly('t_orders', true);
+    const { model } = store();
+    expect(modelToNodes(model).map((n) => n.id)).toContain('t_orders');
+    expect(modelToNodes(model, false).map((n) => n.id)).not.toContain('t_orders');
+    expect(modelToEdges(model).map((e) => e.id)).toContain('order_user');
+    expect(modelToEdges(model, false).map((e) => e.id)).toEqual(['profile_user', 'item_product']);
   });
 });

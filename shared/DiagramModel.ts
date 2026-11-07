@@ -154,7 +154,12 @@ export interface Table {
   columnSetIds?: string[];
   indexes?: TableIndex[];
   constraints?: TableConstraint[];
+  /** For a test-only table: all its rows. Otherwise the rows that production gets. */
   seedData?: Record<string, string>[];
+  /** Exists only for tests: kept in the test file, left out of production DDL (see shared/testData.ts) */
+  testOnly?: boolean;
+  /** Rows of a production table used only in tests; kept in the test file */
+  testSeedData?: Record<string, string>[];
 }
 
 export type Cardinality = 'ONE_TO_ONE' | 'ONE_TO_MANY' | 'MANY_TO_MANY';

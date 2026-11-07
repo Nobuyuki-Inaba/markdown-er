@@ -38,6 +38,7 @@ function SqlImportDialog() {
   const [fileName, setFileName] = useState('');
   const [dialect, setDialect] = useState<DdlDialect>(currentDialect);
   const [replaceSeedData, setReplaceSeedData] = useState(false);
+  const [asTest, setAsTest] = useState(false);
   const [imported, setImported] = useState(false);
 
   const deferredSource = useDeferredValue(source);
@@ -70,7 +71,7 @@ function SqlImportDialog() {
 
   const handleImport = () => {
     if (!result || !hasContent) return;
-    importSql(result, replaceSeedData);
+    importSql(result, { replaceSeedData, asTest });
     edit('');
     setImported(true);
     setTimeout(() => window.dispatchEvent(new CustomEvent('er:fitView')), 50);
@@ -134,6 +135,10 @@ function SqlImportDialog() {
                   {t.replaceSeedData}
                 </label>
               )}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, cursor: 'pointer' }}>
+                <input type="checkbox" checked={asTest} onChange={(e) => setAsTest(e.target.checked)} />
+                {t.asTest}
+              </label>
               {result.warnings.length > 0 && (
                 <div style={{ marginTop: 8 }}>
                   <div style={{ fontWeight: 700, color: '#b26a00' }}>{t.warnings(result.warnings.length)}</div>

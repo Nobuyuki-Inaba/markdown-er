@@ -12,6 +12,8 @@
   "config.ddl.explicitNull": "Write NULL on nullable columns (otherwise only NOT NULL is written).",
   "config.ddl.quoteIdentifiers": "Quote every identifier. When off, only names that need it are quoted.",
   "config.ddl.outputFile": "Default file for **Save DDL…**, relative to the diagram's folder. Variables: `${fileBasenameNoExtension}`, `${fileBasename}`, `${workspaceFolder}`.",
+  "config.ddl.testOutputFile": "Default file for **Save DDL…** when showing the test DDL. Same variables as `#markdown-er.ddl.outputFile#`.",
+  "config.ddl.testDataOutputFile": "Default file for **Save data…** when showing the test DDL. Same variables as `#markdown-er.ddl.outputFile#`.",
   "config.ddl.dataOutputFile": "Default file for **Save data…** (seed-data INSERTs only), relative to the diagram's folder. Same variables as `#markdown-er.ddl.outputFile#`.",
   "command.migrateFile": "ER Diagram: Update File Format (Migrate)",
   "command.migrateWorkspace": "ER Diagram: Update File Format of All Files in Workspace",

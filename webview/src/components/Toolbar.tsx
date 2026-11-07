@@ -15,6 +15,9 @@ export function Toolbar() {
   const openColumnSets  = useUiStore((s) => s.openColumnSets);
   const openCsvImport   = useUiStore((s) => s.openCsvImport);
   const openSqlImport   = useUiStore((s) => s.openSqlImport);
+  const showTestData    = useUiStore((s) => s.showTestData);
+  const toggleTestData  = useUiStore((s) => s.toggleTestData);
+  const setDdlMode      = useUiStore((s) => s.setDdlMode);
   const openVersions    = useUiStore((s) => s.openVersions);
   const openDatabase    = useUiStore((s) => s.openDatabase);
   const languageSetting = useUiStore((s) => s.languageSetting);
@@ -71,6 +74,12 @@ export function Toolbar() {
         {t.database}
       </button>
 
+      {model.tables.some((table) => table.testOnly) && (
+        <button onClick={toggleTestData} style={btnStyle} title={t.testDataTitle}>
+          {showTestData ? t.hideTestData : t.showTestData}
+        </button>
+      )}
+
       <div style={{ flex: 1 }} />
 
       <SaveStatus />
@@ -91,7 +100,10 @@ export function Toolbar() {
         {t.versions}
       </button>
       <button
-        onClick={() => window.dispatchEvent(new CustomEvent('er:requestDdl', { detail: { mode: 'full' } }))}
+        onClick={() => {
+          setDdlMode('full');
+          window.dispatchEvent(new CustomEvent('er:requestDdl', { detail: { mode: 'full' } }));
+        }}
         style={{ ...btnStyle, background: '#4a8a5a', color: '#fff' }}
         title={t.exportDdl}
       >

@@ -22,6 +22,9 @@ export const en = {
 
   /** Top bar: diagram-wide settings and output */
   toolbar: {
+    showTestData: 'Show test tables',
+    hideTestData: 'Hide test tables',
+    testDataTitle: 'Show or hide test-only tables on the canvas. Only the view changes.',
     importSql: 'Import SQL',
     importSqlTitle: 'Import tables, relations and seed data from DDL / INSERT statements',
     saveStates: { saved: 'Saved', saving: 'Saving…', failed: 'Save failed', readOnly: 'Read-only' },
@@ -74,6 +77,11 @@ export const en = {
   },
 
   table: {
+    testBadge: 'TEST',
+    testOnly: 'Test-only table',
+    testOnlyTitle: 'Kept in the test file and left out of the production DDL',
+    seedProduction: 'Production data',
+    seedTest: 'Test data',
     noColumns: '(no columns)',
     editTitle: 'Edit Table',
     tabDefinition: 'Definition',
@@ -248,6 +256,9 @@ export const en = {
     saveData: 'Save data…',
     saveDataTitle: 'Save only the seed-data INSERTs to a file (default name: markdown-er.ddl.dataOutputFile)',
     saveDataNone: 'No seed data (full DDL only)',
+    test: 'Test DDL',
+    testHint: 'What tests add, to run after the production DDL: test-only tables and test rows',
+    testEmpty: 'No test-only tables or test data.',
     validationFailed: 'The DDL could not be generated. Fix the following:',
     validationErrors: {
       tableNameMissing: (table: string, _column: string) => `Table "${table}": physical name is required`,
@@ -328,6 +339,7 @@ export const en = {
     nothing: 'Nothing to import.',
     skipped: (names: string) => `Already in the diagram, definition not imported: ${names}`,
     replaceSeedData: 'Replace the seed data of existing tables (otherwise rows are added)',
+    asTest: 'Import for tests only (new tables become test-only, rows become test data)',
     warnings: (n: number) => `${n} warning${n === 1 ? '' : 's'}`,
     moreWarnings: (n: number) => `… and ${n} more`,
     import: 'Import',

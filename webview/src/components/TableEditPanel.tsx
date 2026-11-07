@@ -14,6 +14,7 @@ const PRESET_COLORS = ['#4a7c9e', '#6a9e4a', '#9e6a4a', '#9e4a7c', '#4a6a9e', '#
 export function TableEditPanel() {
   const [noteOpen, setNoteOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('definition');
+  const [seedTarget, setSeedTarget] = useState<'production' | 'test'>('production');
   const selectedTableId = useUiStore((s) => s.selectedTableId);
   const selectTable = useUiStore((s) => s.selectTable);
 
@@ -29,6 +30,8 @@ export function TableEditPanel() {
   const addColumn        = useDiagramStore((s) => s.addColumn);
   const deleteColumn     = useDiagramStore((s) => s.deleteColumn);
   const updateSeedData   = useDiagramStore((s) => s.updateSeedData);
+  const updateTestSeedData = useDiagramStore((s) => s.updateTestSeedData);
+  const setTableTestOnly = useDiagramStore((s) => s.setTableTestOnly);
   const addIndex         = useDiagramStore((s) => s.addIndex);
   const updateIndex      = useDiagramStore((s) => s.updateIndex);
   const deleteIndex      = useDiagramStore((s) => s.deleteIndex);
@@ -40,6 +43,7 @@ export function TableEditPanel() {
 
   if (!selectedTableId || !table) return null;
 
+  const editsTestRows = seedTarget === 'test' && !table.testOnly;
   const autoIncrementTypes = AUTO_INCREMENT_TYPES[dialect];
   const autoIncrementId = autoIncrementColumn(table, { relations, dictionary }, autoIncrementTypes)?.id;
   // Whether the column would auto-increment with its own setting left to the default
@@ -70,11 +74,33 @@ export function TableEditPanel() {
 
       <div style={{ padding: '10px 12px' }}>
         {activeTab === 'seed' ? (
-          <SeedDataEditor
-            table={table}
-            autoIncrementColumnId={autoIncrementId}
-            onUpdate={(data) => updateSeedData(selectedTableId, data)}
-          />
+          <>
+            {!table.testOnly && (
+              <div style={seedTargetStyle}>
+                {(['production', 'test'] as const).map((target) => (
+                  <label key={target} style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                    <input type="radio" name="seedTarget" checked={seedTarget === target} onChange={() => setSeedTarget(target)} />
+                    {target === 'production' ? t.seedProduction : t.seedTest}
+                  </label>
+                ))}
+              </div>
+            )}
+            {editsTestRows ? (
+              <SeedDataEditor
+                key="test"
+                table={{ ...table, seedData: table.testSeedData }}
+                autoIncrementColumnId={autoIncrementId}
+                onUpdate={(data) => updateTestSeedData(selectedTableId, data)}
+              />
+            ) : (
+              <SeedDataEditor
+                key="production"
+                table={table}
+                autoIncrementColumnId={autoIncrementId}
+                onUpdate={(data) => updateSeedData(selectedTableId, data)}
+              />
+            )}
+          </>
         ) : activeTab === 'indexes' ? (
           <IndexesTab
             table={table}
@@ -88,6 +114,15 @@ export function TableEditPanel() {
           />
         ) : (
           <>
+        <label style={{ ...rowStyle, cursor: 'pointer', fontSize: 12 }} title={t.testOnlyTitle}>
+          <input
+            type="checkbox"
+            checked={!!table.testOnly}
+            onChange={(e) => setTableTestOnly(selectedTableId, e.target.checked)}
+          />
+          {t.testOnly}
+        </label>
+
         {/* Table names */}
         <div style={rowStyle}>
           <label style={labelStyle}>{messages.common.logicalName}</label>
@@ -463,3 +498,5 @@ const addSubBtnStyle: React.CSSProperties = {
   background: '#5a8a6a', color: '#fff', border: 'none', borderRadius: 3,
   padding: '3px 9px', cursor: 'pointer', fontSize: 11,
 };
+
+const seedTargetStyle: React.CSSProperties = { display: 'flex', gap: 14, fontSize: 12, marginBottom: 8 };

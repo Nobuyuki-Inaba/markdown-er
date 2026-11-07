@@ -3,7 +3,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { Uri, workspace } from 'vscode';
 import { mock } from '../mocks/vscode';
-import { readDiagram, versionsUri, writeDiagram } from '../../src/ErmdFiles';
+import { readDiagram, testUri, versionsUri, writeDiagram } from '../../src/ErmdFiles';
 import { ErmdTexts, parseVersionsFile } from '../../src/format/ErmdCodec';
 import { CURRENT_FORMAT_VERSION, NewerFormatError } from '../../src/format/formatVersion';
 import { fullModel } from '../fixtures';
@@ -110,5 +110,41 @@ describe('ErmdFiles', () => {
       expect(mock.read(MAIN)).toBeUndefined(); // not written yet
     });
     expect(onDisk).toEqual({ main: mock.read(MAIN), versions: '- [broken' });
+  });
+});
+
+describe('test file', () => {
+  const TEST = '/work/full.ermd.test.yaml';
+  const withTestRows = () => {
+    const model = { ...fullModel(), version: 2 };
+    model.tables[0].testSeedData = [{ id: '9' }];
+    return model;
+  };
+
+  it('sits next to the diagram', () => {
+    expect(testUri(uri).path).toBe(TEST);
+  });
+
+  it('is written, read back and deleted with the last test data', async () => {
+    await writeDiagram(uri, withTestRows());
+    expect(mock.read(TEST)).toContain('seedData');
+    const { model } = await readDiagram(uri);
+    expect(model.tables[0].testSeedData).toEqual([{ id: '9' }]);
+
+    model.tables[0].testSeedData = undefined;
+    await writeDiagram(uri, model);
+    expect(mock.read(TEST)).toBeUndefined();
+  });
+
+  it('is never overwritten or deleted when it cannot be read', async () => {
+    mock.write(TEST, 'tables: [');
+    await writeDiagram(uri, withTestRows());
+    expect(mock.read(TEST)).toBe('tables: [');
+  });
+
+  it('tells the watcher what it wrote', async () => {
+    let written: ErmdTexts | undefined;
+    await writeDiagram(uri, withTestRows(), (texts) => { written = texts; });
+    expect(written?.test).toBe(mock.read(TEST));
   });
 });

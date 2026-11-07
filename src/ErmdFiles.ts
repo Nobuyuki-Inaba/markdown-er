@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
 import { DiagramModel } from '../shared/DiagramModel';
-import { EncodedTexts, ErmdTexts, decode, encode, versionsFileName } from './format/ErmdCodec';
+import { EncodedTexts, ErmdTexts, decode, encode, testFileName, versionsFileName } from './format/ErmdCodec';
 import { MarkdownDocsOptions } from './format/MarkdownDocs';
 import { resolveLocale } from './i18n';
 
-/** File access for a diagram: the .ermd file and its schema versions file (see format/ErmdCodec) */
+/** File access for a diagram: the .ermd file, its schema versions file and its test file (see format/ErmdCodec) */
 
 export function fileName(uri: vscode.Uri): string {
   return uri.path.split('/').pop() ?? 'diagram.ermd';
@@ -12,6 +12,10 @@ export function fileName(uri: vscode.Uri): string {
 
 export function versionsUri(uri: vscode.Uri): vscode.Uri {
   return vscode.Uri.joinPath(uri, '..', versionsFileName(fileName(uri)));
+}
+
+export function testUri(uri: vscode.Uri): vscode.Uri {
+  return vscode.Uri.joinPath(uri, '..', testFileName(fileName(uri)));
 }
 
 /** The file's text, or undefined when it doesn't exist */
@@ -25,8 +29,8 @@ export async function readText(uri: vscode.Uri): Promise<string | undefined> {
 }
 
 export async function readTexts(uri: vscode.Uri): Promise<ErmdTexts> {
-  const [main, versions] = await Promise.all([readText(uri), readText(versionsUri(uri))]);
-  return { main, versions };
+  const [main, versions, test] = await Promise.all([readText(uri), readText(versionsUri(uri)), readText(testUri(uri))]);
+  return { main, versions, test };
 }
 
 export async function readDiagram(uri: vscode.Uri): Promise<{ model: DiagramModel; texts: ErmdTexts }> {
@@ -57,6 +61,7 @@ export async function writeDiagram(
   beforeWrite?.({
     main: out.main,
     versions: out.versions === undefined ? current.versions : out.versions ?? undefined,
+    test: out.test === undefined ? current.test : out.test ?? undefined,
   });
   if (out.main !== current.main) {
     await vscode.workspace.fs.writeFile(uri, Buffer.from(out.main, 'utf-8'));
@@ -66,6 +71,11 @@ export async function writeDiagram(
   } else if (out.versions === null && current.versions !== undefined) {
     // Our own file, and every version in it has been deleted
     await vscode.workspace.fs.delete(versionsUri(uri));
+  }
+  if (typeof out.test === 'string' && out.test !== current.test) {
+    await vscode.workspace.fs.writeFile(testUri(uri), Buffer.from(out.test, 'utf-8'));
+  } else if (out.test === null && current.test !== undefined) {
+    await vscode.workspace.fs.delete(testUri(uri));
   }
   return out;
 }

@@ -5,6 +5,7 @@ import { Schema, ResolvedForeignKey } from './Schema';
 import { isCompleteIndex } from './DdlExporter';
 import { createDialect } from './createDialect';
 import type { DdlStyle } from '../../shared/ddlStyle';
+import { productionModel } from '../../shared/testData';
 
 /**
  * ALTER script that turns `baseline` into `current`.
@@ -18,7 +19,7 @@ export class SchemaDiffer {
   private readonly stmts: string[] = [];
 
   static diff(baseline: DiagramModel, current: DiagramModel, dialect: DdlDialect = 'mysql', style: Partial<DdlStyle> = {}): string {
-    return new SchemaDiffer(baseline, current, createDialect(dialect, current.database, style)).build();
+    return new SchemaDiffer(productionModel(baseline), productionModel(current), createDialect(dialect, current.database, style)).build();
   }
 
   constructor(baseline: DiagramModel, current: DiagramModel, private readonly dialect: SqlDialect) {

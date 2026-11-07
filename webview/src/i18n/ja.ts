@@ -18,6 +18,9 @@ export const ja: Messages = {
   },
 
   toolbar: {
+    showTestData: 'テスト用を表示',
+    hideTestData: 'テスト用を非表示',
+    testDataTitle: 'テスト専用テーブルの表示を切り替えます。変わるのは表示だけです。',
     importSql: 'SQL インポート',
     importSqlTitle: 'DDL / INSERT 文からテーブル、リレーション、初期データを取り込む',
     saveStates: { saved: '保存済み', saving: '保存中…', failed: '保存失敗', readOnly: '読み取り専用' },
@@ -69,6 +72,11 @@ export const ja: Messages = {
   },
 
   table: {
+    testBadge: 'TEST',
+    testOnly: 'テスト専用テーブル',
+    testOnlyTitle: 'テスト用ファイルに保存し、本番の DDL には出力しません',
+    seedProduction: '本番データ',
+    seedTest: 'テストデータ',
     noColumns: '（カラムなし）',
     editTitle: 'テーブル編集',
     tabDefinition: '定義',
@@ -242,6 +250,9 @@ export const ja: Messages = {
     saveData: 'データを保存…',
     saveDataTitle: '初期データの INSERT 文だけをファイルに保存（既定のファイル名: markdown-er.ddl.dataOutputFile）',
     saveDataNone: '初期データがありません（全体 DDL のみ）',
+    test: 'テスト用 DDL',
+    testHint: '本番の DDL の後に実行する、テストで追加する分（テスト専用テーブルとテストデータ）',
+    testEmpty: 'テスト専用テーブルもテストデータもありません。',
     validationFailed: 'DDL を生成できません。次の項目を修正してください:',
     validationErrors: {
       tableNameMissing: (table: string, _column: string) => `テーブル「${table}」: 物理名が未入力です`,
@@ -322,6 +333,7 @@ export const ja: Messages = {
     nothing: '取り込むものがありません。',
     skipped: (names: string) => `図に既にあるため定義は取り込みません: ${names}`,
     replaceSeedData: '既存テーブルの初期データを置き換える（オフ: 行を追加）',
+    asTest: 'テスト用として取り込む（新規テーブルはテスト専用、行はテストデータになります）',
     warnings: (n: number) => `警告 ${n} 件`,
     moreWarnings: (n: number) => `… ほか ${n} 件`,
     import: 'インポート',
