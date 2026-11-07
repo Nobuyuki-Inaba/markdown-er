@@ -65,20 +65,21 @@ export function DiagramCanvas() {
 
   // Sync model → ReactFlow whenever the model changes
   // Use a ref for the model to avoid stale closure inside the effect
+  const showTestData = useUiStore((s) => s.showTestData);
   const modelRef = useRef(model);
   modelRef.current = model;
 
   useEffect(() => {
     if (!draggingRef.current) {
-      setNodes(modelToNodes(modelRef.current));
+      setNodes(modelToNodes(modelRef.current, showTestData));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [model.tables, model.layout.tables, model.layout.regions]);
+  }, [model.tables, model.layout.tables, model.layout.regions, showTestData]);
 
   useEffect(() => {
-    setEdges(modelToEdges(modelRef.current));
+    setEdges(modelToEdges(modelRef.current, showTestData));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [model.relations]);
+  }, [model.relations, showTestData]);
 
   const handleNodesChange = useCallback(
     (changes: any[]) => {

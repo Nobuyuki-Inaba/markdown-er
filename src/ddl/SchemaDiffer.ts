@@ -1,10 +1,11 @@
-import { Column, DiagramModel, Table, TableConstraint, TableIndex } from '../../shared/DiagramModel';
+import { Column, DiagramModel, Table, TableConstraint, TableIndex, constraintName, indexName } from '../../shared/DiagramModel';
 import type { DdlDialect } from '../../shared/messages';
 import { SqlDialect, ColumnChange, commentText } from './SqlDialect';
 import { Schema, ResolvedForeignKey } from './Schema';
 import { isCompleteIndex } from './DdlExporter';
 import { createDialect } from './createDialect';
 import type { DdlStyle } from '../../shared/ddlStyle';
+import { productionModel } from '../../shared/testData';
 
 /**
  * ALTER script that turns `baseline` into `current`.
@@ -18,7 +19,7 @@ export class SchemaDiffer {
   private readonly stmts: string[] = [];
 
   static diff(baseline: DiagramModel, current: DiagramModel, dialect: DdlDialect = 'mysql', style: Partial<DdlStyle> = {}): string {
-    return new SchemaDiffer(baseline, current, createDialect(dialect, current.database, style)).build();
+    return new SchemaDiffer(productionModel(baseline), productionModel(current), createDialect(dialect, current.database, style)).build();
   }
 
   constructor(baseline: DiagramModel, current: DiagramModel, private readonly dialect: SqlDialect) {
@@ -62,14 +63,14 @@ export class SchemaDiffer {
       const curIdx = new Map((ct.indexes ?? []).map((i) => [i.id, i]));
       for (const bi of (bt.indexes ?? []).filter(isCompleteIndex)) {
         const ci = curIdx.get(bi.id);
-        if (!ci || !sameIndex(bi, ci)) { this.push(this.dialect.dropIndex(bt, bi)); }
+        if (!ci || !sameIndex(bt, bi, ct, ci)) { this.push(this.dialect.dropIndex(bt, bi)); }
       }
 
       const curCst = new Map((ct.constraints ?? []).map((c) => [c.id, c]));
       for (const bc of bt.constraints ?? []) {
-        if (!this.dialect.constraintClause(bc)) { continue; } // never part of the schema
+        if (!this.dialect.constraintClause(bt, bc)) { continue; } // never part of the schema
         const cc = curCst.get(bc.id);
-        if (!cc || !sameConstraint(bc, cc)) { this.push(this.dialect.dropConstraint(bt, bc)); }
+        if (!cc || !sameConstraint(bt, bc, ct, cc)) { this.push(this.dialect.dropConstraint(bt, bc)); }
       }
     }
   }
@@ -151,13 +152,13 @@ export class SchemaDiffer {
       const baseIdx = new Map((bt.indexes ?? []).filter(isCompleteIndex).map((i) => [i.id, i]));
       for (const ci of (ct.indexes ?? []).filter(isCompleteIndex)) {
         const bi = baseIdx.get(ci.id);
-        if (!bi || !sameIndex(bi, ci)) { this.push(this.dialect.createIndex(ct, ci)); }
+        if (!bi || !sameIndex(bt, bi, ct, ci)) { this.push(this.dialect.createIndex(ct, ci)); }
       }
 
       const baseCst = new Map((bt.constraints ?? []).map((c) => [c.id, c]));
       const added = (ct.constraints ?? []).filter((cc) => {
         const bc = baseCst.get(cc.id);
-        return !bc || !sameConstraint(bc, cc);
+        return !bc || !sameConstraint(bt, bc, ct, cc);
       });
       this.push(...added.map((c) => this.dialect.addConstraint(ct, c)));
       this.push(...this.dialect.customStatements(added));
@@ -191,10 +192,10 @@ function foreignKeyChanged(a: ResolvedForeignKey, b: ResolvedForeignKey): boolea
     || a.child.id !== b.child.id   || a.childColumn.id !== b.childColumn.id;
 }
 
-function sameIndex(a: TableIndex, b: TableIndex): boolean {
-  return a.name === b.name && a.unique === b.unique && a.columns.join('\0') === b.columns.join('\0');
+function sameIndex(aTable: Table, a: TableIndex, bTable: Table, b: TableIndex): boolean {
+  return indexName(aTable, a) === indexName(bTable, b) && a.unique === b.unique && a.columns.join('\0') === b.columns.join('\0');
 }
 
-function sameConstraint(a: TableConstraint, b: TableConstraint): boolean {
-  return a.type === b.type && a.name === b.name && a.expression === b.expression;
+function sameConstraint(aTable: Table, a: TableConstraint, bTable: Table, b: TableConstraint): boolean {
+  return a.type === b.type && constraintName(aTable, a) === constraintName(bTable, b) && a.expression === b.expression;
 }

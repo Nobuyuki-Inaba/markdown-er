@@ -1,5 +1,5 @@
 import { useDiagramStore } from '../store/diagramStore';
-import { useUiStore } from '../store/uiStore';
+import { SaveState, useUiStore } from '../store/uiStore';
 import { sendToExtension } from '../vscodeApi';
 import type { DiagramModel } from '@shared/DiagramModel';
 import type { LanguageSetting } from '@shared/messages';
@@ -14,6 +14,10 @@ export function Toolbar() {
   const openDictionary  = useUiStore((s) => s.openDictionary);
   const openColumnSets  = useUiStore((s) => s.openColumnSets);
   const openCsvImport   = useUiStore((s) => s.openCsvImport);
+  const openSqlImport   = useUiStore((s) => s.openSqlImport);
+  const showTestData    = useUiStore((s) => s.showTestData);
+  const toggleTestData  = useUiStore((s) => s.toggleTestData);
+  const setDdlMode      = useUiStore((s) => s.setDdlMode);
   const openVersions    = useUiStore((s) => s.openVersions);
   const openDatabase    = useUiStore((s) => s.openDatabase);
   const languageSetting = useUiStore((s) => s.languageSetting);
@@ -63,11 +67,22 @@ export function Toolbar() {
       <button onClick={openCsvImport} style={btnStyle} title={t.importCsvTitle}>
         {t.importCsv}
       </button>
+      <button onClick={openSqlImport} style={btnStyle} title={t.importSqlTitle}>
+        {t.importSql}
+      </button>
       <button onClick={openDatabase} style={btnStyle} title={t.databaseTitle}>
         {t.database}
       </button>
 
+      {model.tables.some((table) => table.testOnly) && (
+        <button onClick={toggleTestData} style={btnStyle} title={t.testDataTitle}>
+          {showTestData ? t.hideTestData : t.showTestData}
+        </button>
+      )}
+
       <div style={{ flex: 1 }} />
+
+      <SaveStatus />
 
       {/* Versions and output */}
       <button
@@ -85,7 +100,10 @@ export function Toolbar() {
         {t.versions}
       </button>
       <button
-        onClick={() => window.dispatchEvent(new CustomEvent('er:requestDdl', { detail: { mode: 'full' } }))}
+        onClick={() => {
+          setDdlMode('full');
+          window.dispatchEvent(new CustomEvent('er:requestDdl', { detail: { mode: 'full' } }));
+        }}
         style={{ ...btnStyle, background: '#4a8a5a', color: '#fff' }}
         title={t.exportDdl}
       >
@@ -118,6 +136,28 @@ export function Toolbar() {
     </div>
   );
 }
+
+/** Edits are saved automatically; this shows whether the latest one is on disk */
+function SaveStatus() {
+  const saveState = useUiStore((s) => s.saveState);
+  const readOnly  = useUiStore((s) => s.fileStatus.readOnly);
+  return <SaveStatusLabel state={readOnly ? 'readOnly' : saveState} />;
+}
+
+export function SaveStatusLabel({ state }: { state: SaveState | 'readOnly' }) {
+  const t = useMessages().toolbar;
+  return (
+    <span role="status" title={t.saveStateTitle} style={{ ...saveStatusStyle, color: SAVE_STATE_COLORS[state] }}>
+      {t.saveStates[state]}
+    </span>
+  );
+}
+
+const SAVE_STATE_COLORS = { saved: '#9a9a9a', saving: '#d7ba7d', failed: '#f48771', readOnly: '#d7ba7d' };
+
+const saveStatusStyle: React.CSSProperties = {
+  fontSize: 12, padding: '0 8px', whiteSpace: 'nowrap', userSelect: 'none',
+};
 
 const toolbarStyle: React.CSSProperties = {
   display: 'flex',

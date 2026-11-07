@@ -12,6 +12,8 @@
   "config.ddl.explicitNull": "NULL 許可カラムに NULL を明記する（オフなら NOT NULL のみ出力）。",
   "config.ddl.quoteIdentifiers": "すべての識別子を引用符で囲む。オフなら必要な名前だけ囲む。",
   "config.ddl.outputFile": "「DDL を保存…」の既定ファイル（ER 図ファイルのフォルダーからの相対パス）。変数: `${fileBasenameNoExtension}`、`${fileBasename}`、`${workspaceFolder}`",
+  "config.ddl.testOutputFile": "テスト用 DDL を表示しているときの「DDL を保存…」の既定ファイル。変数は `#markdown-er.ddl.outputFile#` と同じです。",
+  "config.ddl.testDataOutputFile": "テスト用 DDL を表示しているときの「データを保存…」の既定ファイル。変数は `#markdown-er.ddl.outputFile#` と同じです。",
   "config.ddl.dataOutputFile": "「データを保存…」（初期データの INSERT のみ）の既定ファイル。変数は `#markdown-er.ddl.outputFile#` と同じです。",
   "command.migrateFile": "ER Diagram: ファイル形式を最新にする（Migrate）",
   "command.migrateWorkspace": "ER Diagram: ワークスペースの全ファイルの形式を最新にする",

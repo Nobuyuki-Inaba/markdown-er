@@ -1,7 +1,11 @@
 import { DiagramModel, DdlDialect } from './DiagramModel';
 import type { DdlStyle } from './ddlStyle';
+import type { ValidationError } from './validation';
 
 export type { DdlDialect };
+
+/** Production DDL, what tests add to it, or an ALTER script from a git ref / saved version */
+export type DdlMode = 'full' | 'test' | 'diff' | 'version-diff';
 
 /** Resolved UI language */
 export type Locale = 'en' | 'ja';
@@ -12,11 +16,13 @@ export type ExtToWebMsg =
   | { type: 'load'; payload: DiagramModel; fileUri: string }
   | { type: 'fileChanged'; payload: DiagramModel }
   /** `data`: seed-data INSERTs alone (full mode), for saving to a separate file */
-  | { type: 'ddlResult'; payload: { ddl: string; data?: string; mode: 'full' | 'diff' | 'version-diff' } }
+  | { type: 'ddlResult'; payload: { ddl: string; data?: string; mode: DdlMode; errors?: ValidationError[] } }
   | { type: 'dialectChanged'; payload: { dialect: DdlDialect } }
   | { type: 'localeChanged'; payload: { locale: Locale; setting: LanguageSetting } }
   | { type: 'ddlStyleChanged'; payload: DdlStyle }
   | { type: 'versionSaved'; payload: DiagramModel }
+  /** A `save` of this version was written to disk, or failed */
+  | { type: 'saveStatus'; payload: { version: number; ok: boolean } }
   /** Sent with every load / file change. `readOnly`: the file's format is newer than the extension */
   | { type: 'fileStatus'; payload: { readOnly: boolean; formatVersion: number; supportedVersion: number } }
   | { type: 'undo' }
@@ -24,9 +30,10 @@ export type ExtToWebMsg =
 
 export type WebToExtMsg =
   | { type: 'ready' }
-  | { type: 'save'; payload: DiagramModel; version: number; fileUri: string }
+  /** `immediate`: Ctrl+S — write now, even a version already tried (retries a failed write) */
+  | { type: 'save'; payload: DiagramModel; version: number; fileUri: string; immediate?: boolean }
   | { type: 'requestDdl'; payload: {
-      mode: 'full' | 'diff' | 'version-diff';
+      mode: DdlMode;
       baselineRef?: string;
       fromVersionId?: string;
       toVersionId?: string | null;
@@ -42,4 +49,4 @@ export type WebToExtMsg =
   | { type: 'saveSqlFile'; payload: { kind: SqlFileKind; text: string } }
   | { type: 'openSettings' };
 
-export type SqlFileKind = 'ddl' | 'data';
+export type SqlFileKind = 'ddl' | 'data' | 'testDdl' | 'testData';

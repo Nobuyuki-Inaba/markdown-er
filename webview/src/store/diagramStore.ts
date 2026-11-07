@@ -1,13 +1,15 @@
 import { create } from 'zustand';
 import { temporal } from 'zundo';
 import {
-  DiagramModel, Table, Column, ColumnSet, Relation, DictionaryEntry,
+  DiagramModel, Table, Column, ColumnSet, Relation, DictionaryEntry, SchemaVersion,
   createEmptyModel, TableLayout, RegionLayout,
   TableIndex, TableConstraint, ConstraintType, DatabaseSettings, DatabaseOptions, DdlDialect, TypeSpec,
 } from '@shared/DiagramModel';
 import { genId } from '../util/idgen';
 import { computeAutoLayout, LayoutDirection, TablePosition } from '../util/autoLayout';
 import type { ParsedTableImport, ParsedDictionaryImport } from '../util/csvImport';
+import type { SqlImport } from '../util/sqlImport/buildSqlImport';
+import { restoreVersion } from '@shared/schemaCompare';
 import type { DdlReplacement } from '@shared/ddlReplacements';
 import { syncColumnSets } from '../util/columnSets';
 
@@ -21,6 +23,10 @@ interface DiagramState {
   addTable: (x: number, y: number) => void;
   updateTable: (tableId: string, patch: Partial<Pick<Table, 'logicalName' | 'physicalName' | 'comment' | 'designNote' | 'headerColor'>>) => void;
   updateSeedData: (tableId: string, seedData: Record<string, string>[]) => void;
+  /** Rows of a production table used only in tests */
+  updateTestSeedData: (tableId: string, rows: Record<string, string>[]) => void;
+  /** Moves the table to the test side or back; rows on the test side never become production rows */
+  setTableTestOnly: (tableId: string, testOnly: boolean) => void;
   deleteTable: (tableId: string) => void;
 
   // Column actions take an owner: a table id or a column set id (set changes reach every table using it)
@@ -64,6 +70,9 @@ interface DiagramState {
 
   importTables: (parsed: ParsedTableImport) => void;
   importDictionaryEntries: (parsed: ParsedDictionaryImport) => void;
+  importSql: (parsed: SqlImport, options: SqlImportOptions) => void;
+  /** Puts the production schema back to a saved version, as one undo step */
+  restoreVersion: (version: SchemaVersion) => void;
   /** Create a dictionary entry and assign it to the column (one undo step) */
   addColumnType: (ownerId: string, columnId: string, entry: Omit<DictionaryEntry, 'id'>) => void;
   /** Assign a dictionary type, or a type given directly */
@@ -106,14 +115,40 @@ function withoutSet(t: Table, setId: string): Table {
   return { ...t, columnSetIds: ids.length > 0 ? ids : undefined };
 }
 
-/** Use a dictionary type; its NOT NULL default applies (primary keys are NOT NULL anyway) */
+/**
+ * Use a dictionary type; its NOT NULL default applies (primary keys are NOT NULL anyway)
+ * and its name becomes the logical name if that is still empty.
+ */
 function withDictionaryType(c: Column, entry: DictionaryEntry): Column {
   return {
     ...c,
+    logicalName: c.logicalName || entry.name,
     dictionaryId: entry.id,
     type: undefined,
     isNullable: c.isPrimaryKey ? c.isNullable : !entry.notNull,
   };
+}
+
+export interface SqlImportOptions {
+  /** Rows for a table already in the diagram replace its rows instead of being added to them */
+  replaceSeedData: boolean;
+  /** New tables are test-only, and rows are test rows */
+  asTest: boolean;
+}
+
+/** Imported tables in a grid below the top-left corner */
+function gridLayouts(tables: Table[], existingCount: number): TableLayout[] {
+  const GRID_COLS = 4;
+  const STEP_X = 280;
+  const STEP_Y = 200;
+  const startX = 60;
+  const startY = 60 + existingCount * 10;
+  return tables.map((t, i) => ({
+    tableId: t.id,
+    x: startX + (i % GRID_COLS) * STEP_X,
+    y: startY + Math.floor(i / GRID_COLS) * STEP_Y,
+    width: 260,
+  }));
 }
 
 function nextVersion(state: DiagramState): number {
@@ -168,6 +203,18 @@ export const useDiagramStore = create<DiagramState>()(
           ),
         })),
 
+      updateTestSeedData: (tableId, rows) =>
+        updateModel(set, (m) => mapTable(m, tableId, (t) => ({ ...t, testSeedData: rows.length > 0 ? rows : undefined }))),
+
+      setTableTestOnly: (tableId, testOnly) =>
+        updateModel(set, (m) => mapTable(m, tableId, (t) => {
+          if (testOnly) {
+            const rows = [...(t.seedData ?? []), ...(t.testSeedData ?? [])];
+            return { ...t, testOnly: true, seedData: rows.length > 0 ? rows : undefined, testSeedData: undefined };
+          }
+          return { ...t, testOnly: undefined, seedData: undefined, testSeedData: t.seedData };
+        })),
+
       updateSeedData: (tableId, seedData) =>
         updateModel(set, (m) => ({
           ...m,
@@ -195,9 +242,9 @@ export const useDiagramStore = create<DiagramState>()(
         updateModel(set, (m) => {
           const newCol: Column = {
             id: genId('col'),
-            logicalName: 'Column',
-            physicalName: 'column',
-            dictionaryId: m.dictionary[0]?.id ?? '',
+            logicalName: '',
+            physicalName: '',
+            dictionaryId: '',
             isPrimaryKey: false,
             isNullable: true,
             defaultValue: null,
@@ -404,28 +451,36 @@ export const useDiagramStore = create<DiagramState>()(
         })),
 
       importTables: ({ tables, autoCreatedDictEntries }) =>
-        updateModel(set, (m) => {
-          const GRID_COLS = 4;
-          const STEP_X = 280;
-          const STEP_Y = 200;
-          const startX = 60;
-          const startY = 60 + m.layout.tables.length * 10;
-          const newLayouts: TableLayout[] = tables.map((t, i) => ({
-            tableId: t.id,
-            x: startX + (i % GRID_COLS) * STEP_X,
-            y: startY + Math.floor(i / GRID_COLS) * STEP_Y,
-            width: 260,
-          }));
-          return {
-            ...m,
-            dictionary: [...m.dictionary, ...autoCreatedDictEntries],
-            tables: [...m.tables, ...tables],
-            layout: {
-              ...m.layout,
-              tables: [...m.layout.tables, ...newLayouts],
-            },
-          };
-        }),
+        updateModel(set, (m) => ({
+          ...m,
+          dictionary: [...m.dictionary, ...autoCreatedDictEntries],
+          tables: [...m.tables, ...tables],
+          layout: {
+            ...m.layout,
+            tables: [...m.layout.tables, ...gridLayouts(tables, m.layout.tables.length)],
+          },
+        })),
+
+      restoreVersion: (version) => updateModel(set, (m) => restoreVersion(m, version)),
+
+      importSql: ({ tables, relations, existingSeedRows }, { replaceSeedData, asTest }) =>
+        updateModel(set, (m) => ({
+          ...m,
+          tables: [
+            ...m.tables.map((t) => {
+              const rows = existingSeedRows.find((r) => r.tableId === t.id)?.rows;
+              if (!rows) { return t; }
+              const key = asTest && !t.testOnly ? 'testSeedData' : 'seedData';
+              return { ...t, [key]: [...(replaceSeedData ? [] : t[key] ?? []), ...rows] };
+            }),
+            ...tables.map((t) => (asTest ? { ...t, testOnly: true } : t)),
+          ],
+          relations: [...m.relations, ...relations],
+          layout: {
+            ...m.layout,
+            tables: [...m.layout.tables, ...gridLayouts(tables, m.layout.tables.length)],
+          },
+        })),
 
       importDictionaryEntries: ({ entries }) =>
         updateModel(set, (m) => ({

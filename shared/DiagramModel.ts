@@ -132,6 +132,37 @@ export interface TableIndex {
   comment?: string;
 }
 
+/** Fits every database (PostgreSQL silently cuts names at 63) */
+const MAX_GENERATED_NAME_LENGTH = 63;
+
+function fitName(name: string): string {
+  if (name.length <= MAX_GENERATED_NAME_LENGTH) { return name; }
+  // A hash keeps two long names apart when only their ends differ
+  let hash = 0;
+  for (const ch of name) { hash = (hash * 31 + ch.charCodeAt(0)) >>> 0; }
+  return `${name.slice(0, MAX_GENERATED_NAME_LENGTH - 9)}_${hash.toString(16).padStart(8, '0')}`;
+}
+
+/** The index's own name, else `ix_<table>_<columns>` (`ux_` when unique) */
+export function indexName(table: Pick<Table, 'physicalName'>, index: Pick<TableIndex, 'name' | 'columns' | 'unique'>): string {
+  if (index.name.trim()) { return index.name; }
+  return fitName(`${index.unique ? 'ux' : 'ix'}_${table.physicalName}_${index.columns.join('_')}`);
+}
+
+/**
+ * The constraint's own name, else `uq_<table>_<columns>`, or `ck_<table>_<n>` for the table's n-th CHECK.
+ * CUSTOM constraints are raw statements, so nothing uses theirs.
+ */
+export function constraintName(table: Pick<Table, 'physicalName' | 'constraints'>, constraint: TableConstraint): string {
+  if (constraint.name.trim()) { return constraint.name; }
+  if (constraint.type === 'UNIQUE') {
+    const columns = constraint.expression.split(',').map((s) => s.trim()).join('_');
+    return fitName(`uq_${table.physicalName}_${columns}`);
+  }
+  const checks = (table.constraints ?? []).filter((c) => c.type === 'CHECK');
+  return fitName(`ck_${table.physicalName}_${checks.findIndex((c) => c.id === constraint.id) + 1}`);
+}
+
 export type ConstraintType = 'UNIQUE' | 'CHECK' | 'CUSTOM';
 
 export interface TableConstraint {
@@ -154,7 +185,12 @@ export interface Table {
   columnSetIds?: string[];
   indexes?: TableIndex[];
   constraints?: TableConstraint[];
+  /** For a test-only table: all its rows. Otherwise the rows that production gets. */
   seedData?: Record<string, string>[];
+  /** Exists only for tests: kept in the test file, left out of production DDL (see shared/testData.ts) */
+  testOnly?: boolean;
+  /** Rows of a production table used only in tests; kept in the test file */
+  testSeedData?: Record<string, string>[];
 }
 
 export type Cardinality = 'ONE_TO_ONE' | 'ONE_TO_MANY' | 'MANY_TO_MANY';

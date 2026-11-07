@@ -1,4 +1,4 @@
-import { TypeSpec, Table, TableConstraint, TableIndex, typeSizeSuffix } from '../../../shared/DiagramModel';
+import { TypeSpec, Table, TableConstraint, TableIndex, constraintName, indexName, typeSizeSuffix } from '../../../shared/DiagramModel';
 import { ColumnChange, SqlDialect, commentText } from '../SqlDialect';
 import type { ResolvedForeignKey } from '../Schema';
 
@@ -68,13 +68,13 @@ export class MySqlDialect extends SqlDialect {
   }
 
   dropIndex(table: Table, idx: TableIndex): string {
-    return `DROP INDEX ${this.quote(idx.name)} ON ${this.quote(table.physicalName)};`;
+    return `DROP INDEX ${this.quote(indexName(table, idx))} ON ${this.quote(table.physicalName)};`;
   }
 
   /** A UNIQUE constraint is an index in MySQL */
   dropConstraint(table: Table, c: TableConstraint): string {
     const kind = c.type === 'UNIQUE' ? 'INDEX' : 'CONSTRAINT';
-    return `ALTER TABLE ${this.quote(table.physicalName)} DROP ${kind} ${this.quote(c.name)};`;
+    return `ALTER TABLE ${this.quote(table.physicalName)} DROP ${kind} ${this.quote(constraintName(table, c))};`;
   }
 
   changeTableComment(table: Table, comment: string): string[] {

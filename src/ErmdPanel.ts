@@ -1,15 +1,26 @@
 import { applyDdlReplacements } from '../shared/ddlReplacements';
 import * as vscode from 'vscode';
 import { fileName, readDiagram, writeDiagram } from './ErmdFiles';
-import { ErmdTexts, versionsFileName } from './format/ErmdCodec';
+import { ErmdTexts, isTestFileReadable, testFileName, versionsFileName } from './format/ErmdCodec';
 import { CURRENT_FORMAT_VERSION, formatStatus } from './format/formatVersion';
 import { MigrationService } from './MigrationService';
 import { DdlExporter, DdlOptions, SchemaDiffer } from './ddl';
 import { loadGitBaseline } from './GitBaseline';
 import { languageSetting, resolveLocale, t } from './i18n';
 import { DiagramModel, SchemaVersion } from '../shared/DiagramModel';
-import { DdlDialect, ExtToWebMsg, SqlFileKind, WebToExtMsg } from '../shared/messages';
+import { DdlDialect, DdlMode, ExtToWebMsg, SqlFileKind, WebToExtMsg } from '../shared/messages';
 import { DdlStyle, DEFAULT_DDL_STYLE, DDL_STYLE_KEYS } from '../shared/ddlStyle';
+import { versionModel } from '../shared/schemaCompare';
+import { productionModel } from '../shared/testData';
+import { validateModel } from '../shared/validation';
+
+/** The setting and default of each file `Save…` offers */
+const SQL_FILES: Record<SqlFileKind, { setting: string; fallback: string }> = {
+  ddl:      { setting: 'outputFile',         fallback: '${fileBasenameNoExtension}.sql' },
+  data:     { setting: 'dataOutputFile',     fallback: '${fileBasenameNoExtension}_data.sql' },
+  testDdl:  { setting: 'testOutputFile',     fallback: '${fileBasenameNoExtension}_test.sql' },
+  testData: { setting: 'testDataOutputFile', fallback: '${fileBasenameNoExtension}_test_data.sql' },
+};
 
 export class ErmdPanel {
   public static currentPanel: ErmdPanel | undefined;
@@ -26,6 +37,7 @@ export class ErmdPanel {
   // Texts of our own last write (.ermd and versions file), so the file watcher can ignore it
   private _lastWrittenText: string | undefined;
   private _lastWrittenVersions: string | undefined;
+  private _lastWrittenTest: string | undefined;
   // Our write of the two files is in progress: one may be written and the other not yet
   private _writing = false;
   private _watcher: vscode.Disposable | undefined;
@@ -149,19 +161,20 @@ export class ErmdPanel {
     this._model = undefined;
     this._lastWrittenText = undefined;
     this._lastWrittenVersions = undefined;
+    this._lastWrittenTest = undefined;
     this._panel.title = fileName(fileUri);
     this._watchFile();
     await this._loadAndSend();
   }
 
-  /** Watches the .ermd file and its schema versions file */
+  /** Watches the .ermd file, its schema versions file and its test file */
   private _watchFile() {
     this._watcher?.dispose();
     const name = fileName(this._fileUri);
     const watcher = vscode.workspace.createFileSystemWatcher(
       new vscode.RelativePattern(
         vscode.Uri.joinPath(this._fileUri, '..'),
-        `{${name},${versionsFileName(name)}}`
+        `{${name},${versionsFileName(name)},${testFileName(name)}}`
       )
     );
     const onChange = () => this._onExternalFileChange();
@@ -172,8 +185,11 @@ export class ErmdPanel {
 
   private async _loadAndSend() {
     try {
-      const { model } = await readDiagram(this._fileUri);
+      const { model, texts } = await readDiagram(this._fileUri);
       this._model = model;
+      if (!isTestFileReadable(texts.test)) {
+        vscode.window.showWarningMessage(t().testFileUnreadable(testFileName(fileName(this._fileUri))));
+      }
       this._send({ type: 'load', payload: this._model, fileUri: this._fileUri.toString() });
       this._updateFormatStatus(model);
       // Also send current dialect so WebView is in sync from the start
@@ -205,7 +221,7 @@ export class ErmdPanel {
       const { model, texts } = await readDiagram(this._fileUri);
       if (texts.main === undefined || this._writing) { return; }
       // Our own write (the watcher may fire more than once per write)
-      if (texts.main === this._lastWrittenText && texts.versions === this._lastWrittenVersions) { return; }
+      if (texts.main === this._lastWrittenText && texts.versions === this._lastWrittenVersions && texts.test === this._lastWrittenTest) { return; }
       // The external edit wins over edits not yet written
       this._cancelPendingSave();
       this._model = model;
@@ -235,8 +251,12 @@ export class ErmdPanel {
           await this._writeFile(vscode.Uri.parse(msg.fileUri), msg.payload);
           break;
         }
-        if (msg.version <= this._saveVersion) { return; }
+        if (msg.version < this._saveVersion || (msg.version === this._saveVersion && !msg.immediate)) { return; }
         this._pendingSave = { model: msg.payload, version: msg.version };
+        if (msg.immediate) {
+          await this._flushPendingSave();
+          break;
+        }
         if (this._saveTimer) { clearTimeout(this._saveTimer); }
         this._saveTimer = setTimeout(() => this._flushPendingSave(), 500);
         break;
@@ -272,14 +292,16 @@ export class ErmdPanel {
         });
         if (name === undefined) { break; }
         await this._flushPendingSave();
+        // A version is a snapshot of the production schema
+        const snapshot = productionModel(msg.payload.model);
         const newVersion: SchemaVersion = {
           id: `ver_${Date.now()}`,
           name,
           date: new Date().toISOString(),
-          tables: JSON.parse(JSON.stringify(msg.payload.model.tables)),
-          relations: JSON.parse(JSON.stringify(msg.payload.model.relations)),
-          dictionary: JSON.parse(JSON.stringify(msg.payload.model.dictionary)),
-          layout: JSON.parse(JSON.stringify(msg.payload.model.layout)),
+          tables: JSON.parse(JSON.stringify(snapshot.tables)),
+          relations: JSON.parse(JSON.stringify(snapshot.relations)),
+          dictionary: JSON.parse(JSON.stringify(snapshot.dictionary)),
+          layout: JSON.parse(JSON.stringify(snapshot.layout)),
         };
         const updatedModel: DiagramModel = {
           ...(this._model ?? msg.payload.model),
@@ -351,58 +373,72 @@ export class ErmdPanel {
     // deleteVersion, migration), so a WebView model that is stale or undone must not overwrite them.
     const schemaVersions = this._model ? this._model.schemaVersions : pending.model.schemaVersions;
     const version = this._model ? this._model.version : pending.model.version;
-    await this._writeToDiskImmediate({ ...pending.model, schemaVersions, version });
+    const ok = await this._writeToDiskImmediate({ ...pending.model, schemaVersions, version });
+    // The panel may have been closed during the write (dispose flushes)
+    if (ErmdPanel.currentPanel === this) {
+      this._send({ type: 'saveStatus', payload: { version: pending.version, ok } });
+    }
   }
 
-  private async _writeToDiskImmediate(model: DiagramModel) {
-    if (this._readOnly) { return; }
+  /** False if the write failed */
+  private async _writeToDiskImmediate(model: DiagramModel): Promise<boolean> {
+    if (this._readOnly) { return true; }
     this._model = model;
     this._writing = true;
     try {
-      await this._writeFile(this._fileUri, model, (onDisk) => {
+      return await this._writeFile(this._fileUri, model, (onDisk) => {
         this._lastWrittenText = onDisk.main;
         this._lastWrittenVersions = onDisk.versions;
+        this._lastWrittenTest = onDisk.test;
       });
     } finally {
       this._writing = false;
     }
   }
 
-  private async _writeFile(uri: vscode.Uri, model: DiagramModel, beforeWrite?: (onDisk: ErmdTexts) => void) {
+  private async _writeFile(uri: vscode.Uri, model: DiagramModel, beforeWrite?: (onDisk: ErmdTexts) => void): Promise<boolean> {
     try {
       await writeDiagram(uri, model, beforeWrite);
+      return true;
     } catch (err) {
       vscode.window.showErrorMessage(t().saveFailed(err));
+      return false;
     }
   }
 
   private async _generateDdl(
     model: DiagramModel,
-    mode: 'full' | 'diff' | 'version-diff',
+    mode: DdlMode,
     baselineRef?: string,
     options: DdlOptions & { fromVersionId?: string; toVersionId?: string | null } = {}
   ) {
     const dialect = this._getDialect();
     const style = this._getDdlStyle();
+    const toVer = mode === 'version-diff' && options.toVersionId
+      ? model.schemaVersions?.find((v) => v.id === options.toVersionId)
+      : undefined;
+    const toModel = toVer ? versionModel(model, toVer) : model;
+    // Test DDL runs on top of production, so it needs both to be right
+    const errors = validateModel(mode === 'test' ? toModel : productionModel(toModel));
+    if (errors.length > 0) {
+      this._send({ type: 'ddlResult', payload: { ddl: '', mode, errors } });
+      return;
+    }
     let ddl: string;
     let data: string | undefined;
     if (mode === 'full') {
       ddl = DdlExporter.export(model, dialect, { ...options, ...style });
       data = DdlExporter.exportData(model, dialect, { ...options, ...style });
+    } else if (mode === 'test') {
+      ddl = DdlExporter.exportTest(model, dialect, { ...options, ...style });
+      data = DdlExporter.exportTestData(model, dialect, { ...options, ...style });
     } else if (mode === 'version-diff') {
       const versions = model.schemaVersions ?? [];
       const fromVer = versions.find((v) => v.id === options.fromVersionId);
       if (!fromVer) {
         ddl = t().versionNotFound;
       } else {
-        const toVer = options.toVersionId
-          ? versions.find((v) => v.id === options.toVersionId)
-          : undefined;
-        const fromModel: DiagramModel = { ...model, tables: fromVer.tables, relations: fromVer.relations, dictionary: fromVer.dictionary };
-        const toModel: DiagramModel = toVer
-          ? { ...model, tables: toVer.tables, relations: toVer.relations, dictionary: toVer.dictionary }
-          : model;
-        ddl = SchemaDiffer.diff(fromModel, toModel, dialect, style);
+        ddl = SchemaDiffer.diff(versionModel(model, fromVer), toModel, dialect, style);
       }
     } else {
       const ref = baselineRef ?? 'HEAD~1';
@@ -433,7 +469,7 @@ export class ErmdPanel {
     const uri = await vscode.window.showSaveDialog({
       defaultUri,
       filters: { SQL: ['sql'], [t().allFiles]: ['*'] },
-      title: kind === 'ddl' ? t().saveDdlTitle : t().saveDataTitle,
+      title: kind === 'ddl' || kind === 'testDdl' ? t().saveDdlTitle : t().saveDataTitle,
     });
     if (!uri) { return; }
     try {
@@ -450,9 +486,8 @@ export class ErmdPanel {
   }
 
   private _defaultSqlFile(kind: SqlFileKind): vscode.Uri {
-    const fallback = kind === 'ddl' ? '${fileBasenameNoExtension}.sql' : '${fileBasenameNoExtension}_data.sql';
-    const pattern = vscode.workspace.getConfiguration('markdown-er.ddl')
-      .get<string>(kind === 'ddl' ? 'outputFile' : 'dataOutputFile', fallback) || fallback;
+    const { setting, fallback } = SQL_FILES[kind];
+    const pattern = vscode.workspace.getConfiguration('markdown-er.ddl').get<string>(setting, fallback) || fallback;
     const fileName = this._fileUri.path.split('/').pop() ?? 'diagram.ermd';
     const workspaceFolder = vscode.workspace.getWorkspaceFolder(this._fileUri)?.uri.fsPath ?? '';
     const resolved = pattern

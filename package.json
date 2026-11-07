@@ -128,6 +128,16 @@
           "default": "${fileBasenameNoExtension}_data.sql",
           "markdownDescription": "%config.ddl.dataOutputFile%"
         },
+        "markdown-er.ddl.testOutputFile": {
+          "type": "string",
+          "default": "${fileBasenameNoExtension}_test.sql",
+          "markdownDescription": "%config.ddl.testOutputFile%"
+        },
+        "markdown-er.ddl.testDataOutputFile": {
+          "type": "string",
+          "default": "${fileBasenameNoExtension}_test_data.sql",
+          "markdownDescription": "%config.ddl.testDataOutputFile%"
+        },
         "markdown-er.markdown.generateMermaid": {
           "type": "boolean",
           "default": false,
@@ -179,7 +189,8 @@
     "build:ext": "esbuild src/extension.ts --bundle --outfile=out/extension.js --format=cjs --platform=node --external:vscode --target=node20",
     "build:webview": "cd webview && npm run build",
     "build": "npm run build:ext && npm run build:webview",
-    "vscode:prepublish": "npm run build",
+    "notices": "node scripts/make-notices.mjs",
+    "vscode:prepublish": "npm run build && npm run notices",
     "package": "vsce package",
     "test": "vitest run",
     "icon": "node scripts/make-icon.mjs"

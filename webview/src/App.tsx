@@ -11,10 +11,12 @@ import { RelationEditPanel } from './components/RelationEditPanel';
 import { DictionaryPanel } from './components/DictionaryPanel';
 import { ColumnSetPanel } from './components/ColumnSetPanel';
 import { CsvImportPanel } from './components/CsvImportPanel';
+import { SqlImportPanel } from './components/SqlImportPanel';
 import { VersionsPanel } from './components/VersionsPanel';
 import { DatabasePanel } from './components/DatabasePanel';
 import { useMessages, formatDateTime } from './i18n';
 import { DdlStyle, DDL_STYLE_KEYS } from '@shared/ddlStyle';
+import type { DdlMode, SqlFileKind } from '@shared/messages';
 
 export function App() {
   const model      = useDiagramStore((s) => s.model);
@@ -38,12 +40,19 @@ export function App() {
         case 'fileChanged':
           // An edit still waiting to be sent belongs to the previous file contents
           clearTimeout(saveTimerRef.current);
+          useUiStore.getState().setSaveState('saved');
           if (msg.type === 'load') fileUriRef.current = msg.fileUri;
           // Replace the model and drop undo history so Ctrl+Z can't go back to a different file state
           loadModel(msg.payload);
           break;
+        case 'saveStatus':
+          // An older version's result says nothing about the latest edit
+          if (msg.payload.version >= useDiagramStore.getState().saveVersion) {
+            useUiStore.getState().setSaveState(msg.payload.ok ? 'saved' : 'failed');
+          }
+          break;
         case 'ddlResult':
-          openDdl(msg.payload.ddl, msg.payload.data);
+          openDdl(msg.payload.ddl, msg.payload.data, msg.payload.errors);
           break;
         case 'fileStatus':
           useUiStore.getState().setFileStatus(msg.payload);
@@ -91,6 +100,7 @@ export function App() {
       sendToExtension({ type: 'save', payload: model, version: saveVersion, fileUri });
     };
     pendingSaveRef.current = send;
+    useUiStore.getState().setSaveState('saving');
     saveTimerRef.current = setTimeout(send, 300);
     return () => { clearTimeout(saveTimerRef.current); pendingSaveRef.current = null; };
   }, [saveVersion]);
@@ -98,6 +108,14 @@ export function App() {
   const flushSave = () => {
     clearTimeout(saveTimerRef.current);
     pendingSaveRef.current?.();
+  };
+  // Ctrl+S: skip the debounce on both sides. Nothing to do once saved, so an untouched file keeps its bytes.
+  const saveNow = () => {
+    if (useUiStore.getState().saveState === 'saved') return;
+    clearTimeout(saveTimerRef.current);
+    pendingSaveRef.current = null;
+    const { model, saveVersion } = useDiagramStore.getState();
+    sendToExtension({ type: 'save', payload: model, version: saveVersion, fileUri: fileUriRef.current, immediate: true });
   };
 
   // Keyboard shortcuts: undo/redo + Delete selected
@@ -109,6 +127,11 @@ export function App() {
 
       // Leave Ctrl+Z / Ctrl+Y to the browser's text undo while typing
       const key = e.key.toLowerCase();
+      // Works while typing too: inputs update the model on every keystroke
+      if ((e.ctrlKey || e.metaKey) && key === 's' && !e.shiftKey) {
+        e.preventDefault();
+        saveNow();
+      }
       if (!isEditing && (e.ctrlKey || e.metaKey) && key === 'z' && !e.shiftKey) {
         e.preventDefault();
         applyHistory('undo');
@@ -143,7 +166,7 @@ export function App() {
   // DDL export request from toolbar or DDL modal
   useEffect(() => {
     const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail as { mode: 'full' | 'diff' | 'version-diff' };
+      const detail = (e as CustomEvent).detail as { mode: DdlMode };
       flushSave();
       const { ddlInsertSeedData, ddlSkipAutoIncrementPk, ddlIncludeCreateDatabase, ddlFromVersionId, ddlToVersionId } = useUiStore.getState();
       sendToExtension({
@@ -178,6 +201,7 @@ export function App() {
           <DictionaryPanel />
           <ColumnSetPanel />
           <CsvImportPanel />
+          <SqlImportPanel />
           <VersionsPanel />
           <DatabasePanel />
           {isDdlOpen && (
@@ -226,10 +250,10 @@ function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
     window.dispatchEvent(new CustomEvent('er:requestDdl', { detail: { mode: ddlMode } }));
   };
 
-  const handleModeChange = (mode: 'full' | 'version-diff') => {
+  const handleModeChange = (mode: 'full' | 'test' | 'version-diff') => {
     setDdlMode(mode);
-    if (mode === 'full') {
-      window.dispatchEvent(new CustomEvent('er:requestDdl', { detail: { mode: 'full' } }));
+    if (mode !== 'version-diff') {
+      window.dispatchEvent(new CustomEvent('er:requestDdl', { detail: { mode } }));
     } else if (schemaVersions.length > 0) {
       const firstId = ddlFromVersionId ?? schemaVersions[0].id;
       setDdlVersions(firstId, ddlToVersionId);
@@ -248,8 +272,10 @@ function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
   };
 
   const data = useUiStore((s) => s.lastDdlData);
+  const errors = useUiStore((s) => s.lastDdlErrors);
+  const blocked = errors.length > 0;
   const saveFile = (kind: 'ddl' | 'data') =>
-    sendToExtension({ type: 'saveSqlFile', payload: { kind, text: kind === 'ddl' ? ddl : data } });
+    sendToExtension({ type: 'saveSqlFile', payload: { kind: SQL_FILE_KINDS[ddlMode === 'test' ? 'test' : 'production'][kind], text: kind === 'ddl' ? ddl : data } });
 
   const copyToClipboard = useCallback(() => {
     navigator.clipboard.writeText(ddl).catch(() => {});
@@ -281,7 +307,7 @@ function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderBottom: '1px solid #333' }}>
           <span style={{ fontWeight: 700, fontSize: 14 }}>{t.title}</span>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => saveFile('ddl')} style={{ ...modalBtnStyle, background: '#4a7c9e' }} title={t.saveDdlTitle}>{t.saveDdl}</button>
+            <button onClick={() => saveFile('ddl')} disabled={blocked} style={{ ...modalBtnStyle, background: '#4a7c9e', opacity: blocked ? 0.4 : 1 }} title={t.saveDdlTitle}>{t.saveDdl}</button>
             <button
               onClick={() => saveFile('data')}
               disabled={!data}
@@ -290,7 +316,7 @@ function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
             >
               {t.saveData}
             </button>
-            <button onClick={copyToClipboard} style={{ ...modalBtnStyle, background: '#4a7c9e' }}>{t.copy}</button>
+            <button onClick={copyToClipboard} disabled={blocked} style={{ ...modalBtnStyle, background: '#4a7c9e', opacity: blocked ? 0.4 : 1 }}>{t.copy}</button>
             <button onClick={onClose} style={{ ...modalBtnStyle, background: '#555' }}>{messages.common.close}</button>
           </div>
         </div>
@@ -300,6 +326,10 @@ function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
           <label style={optionLabelStyle}>
             <input type="radio" name="ddlMode" checked={ddlMode === 'full'} onChange={() => handleModeChange('full')} style={{ marginRight: 5 }} />
             {t.full}
+          </label>
+          <label style={optionLabelStyle} title={t.testHint}>
+            <input type="radio" name="ddlMode" checked={ddlMode === 'test'} onChange={() => handleModeChange('test')} style={{ marginRight: 5 }} />
+            {t.test}
           </label>
           <label style={{ ...optionLabelStyle, opacity: hasVersions ? 1 : 0.4 }}>
             <input type="radio" name="ddlMode" checked={ddlMode === 'version-diff'} disabled={!hasVersions} onChange={() => handleModeChange('version-diff')} style={{ marginRight: 5 }} />
@@ -353,7 +383,7 @@ function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
         </div>
 
         {/* INSERT options */}
-        {ddlMode === 'full' && (
+        {ddlMode !== 'version-diff' && (
           <div style={{ padding: '8px 14px', borderBottom: '1px solid #2a2a2a', display: 'flex', gap: 20, flexWrap: 'wrap' }}>
             <label style={optionLabelStyle}>
               <input
@@ -374,27 +404,43 @@ function DdlModal({ ddl, onClose }: { ddl: string; onClose: () => void }) {
               />
               {t.skipAutoIncrementPk}
             </label>
-            <label style={optionLabelStyle}>
-              <input
-                type="checkbox"
-                checked={includeCreateDatabase}
-                onChange={(e) => handleCreateDatabaseChange(e.target.checked)}
-                style={{ marginRight: 6 }}
-              />
-              {t.includeCreateDatabase}
-            </label>
+            {ddlMode === 'full' && (
+              <label style={optionLabelStyle}>
+                <input
+                  type="checkbox"
+                  checked={includeCreateDatabase}
+                  onChange={(e) => handleCreateDatabaseChange(e.target.checked)}
+                  style={{ marginRight: 6 }}
+                />
+                {t.includeCreateDatabase}
+              </label>
+            )}
           </div>
         )}
 
         <DdlReplacementsEditor />
 
-        <pre style={{ flex: 1, overflowY: 'auto', margin: 0, padding: 14, fontSize: 12, fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-          {ddl}
-        </pre>
+        {blocked ? (
+          <div style={{ flex: 1, overflowY: 'auto', padding: 14, fontSize: 12 }}>
+            <div style={{ color: '#f48771', fontWeight: 700, marginBottom: 6 }}>{t.validationFailed}</div>
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              {errors.map((e, i) => <li key={i}>{t.validationErrors[e.code](e.table, e.column ?? '')}</li>)}
+            </ul>
+          </div>
+        ) : (
+          <pre style={{ flex: 1, overflowY: 'auto', margin: 0, padding: 14, fontSize: 12, fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+            {ddl || (ddlMode === 'test' && !data ? t.testEmpty : ddl)}
+          </pre>
+        )}
       </div>
     </div>
   );
 }
+
+const SQL_FILE_KINDS: Record<'production' | 'test', Record<'ddl' | 'data', SqlFileKind>> = {
+  production: { ddl: 'ddl', data: 'data' },
+  test: { ddl: 'testDdl', data: 'testData' },
+};
 
 const selectStyle: React.CSSProperties = {
   background: '#2a2a2a', color: '#ddd', border: '1px solid #555',

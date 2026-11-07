@@ -10,7 +10,8 @@ This file gives Claude Code the context needed to work effectively in this repos
 `markdown-er` is a VSCode extension that renders interactive ER diagrams backed by `.ermd` files.
 A file becomes an ER diagram by adding `er-diagram: true` to its YAML front matter.
 The diagram state (tables, columns, relations, dictionary, layout) is stored in fenced `ermd-*` YAML blocks inside the file;
-text outside the blocks belongs to the user and is kept. Schema versions live in `<file>.ermd.versions.yaml` (format v2).
+text outside the blocks belongs to the user and is kept. Schema versions live in `<file>.ermd.versions.yaml` (format v2),
+test-only tables and test rows in `<file>.ermd.test.yaml`.
 
 ---
 
@@ -23,6 +24,9 @@ markdown-er/
 │   ├── databaseOptions.ts  # Per-dialect CREATE DATABASE option fields (labels, defaults, suggestions)
 │   ├── autoIncrement.ts    # Auto-increment column rule + per-dialect integer types (DDL and seed editor)
 │   ├── ddlReplacements.ts  # Find / replace rules applied to the generated DDL
+│   ├── schemaCompare.ts    # compareSchemas() (what changed between two schemas), restoreVersion(), versionModel()
+│   ├── testData.ts         # Test side of the model: productionModel(), testModel(), test file contents
+│   ├── validation.ts       # validateModel(): errors that block DDL generation (names, types, FK columns)
 │   └── messages.ts         # Typed postMessage protocol between extension ↔ WebView
 │
 ├── src/                    # Extension host (Node.js / CommonJS)
@@ -30,11 +34,11 @@ markdown-er/
 │   ├── ErmdPanel.ts        # WebviewPanel lifecycle, postMessage bridge, debounced save
 │   ├── ErmdParser.ts       # .ermd text → DiagramModel  (uses js-yaml)
 │   ├── ErmdSerializer.ts   # DiagramModel → .ermd text, rewriting only the ermd-* blocks of the current text
-│   ├── ErmdFiles.ts        # vscode file access: read / write the .ermd + versions file (thin, over format/ErmdCodec)
+│   ├── ErmdFiles.ts        # vscode file access: read / write the .ermd, versions and test files (thin, over format/ErmdCodec)
 │   ├── MigrationService.ts # Old-format prompt, diff view, Migrate commands (vscode-dependent)
 │   ├── format/             # Pure, unit-tested
 │   │   ├── formatVersion.ts# CURRENT_FORMAT_VERSION, formatStatus(), NewerFormatError
-│   │   ├── ErmdCodec.ts    # decode / encode a diagram as file texts (.ermd + versions file)
+│   │   ├── ErmdCodec.ts    # decode / encode a diagram as file texts (.ermd, versions file, test file)
 │   │   ├── migrations.ts   # FormatMigration subclasses, pendingMigrations(), planMigration()
 │   │   └── MarkdownDocs.ts # Generated Mermaid erDiagram / column tables
 │   ├── GitBaseline.ts      # `git show <ref>:<file>` → DiagramModel (only git / vscode-dependent DDL code)
@@ -44,7 +48,7 @@ markdown-er/
 │       ├── dialects/       # MySqlDialect / PostgresDialect / OracleDialect / SqlServerDialect / SqliteDialect
 │       ├── createDialect.ts# Factory: dialect id + DatabaseSettings → SqlDialect instance
 │       ├── Schema.ts       # Model lookups: dictionary, auto-increment keys, resolved FKs, dependency order
-│       ├── DdlExporter.ts  # Full DDL (CREATE DATABASE?, CREATE TABLE, FKs, indexes, seed INSERTs)
+│       ├── DdlExporter.ts  # Full DDL (CREATE DATABASE?, CREATE TABLE, FKs, indexes, seed INSERTs); test DDL
 │       └── SchemaDiffer.ts # ALTER script baseline → current (git ref or saved version)
 │
 ├── test/                   # vitest: DDL per dialect (snapshots), diff, parser, format/ (serializer, codec, migrations),
@@ -72,13 +76,16 @@ markdown-er/
 │   │   │   ├── DictionaryPanel.tsx     # CRUD for column-type dictionary entries
 │   │   │   ├── ColumnSetPanel.tsx      # Column sets (e.g. audit columns): define, apply to all tables
 │   │   │   ├── CsvImportPanel.tsx      # CSV import dialog (Table / Dictionary tabs)
+│   │   │   ├── SqlImportPanel.tsx      # SQL import dialog: paste or file, preview, warnings
+│   │   │   ├── VersionCompareDialog.tsx # Versions or current state compared, item by item
 │   │   │   ├── DatabasePanel.tsx       # Database name / schema / user + active dialect's charset & collation
 │   │   │   ├── ColumnRow.tsx           # Single column row inside TableEditPanel
 │   │   │   └── TypePicker.tsx          # Column type popover (dictionary by category, basic types, direct input, register)
 │   │   └── util/
 │   │       ├── xyflowAdapters.ts # DiagramModel ↔ ReactFlow Node[]/Edge[] conversion
 │   │       ├── idgen.ts          # Lightweight ID generator (no external dep)
-│   │       └── csvImport.ts      # CSV parsing for table/dictionary import; BUILTIN_PRESETS
+│   │       ├── csvImport.ts      # CSV parsing for table/dictionary import; BUILTIN_PRESETS
+│   │       └── sqlImport/        # SqlLexer → SqlParser (with sqlTypes) → buildSqlImport: DDL / INSERT → diagram
 │   ├── package.json        # Webview-only deps (React, @xyflow/react, Zustand, zundo, Vite)
 │   └── vite.config.ts      # Builds to ../media/webview.js + ../media/webview.css
 │
@@ -109,6 +116,7 @@ Run from the **repo root** unless noted.
 | `npm run build` | `build:ext` + `build:webview` |
 | `npm test` | Run vitest (DDL / diff / parser / format / migration / extension / webview) |
 | `npm run icon` | Render `images/icon.svg` → `images/icon.png` (commit both) |
+| `npm run notices` | Generate `THIRD_PARTY_NOTICES.md` (gitignored, runs in `vscode:prepublish`) |
 | `npx tsc --noEmit` | Type-check extension host only |
 | `cd webview && npx tsc --noEmit` | Type-check WebView only |
 
@@ -124,7 +132,10 @@ DDL output changes show up in `test/ddl/__snapshots__`; review them and update w
 - `package.json` versions are exact; lockfiles resolve only from registry.npmjs.org with integrity hashes. Use `npm ci`
   to install; add or update with `npm install -D <pkg>@<version>` and review the lockfile diff.
 - Keep runtime dependencies few (they ship in the bundle): js-yaml, React, @xyflow/react, zustand, zundo, dagre.
-  Prefer a few lines of own code over a new package.
+  Prefer a few lines of own code over a new package. Anything bundled belongs in `dependencies`, not `devDependencies`:
+  CI audits shipped code by `--omit=dev`.
+- `scripts/make-notices.mjs` writes the licenses of everything in the import graph to `THIRD_PARTY_NOTICES.md` when packaging, and
+  fails if a bundled package has no license file. Check the license of a new dependency: all are MIT / ISC / BSD-3-Clause today.
 - CI (`.github/workflows/ci.yml`) runs `npm audit signatures` and `npm audit` (high for shipped deps, critical for
   tooling). Actions are pinned to commit SHAs; tokens are read-only except the release job.
 - Dependabot (`.github/dependabot.yml`) proposes grouped weekly updates after a 7-day cooldown.
@@ -163,25 +174,27 @@ Defined in `shared/messages.ts`.
 |---|---|---|
 | Extension → WebView | `load` | Full `DiagramModel` + `fileUri` on file open |
 | Extension → WebView | `fileChanged` | Full `DiagramModel` on external file edit |
-| Extension → WebView | `ddlResult` | Generated DDL string + `data` (seed INSERTs alone, full mode) |
+| Extension → WebView | `ddlResult` | Generated DDL string + `data` (seed INSERTs alone, full mode), or `errors` (empty `ddl`) when validation fails |
 | Extension → WebView | `undo` / `redo` | (empty) relay from extension host |
 | WebView → Extension | `ready` | Triggers initial `load` |
-| WebView → Extension | `save` | Full `DiagramModel` + monotonic `version` number + `fileUri` it was edited for (debounced 300 ms) |
+| WebView → Extension | `save` | Full `DiagramModel` + monotonic `version` number + `fileUri` it was edited for (debounced 300 ms); `immediate` (Ctrl+S) writes at once |
+| Extension → WebView | `saveStatus` | `{ version, ok }` after a save is written or fails; drives `uiStore.saveState` (toolbar `SaveStatus`) |
 | Extension → WebView | `fileStatus` | `{ readOnly, formatVersion, supportedVersion }` on load / file change (read-only banner) |
 | Extension → WebView | `localeChanged` | `{ locale: 'en' \| 'ja', setting: 'auto' \| 'en' \| 'ja' }` |
-| WebView → Extension | `requestDdl` | `{ mode, baselineRef?, fromVersionId?, toVersionId?, insertSeedData?, skipAutoIncrementPk?, includeCreateDatabase? }` |
+| WebView → Extension | `requestDdl` | `{ mode (`full` / `test` / `diff` / `version-diff`), baselineRef?, fromVersionId?, toVersionId?, insertSeedData?, skipAutoIncrementPk?, includeCreateDatabase? }` |
 | WebView → Extension | `setLanguage` | `{ setting }` — writes `markdown-er.language` |
-| WebView → Extension | `saveSqlFile` | `{ kind: 'ddl' \| 'data', text }` — save dialog; default from `markdown-er.ddl.outputFile` / `dataOutputFile` (relative to the diagram, `${fileBasenameNoExtension}` etc.), then the last file chosen per diagram |
+| WebView → Extension | `saveSqlFile` | `{ kind: 'ddl' \| 'data' \| 'testDdl' \| 'testData', text }` — save dialog; default from `markdown-er.ddl.outputFile` / `dataOutputFile` (relative to the diagram, `${fileBasenameNoExtension}` etc.), then the last file chosen per diagram |
 
 ### Save / undo invariants
 
-- WebView `saveVersion` only ever increases; `setModel` never resets it. The extension host drops saves with `version <= _saveVersion` and resets its counter only on `ready`.
+- WebView `saveVersion` only ever increases; `setModel` never resets it. The extension host drops saves with `version <= _saveVersion` (an `immediate` save of the same version passes, so Ctrl+S can retry) and resets its counter only on `ready`.
+- `saveState` goes to `saving` on each edit and leaves it only on a `saveStatus` for the latest version, or on `load` / `fileChanged`. Ctrl+S does nothing when already `saved`, so an untouched file keeps its bytes.
 - Replace the model only via `loadModel()` (`diagramStore.ts`) — it bypasses and clears undo history.
 - Undo/redo only via `applyHistory()` — it bumps `saveVersion` so the result is saved, and keeps the current viewport and `schemaVersions`.
 - Viewport changes and `schemaVersions` are never recorded in undo history. The extension host owns `schemaVersions` and the
   format `version` and overrides them on every save (a stale WebView model must not undo a migration).
 - Extension host keeps one pending save (`_pendingSave`); it is flushed before switching files, saving/deleting a version, generating DDL, migrating, and on dispose.
-  The watcher (the .ermd and its versions file) ignores a change whose texts equal `_lastWrittenText` / `_lastWrittenVersions`.
+  The watcher (the .ermd, versions and test files) ignores a change whose texts equal `_lastWrittenText` / `_lastWrittenVersions` / `_lastWrittenTest`.
 - A file whose format is newer than `CURRENT_FORMAT_VERSION` is read-only: the host writes nothing (and `encode` throws).
 
 ---
@@ -264,6 +277,7 @@ viewport:
 
 | Key | Action |
 |---|---|
+| `Ctrl+S` | Save now (skips the debounce; retries a failed write) |
 | `Ctrl+Z` | Undo |
 | `Ctrl+Y` / `Ctrl+Shift+Z` | Redo |
 | `Delete` | Delete selected table or relation (not fired when an input has focus) |
@@ -308,6 +322,9 @@ viewport:
 - [x] Column list: size column, auto-increment checkbox (`Column.autoIncrement`), details (comment / default / design note)
 - [x] Seed rows with an empty auto-increment key are generated by the database
 - [x] DDL replacement rules (`ermd-ddl-replacements`)
+- [x] Restore a version; compare versions and the current state item by item
+- [x] Test-only tables and test rows, kept in a test file, with their own DDL
+- [x] SQL import — tables, relations, indexes, seed data from DDL / INSERT statements, with a preview
 
 ### File format / migration notes
 
@@ -342,6 +359,9 @@ viewport:
 - Auto-increment: `Column.autoIncrement` when the user set it (integer PK only, first one per table); unset → only a single
   integer PK that is not the child column of a relation. The table editor's AI checkbox shows the result; toggling stores
   `autoIncrement` only when it differs from the rule (else `undefined`), so untouched files keep their bytes.
+- Index and constraint names are optional: `indexName()` / `constraintName()` (shared) give `ix_<table>_<columns>` (`ux_` when unique),
+  `uq_<table>_<columns>` and `ck_<table>_<n>` at output time, hashed past 63 characters, like unnamed FKs, so they follow renames; the file keeps
+  the empty name. Always read these names through them.
 - Column definition order is `TYPE [DEFAULT] NULL|NOT NULL` (Oracle requires DEFAULT first). Boolean defaults are mapped
   to dialect literals by `defaultValue()`.
 - Comments: `commentText()` = logical name (when ≠ physical) + comment. MySQL inline `COMMENT`, PostgreSQL/Oracle `COMMENT ON`.
@@ -357,6 +377,15 @@ viewport:
 - Passed to the dialect at construction (`createDialect(id, database, style)`); `SqlDialect.quote()` quotes only when
   needed if `quoteIdentifiers` is off (`needsQuoting()`; PostgreSQL also quotes capitals; Oracle ignores the option).
 - Extension sends `ddlStyleChanged` on load / config change; the DDL dialog checkboxes send `setDdlStyle`.
+
+### Validation notes
+
+- `validateModel()` (`shared/validation.ts`, pure) runs on the target model at the start of `ErmdPanel._generateDdl()`. On errors the
+  host sends them in `ddlResult` and generates nothing; the DDL dialog lists them (`ddl.validationErrors`, one message per `code`).
+- It blocks only DDL generation, never saving, and lives outside `DdlExporter` so the generator stays usable on any model.
+- Checks: physical names set and unique (tables; columns per table; ignoring case), every column has a type, and a relation with
+  an FK constraint has both columns. Logical relations (`hasForeignKey: false`) never block; `RelationEditPanel` outlines their unset columns in red.
+- The physical name inputs are outlined in red while empty.
 
 ### DDL replacement notes
 
@@ -376,7 +405,8 @@ viewport:
   inline registration (with category). Fixed-position popover so panel scrolling doesn't clip it. The picker chooses only the type;
   the size is the row's own **Size** cell (`ColumnRow` `SizeInput`, `10,2` for DECIMAL): editable for direct types that
   `typeTakesSize()` (shared), read-only for dictionary types (the dictionary owns their size), disabled otherwise.
-- Choosing a dictionary type applies its `notNull` to the column (`withDictionaryType` in diagramStore).
+- New columns start with empty names and no type. Choosing a dictionary type applies its `notNull` to the column and, if the
+  logical name is empty, sets it to the entry's name; an entered name is never overwritten (`withDictionaryType` in diagramStore).
 
 ### Database / schema / user notes
 
@@ -395,6 +425,19 @@ viewport:
 - WebView: `webview/src/i18n/en.ts` is the reference; `Messages = typeof en`, so `ja.ts` must define every key (compile error otherwise).
   Components call `useMessages()`; non-render code (FileReader callbacks) uses `getMessages()`. Parameterized strings are functions.
 - Do not translate SQL keywords or CSV column names. Manifest strings live in `package.nls.json` / `package.nls.ja.json`.
+
+### Test data notes
+
+- One model: `Table.testOnly` and `Table.testSeedData` (test rows of a production table; a test-only table's rows are its `seedData`).
+  A relation is on the test side when it touches a test-only table (`isTestRelation`); it has no flag of its own.
+- `ErmdCodec` splits on write and merges on read (`shared/testData.ts`), so the WebView sees one model. `productionModel()` returns the same
+  object when there is no test data, so such files keep their bytes. No format version: the file is optional, and an older extension just doesn't see it.
+- **Anything production-only goes through `productionModel()`.** `DdlExporter.export` / `exportData` and `SchemaDiffer.diff` apply it themselves;
+  so do `encode()` (the .ermd file and generated Markdown), `saveVersion` and validation of production DDL. Callers can't leak test tables by forgetting.
+- `DdlExporter.exportTest` / `exportTestData` use `testModel()` (all tables, each with only its test rows): only test tables are created, but
+  FKs and INSERT order see the whole schema. Test DDL runs after production DDL; a production child's FK to a test parent is an `ALTER`.
+- A test file that can't be read is never overwritten or deleted, and the host warns on load.
+- Unticking test-only keeps the rows on the test side (`testSeedData`): test rows never become production rows by accident.
 
 ### Column set notes
 
@@ -439,7 +482,12 @@ viewport:
 - **Version Diff DDL**: DDL modal `version-diff` mode → `requestDdl` with `fromVersionId` / `toVersionId` → `ErmdPanel._generateDdl()` calls `SchemaDiffer.diff(fromModel, toModel, dialect)`
 - `SchemaDiffer.diff()` is pure (no git); the git variant loads the baseline with `loadGitBaseline()` first
 - WebView state: `uiStore.ddlMode`, `uiStore.ddlFromVersionId`, `uiStore.ddlToVersionId` (null = current state)
-- VersionsPanel is a floating panel (same pattern as DictionaryPanel); delete has 2-step confirmation
+- VersionsPanel is a floating panel (same pattern as DictionaryPanel); delete and restore have 2-step confirmation
+- **Restore**: `restoreVersion()` (shared, pure) applied by the store action of the same name, so it is one undo step. A version is a production snapshot:
+  test tables, test rows, their relations and the dictionary entries they use stay. Viewport, column sets, database and replacement rules are not in a version and stay too.
+  Restored set columns are left as saved, not re-synced to the current set, so the result equals the version.
+- **Compare**: `compareSchemas()` (shared, pure) matches by id like `SchemaDiffer`, so a rename is a change. It reads names through `indexName()` / `constraintName()`
+  and types through `columnTypeSpec()` with each side's own dictionary. The current state is compared through `productionModel()`.
 
 ### CSV import notes
 
@@ -449,6 +497,20 @@ viewport:
 - `ParsedTableImport.autoCreatedDictEntries` carries newly created entries; `importTables` in `diagramStore.ts` appends them atomically with the tables
 - `CsvImportPanel.tsx`: fixed-height dialog with scrollable spec pane; two category tabs; upload zone always visible at top
 - UI state: `uiStore.isCsvImportOpen` / `openCsvImport` / `closeCsvImport`
+
+### SQL import notes
+
+- Pure, in the WebView: `SqlLexer` (tokens per statement) → `SqlParser` (`ParsedTable`s; no model knowledge) → `buildSqlImport()`
+  (`SqlImport`: new tables, relations, rows for existing tables, warnings). `importSql` applies it as one undo step.
+- Scripts from any database are read by one grammar. The dialect (chosen in the panel) only decides backslash escapes, `#` comments,
+  and a few type names, as data tables (`MYSQL_SYNTAX`, `DIALECT_TYPE_NAMES`, `IMPLICIT_AUTO_INCREMENT`), not branches.
+- `test/sqlImport.test.ts` exports `shopModel` in every dialect, imports it and exports again: **new exporter output must keep that
+  round trip**. Comments split as `logical name: comment`, the reverse of `commentText()`.
+- Never throws: what it can't hold becomes a `SqlWarning` (one message per `code` in `sqlImport.warningMessages`), shown in the preview.
+- Types are direct (`Column.type`), not dictionary entries. An integer single-column PK gets an explicit `autoIncrement` so the default
+  rule doesn't change it. A table already in the diagram (by physical name, ignoring case) keeps its definition; its foreign keys and rows still apply.
+- The panel's **Import for tests only** (`SqlImportOptions.asTest`) makes new tables test-only and rows test rows.
+- Composite FKs become one relation per column pair with `hasForeignKey: false` (a relation is one pair). FK actions go in the relation's comment.
 
 ### Auto Layout notes
 

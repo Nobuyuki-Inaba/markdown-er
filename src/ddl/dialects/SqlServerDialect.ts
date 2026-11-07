@@ -1,4 +1,4 @@
-import { Column, TypeSpec, Table, TableIndex, typeSizeSuffix } from '../../../shared/DiagramModel';
+import { Column, TypeSpec, Table, TableIndex, indexName, typeSizeSuffix } from '../../../shared/DiagramModel';
 import { ColumnChange, SqlDialect } from '../SqlDialect';
 import type { Schema } from '../Schema';
 
@@ -92,7 +92,7 @@ export class SqlServerDialect extends SqlDialect {
   }
 
   dropIndex(table: Table, idx: TableIndex): string {
-    return `DROP INDEX ${this.quote(idx.name)} ON ${this.table(table.physicalName)};`;
+    return `DROP INDEX ${this.quote(indexName(table, idx))} ON ${this.table(table.physicalName)};`;
   }
 
   alterColumn(ch: ColumnChange): string[] {

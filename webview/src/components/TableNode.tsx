@@ -10,6 +10,7 @@ const HEADER_BG   = '#4a7c9e';
 const HEADER_FG   = '#fff';
 const PK_COLOR    = '#e8a000';
 const BORDER      = '#cdd';
+const TEST_COLOR  = '#c77700';
 
 export const TableNode = memo(({ data, selected }: NodeProps<TableNodeType>) => {
   const tableId = data.tableId;
@@ -35,9 +36,10 @@ export const TableNode = memo(({ data, selected }: NodeProps<TableNodeType>) => 
   return (
     <div
       style={{
-        border: `2px solid ${selected ? '#4a90d9' : BORDER}`,
+        border: `2px ${table.testOnly ? 'dashed' : 'solid'} ${selected ? '#4a90d9' : table.testOnly ? TEST_COLOR : BORDER}`,
         borderRadius: 4,
         background: '#fff',
+        color: '#222',
         minWidth: 200,
         boxShadow: selected ? '0 0 0 2px #4a90d944' : '0 2px 4px #0002',
         fontSize: 13,
@@ -66,6 +68,7 @@ export const TableNode = memo(({ data, selected }: NodeProps<TableNodeType>) => 
         }}
       >
         {tableName}
+        {table.testOnly && <span style={testBadgeStyle}>{t.testBadge}</span>}
         {nameMode === 'logical' && table.physicalName && (
           <div style={{ fontWeight: 400, fontSize: 10, opacity: 0.8 }}>
             {table.physicalName}
@@ -120,4 +123,9 @@ const handleStyle: React.CSSProperties = {
   height: 10,
   background: '#4a7c9e',
   border: '2px solid #fff',
+};
+
+const testBadgeStyle: React.CSSProperties = {
+  marginLeft: 6, padding: '0 4px', borderRadius: 3, fontSize: 9, fontWeight: 700,
+  background: TEST_COLOR, color: '#fff', verticalAlign: 'middle',
 };

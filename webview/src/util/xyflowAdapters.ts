@@ -1,12 +1,13 @@
 import { type Node, type Edge } from '@xyflow/react';
 import { DiagramModel } from '@shared/DiagramModel';
+import { isTestRelation } from '@shared/testData';
 
 // ReactFlow v12: generic param must be the full Node/Edge type
 export type TableNodeType = Node<{ tableId: string }, 'tableNode'>;
 export type RelationEdgeType = Edge<{ relationId: string }, 'relationEdge'>;
 export type RegionNodeType = Node<{ regionId: string }, 'regionNode'>;
 
-export function modelToNodes(model: DiagramModel): (TableNodeType | RegionNodeType)[] {
+export function modelToNodes(model: DiagramModel, showTestData = true): (TableNodeType | RegionNodeType)[] {
   const regionNodes: RegionNodeType[] = (model.layout.regions ?? []).map((r) => ({
     id: r.id,
     type: 'regionNode' as const,
@@ -16,7 +17,8 @@ export function modelToNodes(model: DiagramModel): (TableNodeType | RegionNodeTy
     data: { regionId: r.id },
   }));
 
-  const tableNodes: TableNodeType[] = model.tables.map((table) => {
+  const tables = showTestData ? model.tables : model.tables.filter((t) => !t.testOnly);
+  const tableNodes: TableNodeType[] = tables.map((table) => {
     const layoutEntry = model.layout.tables.find((l) => l.tableId === table.id);
     return {
       id: table.id,
@@ -32,8 +34,9 @@ export function modelToNodes(model: DiagramModel): (TableNodeType | RegionNodeTy
   return [...regionNodes, ...tableNodes];
 }
 
-export function modelToEdges(model: DiagramModel): RelationEdgeType[] {
-  return model.relations.map((rel) => ({
+export function modelToEdges(model: DiagramModel, showTestData = true): RelationEdgeType[] {
+  const relations = showTestData ? model.relations : model.relations.filter((r) => !isTestRelation(r, model.tables));
+  return relations.map((rel) => ({
     id: rel.id,
     source: rel.fromTableId,
     target: rel.toTableId,
