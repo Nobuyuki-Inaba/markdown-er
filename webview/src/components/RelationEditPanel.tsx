@@ -140,6 +140,8 @@ export function RelationEditPanel() {
 }
 
 const panelStyle: React.CSSProperties = {
+  // Fixed light panel: the theme's text color may be light too
+  color: '#222',
   position: 'absolute', top: 48, right: 12, width: 380,
   background: '#fff', border: '1px solid #ccc', borderRadius: 6,
   boxShadow: '0 4px 16px #0003', zIndex: 10,

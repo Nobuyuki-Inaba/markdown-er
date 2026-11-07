@@ -239,6 +239,8 @@ const overlayStyle: React.CSSProperties = {
 };
 
 const panelStyle: React.CSSProperties = {
+  // Fixed light panel: the theme's text color may be light too
+  color: '#222',
   background: '#fff', borderRadius: 6,
   width: 760, maxWidth: '95vw', maxHeight: '90vh',
   display: 'flex', flexDirection: 'column',

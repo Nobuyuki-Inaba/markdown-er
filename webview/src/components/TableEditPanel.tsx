@@ -283,6 +283,8 @@ export function TableEditPanel() {
 }
 
 const panelStyle: React.CSSProperties = {
+  // Fixed light panel: the theme's text color may be light too
+  color: '#222',
   position: 'absolute',
   top: 48,
   right: 12,

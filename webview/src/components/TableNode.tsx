@@ -39,6 +39,7 @@ export const TableNode = memo(({ data, selected }: NodeProps<TableNodeType>) => 
         border: `2px ${table.testOnly ? 'dashed' : 'solid'} ${selected ? '#4a90d9' : table.testOnly ? TEST_COLOR : BORDER}`,
         borderRadius: 4,
         background: '#fff',
+        color: '#222',
         minWidth: 200,
         boxShadow: selected ? '0 0 0 2px #4a90d944' : '0 2px 4px #0002',
         fontSize: 13,

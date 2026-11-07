@@ -89,6 +89,8 @@ export function VersionsPanel() {
 }
 
 const panelStyle: React.CSSProperties = {
+  // Fixed light panel: the theme's text color may be light too
+  color: '#222',
   position: 'absolute', top: 48, left: '50%', transform: 'translateX(-50%)',
   width: 640, maxWidth: '95vw',
   background: '#fff', border: '1px solid #ccc', borderRadius: 6,
