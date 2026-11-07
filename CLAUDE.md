@@ -136,8 +136,11 @@ DDL output changes show up in `test/ddl/__snapshots__`; review them and update w
   CI audits shipped code by `--omit=dev`.
 - `scripts/make-notices.mjs` writes the licenses of everything in the import graph to `THIRD_PARTY_NOTICES.md` when packaging, and
   fails if a bundled package has no license file. Check the license of a new dependency: all are MIT / ISC / BSD-3-Clause today.
+- `overrides` in `package.json`: `@vscode/vsce` gets `minimatch` 11 for an advisory its own range doesn't reach. Tooling only; drop it once vsce allows
+  a fixed version. After changing it, check that `npx vsce ls` lists the same files (`.vscodeignore` goes through minimatch).
 - CI (`.github/workflows/ci.yml`) runs `npm audit signatures` and `npm audit` (high for shipped deps, critical for
-  tooling). Actions are pinned to commit SHAs; tokens are read-only except the release job.
+  tooling). Actions are pinned to commit SHAs, the runner to an Ubuntu version (`ubuntu-26.04`), and `setup-node` has its cache off;
+  tokens are read-only except the release job.
 - Dependabot (`.github/dependabot.yml`) proposes grouped weekly updates after a 7-day cooldown.
 
 ## Development workflow
