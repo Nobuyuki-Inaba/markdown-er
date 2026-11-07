@@ -1,6 +1,6 @@
 import {
   Column, DatabaseOptions, DatabaseSettings, DbType, DdlDialect, TypeSpec, Table, TableConstraint, TableIndex,
-  indexName, typeSizeSuffix,
+  constraintName, indexName, typeSizeSuffix,
 } from '../../shared/DiagramModel';
 import { AUTO_INCREMENT_TYPES } from '../../shared/autoIncrement';
 import { resolveDatabaseOptions } from '../../shared/databaseOptions';
@@ -173,7 +173,7 @@ export abstract class SqlDialect {
     if (pk) { lines.push(`  ${pk}`); }
 
     for (const c of table.constraints ?? []) {
-      const clause = this.constraintClause(c);
+      const clause = this.constraintClause(table, c);
       if (clause) { lines.push(`  ${clause}`); }
     }
 
@@ -187,15 +187,15 @@ export abstract class SqlDialect {
     return [create, ...this.commentStatements(table, table.columns, true), ...this.customStatements(table.constraints ?? [])];
   }
 
-  /** `CONSTRAINT name UNIQUE (...)` / `CONSTRAINT name CHECK (...)`; null for CUSTOM or incomplete ones */
-  constraintClause(c: TableConstraint): string | null {
-    if (!c.name || !c.expression) { return null; }
+  /** `CONSTRAINT name UNIQUE (...)` / `CONSTRAINT name CHECK (...)`; null for CUSTOM or empty ones */
+  constraintClause(table: Table, c: TableConstraint): string | null {
+    if (!c.expression) { return null; }
     if (c.type === 'UNIQUE') {
       const cols = c.expression.split(',').map((s) => this.quote(s.trim())).join(', ');
-      return `CONSTRAINT ${this.quote(c.name)} UNIQUE (${cols})`;
+      return `CONSTRAINT ${this.quote(constraintName(table, c))} UNIQUE (${cols})`;
     }
     if (c.type === 'CHECK') {
-      return `CONSTRAINT ${this.quote(c.name)} CHECK (${c.expression})`;
+      return `CONSTRAINT ${this.quote(constraintName(table, c))} CHECK (${c.expression})`;
     }
     return null;
   }
@@ -324,12 +324,12 @@ export abstract class SqlDialect {
   }
 
   addConstraint(table: Table, c: TableConstraint): string | null {
-    const clause = this.constraintClause(c);
+    const clause = this.constraintClause(table, c);
     return clause ? `ALTER TABLE ${this.table(table.physicalName)} ADD ${clause};` : null;
   }
 
   dropConstraint(table: Table, c: TableConstraint): string {
-    return `ALTER TABLE ${this.table(table.physicalName)} DROP CONSTRAINT ${this.quote(c.name)};`;
+    return `ALTER TABLE ${this.table(table.physicalName)} DROP CONSTRAINT ${this.quote(constraintName(table, c))};`;
   }
 
   changeTableComment(_table: Table, _comment: string): string[] {

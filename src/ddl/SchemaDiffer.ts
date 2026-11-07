@@ -1,4 +1,4 @@
-import { Column, DiagramModel, Table, TableConstraint, TableIndex, indexName } from '../../shared/DiagramModel';
+import { Column, DiagramModel, Table, TableConstraint, TableIndex, constraintName, indexName } from '../../shared/DiagramModel';
 import type { DdlDialect } from '../../shared/messages';
 import { SqlDialect, ColumnChange, commentText } from './SqlDialect';
 import { Schema, ResolvedForeignKey } from './Schema';
@@ -68,9 +68,9 @@ export class SchemaDiffer {
 
       const curCst = new Map((ct.constraints ?? []).map((c) => [c.id, c]));
       for (const bc of bt.constraints ?? []) {
-        if (!this.dialect.constraintClause(bc)) { continue; } // never part of the schema
+        if (!this.dialect.constraintClause(bt, bc)) { continue; } // never part of the schema
         const cc = curCst.get(bc.id);
-        if (!cc || !sameConstraint(bc, cc)) { this.push(this.dialect.dropConstraint(bt, bc)); }
+        if (!cc || !sameConstraint(bt, bc, ct, cc)) { this.push(this.dialect.dropConstraint(bt, bc)); }
       }
     }
   }
@@ -158,7 +158,7 @@ export class SchemaDiffer {
       const baseCst = new Map((bt.constraints ?? []).map((c) => [c.id, c]));
       const added = (ct.constraints ?? []).filter((cc) => {
         const bc = baseCst.get(cc.id);
-        return !bc || !sameConstraint(bc, cc);
+        return !bc || !sameConstraint(bt, bc, ct, cc);
       });
       this.push(...added.map((c) => this.dialect.addConstraint(ct, c)));
       this.push(...this.dialect.customStatements(added));
@@ -196,6 +196,6 @@ function sameIndex(aTable: Table, a: TableIndex, bTable: Table, b: TableIndex): 
   return indexName(aTable, a) === indexName(bTable, b) && a.unique === b.unique && a.columns.join('\0') === b.columns.join('\0');
 }
 
-function sameConstraint(a: TableConstraint, b: TableConstraint): boolean {
-  return a.type === b.type && a.name === b.name && a.expression === b.expression;
+function sameConstraint(aTable: Table, a: TableConstraint, bTable: Table, b: TableConstraint): boolean {
+  return a.type === b.type && constraintName(aTable, a) === constraintName(bTable, b) && a.expression === b.expression;
 }

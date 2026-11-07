@@ -1,4 +1,4 @@
-import { DbType, TypeSpec, Table, TableConstraint } from '../../../shared/DiagramModel';
+import { DbType, TypeSpec, Table, TableConstraint, constraintName } from '../../../shared/DiagramModel';
 import { ColumnChange, INTEGER_TYPES, SqlDialect } from '../SqlDialect';
 import type { ResolvedForeignKey } from '../Schema';
 
@@ -42,11 +42,11 @@ export class SqliteDialect extends SqlDialect {
   }
 
   addConstraint(table: Table, c: TableConstraint): string | null {
-    return this.constraintClause(c) ? this.recreate(`add constraint ${c.name}`, table.physicalName) : null;
+    return this.constraintClause(table, c) ? this.recreate(`add constraint ${constraintName(table, c)}`, table.physicalName) : null;
   }
 
   dropConstraint(table: Table, c: TableConstraint): string {
-    return this.recreate(`drop constraint ${c.name}`, table.physicalName);
+    return this.recreate(`drop constraint ${constraintName(table, c)}`, table.physicalName);
   }
 
   alterColumn(ch: ColumnChange): string[] {

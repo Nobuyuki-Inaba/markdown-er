@@ -356,8 +356,9 @@ viewport:
 - Auto-increment: `Column.autoIncrement` when the user set it (integer PK only, first one per table); unset → only a single
   integer PK that is not the child column of a relation. The table editor's AI checkbox shows the result; toggling stores
   `autoIncrement` only when it differs from the rule (else `undefined`), so untouched files keep their bytes.
-- Index names are optional: `indexName()` (shared) gives `ix_<table>_<columns>` (`ux_` when unique, hashed past 63 characters) at output time, like unnamed FKs,
-  so they follow renames; the file keeps the empty name. Always read an index's name through it.
+- Index and constraint names are optional: `indexName()` / `constraintName()` (shared) give `ix_<table>_<columns>` (`ux_` when unique),
+  `uq_<table>_<columns>` and `ck_<table>_<n>` at output time, hashed past 63 characters, like unnamed FKs, so they follow renames; the file keeps
+  the empty name. Always read these names through them.
 - Column definition order is `TYPE [DEFAULT] NULL|NOT NULL` (Oracle requires DEFAULT first). Boolean defaults are mapped
   to dialect literals by `defaultValue()`.
 - Comments: `commentText()` = logical name (when ≠ physical) + comment. MySQL inline `COMMENT`, PostgreSQL/Oracle `COMMENT ON`.

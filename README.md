@@ -100,9 +100,9 @@ Double-click any table to open the **Table Edit Panel** on the right.
   unique, every column has a type, and every relation with an FK constraint has both columns; the DDL dialog lists what to fix
 - A relation needs no FK constraint (a logical FK), but its columns should still be chosen: an unset one is outlined in red
 
-### Indexes
+### Indexes and constraints
 
-In the **Indexes** tab, pick the columns; the name is optional. Left empty, the index is named after the table and columns: `ix_orders_user_id`, or `ux_…` when unique. The box shows the name it will get.
+In the **Indexes** tab, names are optional. Left empty, they come from the table and columns: `ix_orders_user_id` (`ux_…` when unique), `uq_orders_code` for a UNIQUE constraint and `ck_orders_1` for the table's first CHECK. The box shows the name it will get.
 
 ### Test tables and test data
 

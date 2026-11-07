@@ -3,7 +3,7 @@ import { useDiagramStore } from '../store/diagramStore';
 import { useUiStore } from '../store/uiStore';
 import { ColumnRow } from './ColumnRow';
 import { SeedDataEditor } from './SeedDataEditor';
-import { ConstraintType, indexName } from '@shared/DiagramModel';
+import { ConstraintType, constraintName, indexName } from '@shared/DiagramModel';
 import { AUTO_INCREMENT_TYPES, autoIncrementColumn } from '@shared/autoIncrement';
 import { useMessages } from '../i18n';
 
@@ -459,7 +459,8 @@ function IndexesTab({ table, addIndex, updateIndex, deleteIndex, addConstraint, 
           </select>
           <input
             style={{ ...idxInputStyle, flex: 1 }}
-            placeholder={t.constraintName}
+            placeholder={c.type !== 'CUSTOM' && c.expression.trim() ? constraintName(table, c) : t.constraintName}
+            title={t.constraintNameTitle}
             value={c.name}
             onChange={(e) => updateConstraint(c.id, { name: e.target.value })}
           />

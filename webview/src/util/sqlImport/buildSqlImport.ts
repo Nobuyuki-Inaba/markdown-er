@@ -105,13 +105,13 @@ class SqlImportBuilder {
       ...parsed.uniques.filter((u) => u.columns.every(known)).map((u): TableConstraint => ({
         id: genId('cns'),
         type: 'UNIQUE',
-        name: u.name || `uq_${parsed.name}_${u.columns.join('_')}`,
+        name: u.name,
         expression: u.columns.join(', '),
       })),
-      ...parsed.checks.map((c, i): TableConstraint => ({
+      ...parsed.checks.map((c): TableConstraint => ({
         id: genId('cns'),
         type: 'CHECK',
-        name: c.name || `ck_${parsed.name}_${i + 1}`,
+        name: c.name,
         expression: c.expression,
       })),
     ];
